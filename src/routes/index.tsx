@@ -99,6 +99,13 @@ function computeEndDate(startISO: string, days: number[], perDay: number, total:
   return null;
 }
 
+function dayOfWeekOf(iso: string): number | null {
+  if (!iso) return null;
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return null;
+  return d.getDay();
+}
+
 const CLASSES: ClassType[] = ["Piano", "Múa", "Vẽ"];
 const DAYS = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const DAYS_ORDER = [1, 2, 3, 4, 5, 6, 0];

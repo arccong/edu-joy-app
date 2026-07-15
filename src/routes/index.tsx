@@ -72,6 +72,31 @@ interface Student {
   end_date: string;
   status: StudentStatus;
   reserve_days: number;
+  total_sessions: number;
+  schedule_days: number[];
+  sessions_per_day: 1 | 2;
+}
+
+function defaultSessionsFor(c: ClassType) {
+  return c === "Piano" ? 48 : 24;
+}
+
+/** Tính ngày kết thúc: đi từ start_date, mỗi ngày trùng weekday cộng sessions_per_day buổi,
+ * dừng khi tổng buổi >= total_sessions. */
+function computeEndDate(startISO: string, days: number[], perDay: number, total: number): string | null {
+  if (!startISO || days.length === 0 || perDay < 1 || total < 1) return null;
+  const start = new Date(startISO + "T00:00:00");
+  if (isNaN(start.getTime())) return null;
+  let count = 0;
+  const cursor = new Date(start);
+  for (let i = 0; i < 365 * 5; i++) {
+    if (days.includes(cursor.getDay())) {
+      count += perDay;
+      if (count >= total) return cursor.toISOString().slice(0, 10);
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return null;
 }
 
 const CLASSES: ClassType[] = ["Piano", "Múa", "Vẽ"];

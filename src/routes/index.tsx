@@ -92,7 +92,12 @@ function computeEndDate(startISO: string, days: number[], perDay: number, total:
   for (let i = 0; i < 365 * 5; i++) {
     if (days.includes(cursor.getDay())) {
       count += perDay;
-      if (count >= total) return cursor.toISOString().slice(0, 10);
+      if (count >= total) {
+        const y = cursor.getFullYear();
+        const m = String(cursor.getMonth() + 1).padStart(2, "0");
+        const d = String(cursor.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
     }
     cursor.setDate(cursor.getDate() + 1);
   }

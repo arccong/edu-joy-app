@@ -27,6 +27,12 @@ const StudentInput = z.object({
   end_date: z.string(),
   status: StudentStatus,
   reserve_days: z.number().int().min(0).default(0),
+  total_sessions: z.number().int().min(1).max(500),
+  schedule_days: z.array(z.number().int().min(0).max(6)).min(1),
+  sessions_per_day: z.union([z.literal(1), z.literal(2)]),
+}).refine((d) => d.schedule_days.length * d.sessions_per_day >= 2, {
+  message: "Học sinh phải học tối thiểu 2 buổi/tuần",
+  path: ["schedule_days"],
 });
 
 export const upsertStudent = createServerFn({ method: "POST" })

@@ -85,8 +85,11 @@ export type Database = {
           id: string
           name: string
           reserve_days: number
+          schedule_days: number[]
+          sessions_per_day: number
           start_date: string
           status: Database["public"]["Enums"]["student_status"]
+          total_sessions: number
           tuition: number
           updated_at: string
         }
@@ -98,8 +101,11 @@ export type Database = {
           id?: string
           name: string
           reserve_days?: number
+          schedule_days?: number[]
+          sessions_per_day?: number
           start_date: string
           status?: Database["public"]["Enums"]["student_status"]
+          total_sessions?: number
           tuition?: number
           updated_at?: string
         }
@@ -111,8 +117,11 @@ export type Database = {
           id?: string
           name?: string
           reserve_days?: number
+          schedule_days?: number[]
+          sessions_per_day?: number
           start_date?: string
           status?: Database["public"]["Enums"]["student_status"]
+          total_sessions?: number
           tuition?: number
           updated_at?: string
         }

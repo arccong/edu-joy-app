@@ -243,6 +243,9 @@ function StudentsTab() {
                     <TableHead>Tuổi</TableHead>
                     <TableHead>Lớp</TableHead>
                     <TableHead>Học phí</TableHead>
+                    <TableHead>Lịch học</TableHead>
+                    <TableHead className="text-center">Ca/ngày</TableHead>
+                    <TableHead className="text-center">Buổi/khóa</TableHead>
                     <TableHead>Kỳ học</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
@@ -255,6 +258,24 @@ function StudentsTab() {
                       <TableCell>{s.age}</TableCell>
                       <TableCell>{classChip(s.class_type)}</TableCell>
                       <TableCell>{Number(s.tuition).toLocaleString("vi-VN")}đ</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(s.schedule_days ?? []).length === 0 ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            (s.schedule_days ?? [])
+                              .slice()
+                              .sort((a, b) => a - b)
+                              .map((d) => (
+                                <span key={d} className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
+                                  {DAYS[d]}
+                                </span>
+                              ))
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{s.sessions_per_day ?? 1}</TableCell>
+                      <TableCell className="text-center">{s.total_sessions ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {fmtDate(s.start_date)} → {fmtDate(s.end_date)}
                       </TableCell>

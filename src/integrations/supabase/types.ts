@@ -14,7 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_schedule: {
+        Row: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          location: string | null
+          start_time: string
+        }
+        Insert: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          location?: string | null
+          start_time: string
+        }
+        Update: {
+          class_type?: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          location?: string | null
+          start_time?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          age: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          reserve_days: number
+          start_date: string
+          status: Database["public"]["Enums"]["student_status"]
+          tuition: number
+          updated_at: string
+        }
+        Insert: {
+          age: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          reserve_days?: number
+          start_date: string
+          status?: Database["public"]["Enums"]["student_status"]
+          tuition?: number
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          class_type?: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          reserve_days?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["student_status"]
+          tuition?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_settings: {
+        Row: {
+          bot_token: string | null
+          chat_id: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          bot_token?: string | null
+          chat_id?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          bot_token?: string | null
+          chat_id?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +147,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      attendance_status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép"
+      class_type: "Piano" | "Múa" | "Vẽ"
+      student_status: "Đang học" | "Nghỉ phép" | "Bảo lưu"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +276,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      attendance_status: ["Đi học", "Nghỉ có phép", "Nghỉ không phép"],
+      class_type: ["Piano", "Múa", "Vẽ"],
+      student_status: ["Đang học", "Nghỉ phép", "Bảo lưu"],
+    },
   },
 } as const

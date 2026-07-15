@@ -33,7 +33,14 @@ const StudentInput = z.object({
 }).refine((d) => d.schedule_days.length * d.sessions_per_day >= 2, {
   message: "Học sinh phải học tối thiểu 2 buổi/tuần",
   path: ["schedule_days"],
-});
+}).refine((d) => {
+  const dow = new Date(d.start_date + "T00:00:00").getDay();
+  return d.schedule_days.includes(dow);
+}, { message: "Ngày bắt đầu không trùng lịch học", path: ["start_date"] })
+  .refine((d) => {
+    const dow = new Date(d.end_date + "T00:00:00").getDay();
+    return d.schedule_days.includes(dow);
+  }, { message: "Ngày kết thúc không trùng lịch học", path: ["end_date"] });
 
 export const upsertStudent = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => StudentInput.parse(d))

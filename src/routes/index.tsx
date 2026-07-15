@@ -99,6 +99,13 @@ function computeEndDate(startISO: string, days: number[], perDay: number, total:
   return null;
 }
 
+function dayOfWeekOf(iso: string): number | null {
+  if (!iso) return null;
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return null;
+  return d.getDay();
+}
+
 const CLASSES: ClassType[] = ["Piano", "Múa", "Vẽ"];
 const DAYS = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const DAYS_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -456,50 +463,62 @@ function StudentDialog({ student, trigger }: { student?: Student; trigger: React
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Ngày bắt đầu</Label>
-              <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Ngày kết thúc (tự tính)</Label>
-              <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-              {autoEnd && autoEnd !== form.end_date && (
-                <button
-                  type="button"
-                  className="text-left text-xs text-primary hover:underline"
-                  onClick={() => setForm((f) => ({ ...f, end_date: autoEnd }))}
-                >
-                  Dùng ngày tính tự động: {fmtDate(autoEnd)}
-                </button>
-              )}
-            </div>
-          </div>
+          {(() => {
+            const startDow = dayOfWeekOf(form.start_date);
+            const endDow = dayOfWeekOf(form.end_date);
+            const startInvalid = startDow !== null && form.schedule_days.length > 0 && !form.schedule_days.includes(startDow);
+            const endInvalid = endDow !== null && form.schedule_days.length > 0 && !form.schedule_days.includes(endDow);
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>Ngày bắt đầu</Label>
+                    <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={startInvalid ? "border-destructive" : ""} />
+                    {startInvalid && <p className="text-xs text-destructive">Ngày bắt đầu không trùng lịch học. Chọn 1 ngày là {form.schedule_days.map((d) => DAYS[d]).join(", ")}.</p>}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Ngày kết thúc (tự tính)</Label>
+                    <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className={endInvalid ? "border-destructive" : ""} />
+                    {endInvalid && <p className="text-xs text-destructive">Ngày kết thúc không trùng lịch học.</p>}
+                    {autoEnd && autoEnd !== form.end_date && (
+                      <button
+                        type="button"
+                        className="text-left text-xs text-primary hover:underline"
+                        onClick={() => setForm((f) => ({ ...f, end_date: autoEnd }))}
+                      >
+                        Dùng ngày tính tự động: {fmtDate(autoEnd)}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Trạng thái</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StudentStatus })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Đang học">Đang học</SelectItem>
-                  <SelectItem value="Nghỉ phép">Nghỉ phép</SelectItem>
-                  <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {form.status === "Bảo lưu" && (
-              <div className="grid gap-2">
-                <Label>Số ngày bảo lưu</Label>
-                <Input type="number" min={0} value={form.reserve_days} onChange={(e) => setForm({ ...form, reserve_days: Number(e.target.value) })} />
-              </div>
-            )}
-          </div>
-          {form.status === "Bảo lưu" && (
-            <p className="rounded-md bg-primary/5 p-2 text-xs text-primary">
-              Ngày kết thúc sẽ tự động được cộng thêm số ngày bảo lưu.
-            </p>
-          )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>Trạng thái</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StudentStatus })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Đang học">Đang học</SelectItem>
+                        <SelectItem value="Nghỉ phép">Nghỉ phép</SelectItem>
+                        <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {form.status === "Bảo lưu" && (
+                    <div className="grid gap-2">
+                      <Label>Số ngày bảo lưu</Label>
+                      <Input type="number" min={0} value={form.reserve_days} onChange={(e) => setForm({ ...form, reserve_days: Number(e.target.value) })} />
+                    </div>
+                  )}
+                </div>
+                {form.status === "Bảo lưu" && (
+                  <p className="rounded-md bg-primary/5 p-2 text-xs text-primary">
+                    Ngày kết thúc sẽ tự động được cộng thêm số ngày bảo lưu.
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
@@ -509,6 +528,14 @@ function StudentDialog({ student, trigger }: { student?: Student; trigger: React
               if (form.schedule_days.length === 0) return toast.error("Vui lòng chọn ít nhất 1 ngày trong tuần");
               if (sessionsPerWeek < 2) return toast.error("Học sinh phải học tối thiểu 2 buổi/tuần");
               const finalEnd = autoEnd && !form.end_date ? autoEnd : form.end_date;
+              const sDow = dayOfWeekOf(form.start_date);
+              const eDow = dayOfWeekOf(finalEnd);
+              if (sDow === null || !form.schedule_days.includes(sDow)) {
+                return toast.error("Ngày bắt đầu không trùng lịch học. Vui lòng sửa ngày bắt đầu hoặc lịch học.");
+              }
+              if (eDow === null || !form.schedule_days.includes(eDow)) {
+                return toast.error("Ngày kết thúc không trùng lịch học. Vui lòng sửa ngày kết thúc hoặc lịch học.");
+              }
               mut.mutate({ ...form, end_date: finalEnd });
             }}
             disabled={mut.isPending}

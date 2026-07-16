@@ -257,7 +257,7 @@ function StudentsTab() {
                     <TableHead>Học phí</TableHead>
                     <TableHead>Lịch học</TableHead>
                     <TableHead className="text-center">Ca/ngày</TableHead>
-                    <TableHead className="text-center">Buổi/khóa</TableHead>
+                    <TableHead className="text-center">Tổng buổi</TableHead>
                     <TableHead>Kỳ học</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>

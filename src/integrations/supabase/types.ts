@@ -19,6 +19,8 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          makeup_date: string | null
+          note: string | null
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
         }
@@ -26,6 +28,8 @@ export type Database = {
           created_at?: string
           date: string
           id?: string
+          makeup_date?: string | null
+          note?: string | null
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
         }
@@ -33,6 +37,8 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          makeup_date?: string | null
+          note?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id?: string
         }
@@ -86,6 +92,7 @@ export type Database = {
           name: string
           reserve_days: number
           schedule_days: number[]
+          schedule_slots: Json
           sessions_per_day: number
           start_date: string
           status: Database["public"]["Enums"]["student_status"]
@@ -102,6 +109,7 @@ export type Database = {
           name: string
           reserve_days?: number
           schedule_days?: number[]
+          schedule_slots?: Json
           sessions_per_day?: number
           start_date: string
           status?: Database["public"]["Enums"]["student_status"]
@@ -118,6 +126,7 @@ export type Database = {
           name?: string
           reserve_days?: number
           schedule_days?: number[]
+          schedule_slots?: Json
           sessions_per_day?: number
           start_date?: string
           status?: Database["public"]["Enums"]["student_status"]
@@ -147,6 +156,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      tuition_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          ky_index: number
+          month: string
+          note: string | null
+          paid_date: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ky_index?: number
+          month: string
+          note?: string | null
+          paid_date?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ky_index?: number
+          month?: string
+          note?: string | null
+          paid_date?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tuition_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

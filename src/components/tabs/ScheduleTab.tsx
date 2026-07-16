@@ -148,15 +148,15 @@ export function ScheduleTab() {
                 {TIME_ROWS.map((row, rIdx) => {
                   const isFirstOfSession = rIdx === 0 || TIME_ROWS[rIdx - 1].ca !== row.ca;
                   return (
-                    <>
+                    <Fragment key={row.label}>
                       {isFirstOfSession && (
-                        <tr key={`sess-${row.ca}`}>
+                        <tr>
                           <td colSpan={8} className={`border px-2 py-1 text-xs font-semibold uppercase ${row.ca === "sang" ? "bg-amber-50 text-amber-700" : "bg-indigo-50 text-indigo-700"}`}>
                             {row.ca === "sang" ? "Ca sáng" : "Ca chiều"}
                           </td>
                         </tr>
                       )}
-                      <tr key={row.label}>
+                      <tr>
                         <td className="border bg-muted/40 p-2 text-xs font-medium">{row.label}</td>
                         {DAYS_ORDER.map((dow, i) => {
                           const date = addDays(weekStart, i);
@@ -186,7 +186,7 @@ export function ScheduleTab() {
                           );
                         })}
                       </tr>
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

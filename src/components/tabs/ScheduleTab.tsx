@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CLASSES,
-  DAYS,
   DAYS_ORDER,
   DAYS_SHORT,
   addDays,

@@ -93,6 +93,10 @@ export function AttendanceTab() {
           <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
+            <Switch checked={autoMark} onCheckedChange={setAutoMark} />
+            <span className="font-medium">Tự động điểm danh</span>
+          </label>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[160px]" />
           <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>

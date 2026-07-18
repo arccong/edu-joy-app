@@ -184,9 +184,10 @@ export function StudentsTab() {
                     return (
                       <TableRow key={s.id}>
                         {show("name") && <TableCell className="font-medium">{s.name}</TableCell>}
+                        {show("course") && <TableCell className="text-center"><span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">K{s.course_index ?? 1}</span></TableCell>}
                         {show("age") && <TableCell>{s.age}</TableCell>}
                         {show("class") && <TableCell>{classChip(s.class_type)}</TableCell>}
-                        {show("tuition") && <TableCell>{Number(s.tuition).toLocaleString("vi-VN")}đ</TableCell>}
+                        {show("tuition") && <TableCell>{formatMoney(Number(s.tuition))}đ</TableCell>}
                         {show("schedule") && (
                           <TableCell>
                             <div className="flex flex-wrap gap-1">

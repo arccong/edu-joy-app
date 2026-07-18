@@ -164,6 +164,7 @@ export function StudentsTab() {
                 <TableHeader>
                   <TableRow>
                     {show("name") && <TableHead>Họ tên</TableHead>}
+                    {show("course") && <TableHead className="text-center">Tên khóa</TableHead>}
                     {show("age") && <TableHead>Tuổi</TableHead>}
                     {show("class") && <TableHead>Lớp</TableHead>}
                     {show("tuition") && <TableHead>Học phí</TableHead>}

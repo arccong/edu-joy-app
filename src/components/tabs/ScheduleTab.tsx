@@ -23,15 +23,41 @@ import {
 } from "@/lib/shared";
 import { listAttendanceRange, listStudents } from "@/lib/students.functions";
 
-const TIME_ROWS = [
-  { label: "9:00–9:30", start: "09:00", end: "09:30", ca: "sang" as const },
-  { label: "9:30–10:00", start: "09:30", end: "10:00", ca: "sang" as const },
-  { label: "16:00–17:00", start: "16:00", end: "17:00", ca: "chieu" as const },
-  { label: "17:00–18:00", start: "17:00", end: "18:00", ca: "chieu" as const },
-];
+type TimeRow = { label: string; start: string; end: string; ca: "sang" | "chieu" };
 
 function overlaps(a: { start: string; end: string }, b: { start: string; end: string }) {
   return a.start < b.end && b.start < a.end;
+}
+
+function toMin(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+function fromMin(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** Chia mỗi slot thành các row 1 giờ; gom unique và sắp xếp. */
+function buildTimeRows(slots: { start: string; end: string }[]): TimeRow[] {
+  const set = new Set<string>();
+  for (const s of slots) {
+    let cur = toMin(s.start);
+    const end = toMin(s.end);
+    while (cur < end) {
+      const nxt = Math.min(cur + 60, end);
+      set.add(`${fromMin(cur)}|${fromMin(nxt)}`);
+      cur = nxt;
+    }
+  }
+  const arr: TimeRow[] = Array.from(set)
+    .map((k) => {
+      const [start, end] = k.split("|");
+      return { start, end, label: `${start}–${end}`, ca: toMin(start) < 12 * 60 ? ("sang" as const) : ("chieu" as const) };
+    })
+    .sort((a, b) => a.start.localeCompare(b.start));
+  return arr;
 }
 
 export function ScheduleTab() {

@@ -143,6 +143,13 @@ export function StudentsTab() {
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
+                {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Thêm học sinh</Button>} />
           </div>
         </CardHeader>

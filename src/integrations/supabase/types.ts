@@ -86,6 +86,7 @@ export type Database = {
         Row: {
           age: number
           class_type: Database["public"]["Enums"]["class_type"]
+          course_index: number
           created_at: string
           end_date: string
           id: string
@@ -103,6 +104,7 @@ export type Database = {
         Insert: {
           age: number
           class_type: Database["public"]["Enums"]["class_type"]
+          course_index?: number
           created_at?: string
           end_date: string
           id?: string
@@ -120,6 +122,7 @@ export type Database = {
         Update: {
           age?: number
           class_type?: Database["public"]["Enums"]["class_type"]
+          course_index?: number
           created_at?: string
           end_date?: string
           id?: string
@@ -211,7 +214,7 @@ export type Database = {
     Enums: {
       attendance_status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép"
       class_type: "Piano" | "Múa" | "Vẽ"
-      student_status: "Đang học" | "Nghỉ phép" | "Bảo lưu"
+      student_status: "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -341,7 +344,7 @@ export const Constants = {
     Enums: {
       attendance_status: ["Đi học", "Nghỉ có phép", "Nghỉ không phép"],
       class_type: ["Piano", "Múa", "Vẽ"],
-      student_status: ["Đang học", "Nghỉ phép", "Bảo lưu"],
+      student_status: ["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"],
     },
   },
 } as const

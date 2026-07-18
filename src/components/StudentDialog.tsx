@@ -15,7 +15,10 @@ import {
   computeEndDate,
   dayOfWeekOf,
   defaultSessionsFor,
+  defaultTuitionFor,
   fmtDate,
+  formatMoney,
+  parseMoney,
   toLocalISO,
   weeklySessions,
   type ClassType,
@@ -49,15 +52,18 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
       name: student?.name ?? "",
       age: student?.age ?? 8,
       class_type: cls,
-      tuition: student?.tuition ?? 500000,
+      tuition: student?.tuition ?? defaultTuitionFor(cls),
       start_date: student?.start_date ?? toLocalISO(new Date()),
       end_date: student?.end_date ?? toLocalISO(new Date(Date.now() + 30 * 86400000)),
       status: student?.status ?? "Đang học",
       reserve_days: student?.reserve_days ?? 0,
       total_sessions: student?.total_sessions ?? defaultSessionsFor(cls),
       schedule_slots: (student?.schedule_slots as ScheduleSlot[]) ?? [],
+      course_index: student?.course_index ?? 1,
     };
   });
+
+  const [tuitionStr, setTuitionStr] = useState<string>(() => formatMoney(form.tuition));
 
   const autoEnd = useMemo(
     () => computeEndDate(form.start_date, form.schedule_slots, form.total_sessions),
@@ -102,7 +108,9 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
               <Label>Lớp học</Label>
               <Select value={form.class_type} onValueChange={(v) => {
                 const cls = v as ClassType;
-                setForm((f) => ({ ...f, class_type: cls, total_sessions: defaultSessionsFor(cls) }));
+                const newTuition = defaultTuitionFor(cls);
+                setForm((f) => ({ ...f, class_type: cls, total_sessions: defaultSessionsFor(cls), tuition: newTuition }));
+                setTuitionStr(formatMoney(newTuition));
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -112,12 +120,31 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Học phí/khóa (VNĐ)</Label>
-              <Input type="number" min={0} value={form.tuition} onChange={(e) => setForm({ ...form, tuition: Number(e.target.value) })} />
+              <Input
+                inputMode="numeric"
+                value={tuitionStr}
+                onChange={(e) => {
+                  const n = parseMoney(e.target.value);
+                  setTuitionStr(formatMoney(n));
+                  setForm((f) => ({ ...f, tuition: n }));
+                }}
+              />
             </div>
             <div className="grid gap-2">
               <Label>Tổng số buổi/khóa</Label>
               <Input type="number" min={1} value={form.total_sessions} onChange={(e) => setForm({ ...form, total_sessions: Number(e.target.value) })} />
-              <p className="text-xs text-muted-foreground">Piano 48, Múa/Vẽ 24 (mặc định).</p>
+              <p className="text-xs text-muted-foreground">Piano 48, Múa/Vẽ 24 (mặc định). 1 buổi = 1 giờ.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label>Tên khóa</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-primary">K</span>
+                <Input type="number" min={1} value={form.course_index} onChange={(e) => setForm({ ...form, course_index: Math.max(1, Number(e.target.value) || 1) })} className="w-24" />
+                <span className="text-xs text-muted-foreground">Học sinh mới = K1, khóa tiếp theo tăng dần</span>
+              </div>
             </div>
           </div>
 
@@ -130,7 +157,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
             </div>
             {form.schedule_slots.length === 0 && (
               <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                Chưa có khung giờ. Bấm "Thêm khung giờ" để thiết lập lịch (tối thiểu 2 buổi/tuần).
+                Chưa có khung giờ. Bấm "Thêm khung giờ" để thiết lập lịch (tối thiểu 2 buổi/tuần; 1 khung 2 giờ = 2 buổi).
               </p>
             )}
             <div className="space-y-2">
@@ -188,6 +215,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
                   <SelectItem value="Đang học">Đang học</SelectItem>
                   <SelectItem value="Nghỉ phép">Nghỉ phép</SelectItem>
                   <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
+                  <SelectItem value="Kết thúc">Kết thúc</SelectItem>
                 </SelectContent>
               </Select>
             </div>

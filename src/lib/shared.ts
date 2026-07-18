@@ -1,5 +1,5 @@
 export type ClassType = "Piano" | "Múa" | "Vẽ";
-export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu";
+export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc";
 export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép";
 
 export interface ScheduleSlot {
@@ -22,6 +22,7 @@ export interface Student {
   schedule_days: number[];
   sessions_per_day: 1 | 2;
   schedule_slots: ScheduleSlot[];
+  course_index: number;
 }
 
 export interface AttendanceRow {
@@ -53,6 +54,20 @@ export function defaultSessionsFor(c: ClassType) {
   return c === "Piano" ? 48 : 24;
 }
 
+export function defaultTuitionFor(c: ClassType) {
+  return c === "Piano" ? 12000000 : 3800000;
+}
+
+export function formatMoney(n: number) {
+  if (!Number.isFinite(n)) return "";
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+export function parseMoney(s: string): number {
+  const digits = (s || "").replace(/\D/g, "");
+  return digits ? parseInt(digits, 10) : 0;
+}
+
 export function toLocalISO(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -71,10 +86,18 @@ export function dayOfWeekOf(iso: string): number | null {
   return isNaN(d.getTime()) ? null : d.getDay();
 }
 
-/** Đếm số buổi tối đa mỗi thứ (0..6) trong slots */
+/** Số buổi (1 buổi = 1 giờ) trong 1 slot, tối thiểu 1 */
+export function slotSessions(sl: ScheduleSlot): number {
+  const [sh, sm] = sl.start.split(":").map(Number);
+  const [eh, em] = sl.end.split(":").map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  return Math.max(1, Math.round(mins / 60));
+}
+
+/** Tổng số buổi mỗi thứ (0..6) trong slots, tính theo giờ */
 export function slotsPerDayMap(slots: ScheduleSlot[]): Map<number, number> {
   const m = new Map<number, number>();
-  for (const s of slots) m.set(s.day, (m.get(s.day) ?? 0) + 1);
+  for (const s of slots) m.set(s.day, (m.get(s.day) ?? 0) + slotSessions(s));
   return m;
 }
 
@@ -89,9 +112,9 @@ export function maxPerDay(slots: ScheduleSlot[]): 1 | 2 {
   return (mx >= 2 ? 2 : 1) as 1 | 2;
 }
 
-/** Tổng buổi/tuần từ slots */
+/** Tổng buổi/tuần từ slots (1 buổi = 1 giờ) */
 export function weeklySessions(slots: ScheduleSlot[]): number {
-  return slots.length;
+  return slots.reduce((acc, s) => acc + slotSessions(s), 0);
 }
 
 /** Tính ngày kết thúc dựa trên schedule_slots + total_sessions */

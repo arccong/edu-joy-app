@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { classChip, EmptyState } from "@/components/ui-bits";
@@ -24,6 +25,13 @@ import { listAttendance, listStudents, setAttendance } from "@/lib/students.func
 export function AttendanceTab() {
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [autoMark, setAutoMark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("att-auto") === "1";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("att-auto", autoMark ? "1" : "0"); } catch { /* ignore */ }
+  }, [autoMark]);
 
   const fetchList = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
@@ -58,6 +66,25 @@ export function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Auto-mark: học sinh có lịch học nhưng chưa có bản ghi -> tự đánh "Đi học"
+  const autoRunRef = useRef<string>("");
+  useEffect(() => {
+    if (!autoMark) return;
+    const key = `${date}|${scheduled.map((s) => s.id).join(",")}`;
+    if (autoRunRef.current === key) return;
+    autoRunRef.current = key;
+    const missing = scheduled.filter((s) => !attMap.has(s.id));
+    if (missing.length === 0) return;
+    (async () => {
+      for (const s of missing) {
+        try { await setAtt({ data: { student_id: s.id, date, status: "Đi học", note: null, makeup_date: null } as any }); }
+        catch { /* ignore */ }
+      }
+      qc.invalidateQueries({ queryKey: ["attendance", date] });
+      toast.success(`Đã tự động điểm danh ${missing.length} học sinh`);
+    })();
+  }, [autoMark, date, scheduled, attMap, setAtt, qc]);
+
   return (
     <Card className="shadow-card">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -66,6 +93,10 @@ export function AttendanceTab() {
           <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
+            <Switch checked={autoMark} onCheckedChange={setAutoMark} />
+            <span className="font-medium">Tự động điểm danh</span>
+          </label>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[160px]" />
           <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>

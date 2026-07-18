@@ -16,14 +16,17 @@ import {
   CLASSES,
   DAYS_SHORT,
   fmtDate,
+  formatMoney,
   type ClassType,
   type Student,
+  type StudentStatus,
   type AttendanceRow,
 } from "@/lib/shared";
 import { deleteStudent, listAttendanceRange, listStudents } from "@/lib/students.functions";
 
 const ALL_COLS = [
   { key: "name", label: "Họ tên" },
+  { key: "course", label: "Tên khóa" },
   { key: "age", label: "Tuổi" },
   { key: "class", label: "Lớp" },
   { key: "tuition", label: "Học phí" },
@@ -38,12 +41,15 @@ const ALL_COLS = [
 type ColKey = typeof ALL_COLS[number]["key"];
 const DEFAULT_COLS: ColKey[] = ALL_COLS.map((c) => c.key);
 
+const STATUS_OPTS: StudentStatus[] = ["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"];
+
 export function StudentsTab() {
   const fetchList = useServerFn(listStudents);
   const fetchAttRange = useServerFn(listAttendanceRange);
   const { data: students = [], isLoading } = useQuery({ queryKey: ["students"], queryFn: () => fetchList() });
 
   const [filter, setFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Tất cả");
   const [visible, setVisible] = useState<Set<ColKey>>(() => {
     if (typeof window === "undefined") return new Set(DEFAULT_COLS);
     try {
@@ -73,10 +79,12 @@ export function StudentsTab() {
     return m;
   }, [attendedRows]);
 
-  const filtered = useMemo(
-    () => (filter === "Tất cả" ? students : (students as Student[]).filter((s) => s.class_type === filter)),
-    [students, filter],
-  );
+  const filtered = useMemo(() => {
+    let list = students as Student[];
+    if (filter !== "Tất cả") list = list.filter((s) => s.class_type === filter);
+    if (statusFilter !== "Tất cả") list = list.filter((s) => s.status === statusFilter);
+    return list;
+  }, [students, filter, statusFilter]);
 
   const stats = useMemo(() => {
     const list = students as Student[];
@@ -135,6 +143,13 @@ export function StudentsTab() {
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
+                {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Thêm học sinh</Button>} />
           </div>
         </CardHeader>
@@ -149,6 +164,7 @@ export function StudentsTab() {
                 <TableHeader>
                   <TableRow>
                     {show("name") && <TableHead>Họ tên</TableHead>}
+                    {show("course") && <TableHead className="text-center">Tên khóa</TableHead>}
                     {show("age") && <TableHead>Tuổi</TableHead>}
                     {show("class") && <TableHead>Lớp</TableHead>}
                     {show("tuition") && <TableHead>Học phí</TableHead>}
@@ -168,9 +184,10 @@ export function StudentsTab() {
                     return (
                       <TableRow key={s.id}>
                         {show("name") && <TableCell className="font-medium">{s.name}</TableCell>}
+                        {show("course") && <TableCell className="text-center"><span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">K{s.course_index ?? 1}</span></TableCell>}
                         {show("age") && <TableCell>{s.age}</TableCell>}
                         {show("class") && <TableCell>{classChip(s.class_type)}</TableCell>}
-                        {show("tuition") && <TableCell>{Number(s.tuition).toLocaleString("vi-VN")}đ</TableCell>}
+                        {show("tuition") && <TableCell>{formatMoney(Number(s.tuition))}đ</TableCell>}
                         {show("schedule") && (
                           <TableCell>
                             <div className="flex flex-wrap gap-1">

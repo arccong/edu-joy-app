@@ -26,6 +26,7 @@ export function statusBadge(s: StudentStatus) {
     "Đang học": "bg-success/15 text-[color:var(--success)] border-[color:var(--success)]/30",
     "Nghỉ phép": "bg-warning/15 text-[color:var(--warning)] border-[color:var(--warning)]/30",
     "Bảo lưu": "bg-primary/10 text-primary border-primary/30",
+    "Kết thúc": "bg-muted text-muted-foreground border-border",
   };
   return <Badge variant="outline" className={map[s]}>{s}</Badge>;
 }

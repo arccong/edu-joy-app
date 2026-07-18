@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const ClassType = z.enum(["Piano", "Múa", "Vẽ"]);
-const StudentStatus = z.enum(["Đang học", "Nghỉ phép", "Bảo lưu"]);
+const StudentStatus = z.enum(["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"]);
 const AttendanceStatus = z.enum(["Đi học", "Nghỉ có phép", "Nghỉ không phép"]);
 
 const TimeStr = z.string().regex(/^\d{2}:\d{2}$/, "Sai định dạng HH:MM");
@@ -35,8 +35,18 @@ const StudentInput = z.object({
   status: StudentStatus,
   reserve_days: z.number().int().min(0).default(0),
   total_sessions: z.number().int().min(1).max(500),
-  schedule_slots: z.array(ScheduleSlot).min(2, "Học sinh phải học tối thiểu 2 buổi/tuần"),
+  course_index: z.number().int().min(1).default(1),
+  schedule_slots: z.array(ScheduleSlot).min(1),
 }).refine((d) => {
+  // Tối thiểu 2 buổi/tuần (1 giờ = 1 buổi)
+  const total = d.schedule_slots.reduce((acc, s) => {
+    const [sh, sm] = s.start.split(":").map(Number);
+    const [eh, em] = s.end.split(":").map(Number);
+    return acc + Math.max(1, Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 60));
+  }, 0);
+  return total >= 2;
+}, { message: "Học sinh phải học tối thiểu 2 buổi/tuần", path: ["schedule_slots"] })
+  .refine((d) => {
   const dow = new Date(d.start_date + "T00:00:00").getDay();
   return d.schedule_slots.some((s) => s.day === dow);
 }, { message: "Ngày bắt đầu không trùng lịch học", path: ["start_date"] })

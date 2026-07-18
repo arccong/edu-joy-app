@@ -22,6 +22,7 @@ export interface Student {
   schedule_days: number[];
   sessions_per_day: 1 | 2;
   schedule_slots: ScheduleSlot[];
+  course_index: number;
 }
 
 export interface AttendanceRow {

@@ -94,6 +94,19 @@ export function ScheduleTab() {
     [inClass, studentFilter],
   );
 
+  const TIME_ROWS = useMemo(() => {
+    const slots: { start: string; end: string }[] = [];
+    for (const s of inClass) for (const sl of (s.schedule_slots ?? [])) slots.push({ start: sl.start, end: sl.end });
+    const rows = buildTimeRows(slots);
+    if (rows.length === 0) {
+      return [
+        { label: "9:00–10:00", start: "09:00", end: "10:00", ca: "sang" as const },
+        { label: "16:00–17:00", start: "16:00", end: "17:00", ca: "chieu" as const },
+      ] satisfies TimeRow[];
+    }
+    return rows;
+  }, [inClass]);
+
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [exporting, setExporting] = useState(false);
 

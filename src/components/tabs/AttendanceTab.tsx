@@ -25,6 +25,13 @@ import { listAttendance, listStudents, setAttendance } from "@/lib/students.func
 export function AttendanceTab() {
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [autoMark, setAutoMark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("att-auto") === "1";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("att-auto", autoMark ? "1" : "0"); } catch { /* ignore */ }
+  }, [autoMark]);
 
   const fetchList = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);

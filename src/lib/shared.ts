@@ -1,5 +1,5 @@
 export type ClassType = "Piano" | "Múa" | "Vẽ";
-export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu";
+export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc";
 export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép";
 
 export interface ScheduleSlot {

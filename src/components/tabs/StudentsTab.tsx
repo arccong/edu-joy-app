@@ -79,10 +79,12 @@ export function StudentsTab() {
     return m;
   }, [attendedRows]);
 
-  const filtered = useMemo(
-    () => (filter === "Tất cả" ? students : (students as Student[]).filter((s) => s.class_type === filter)),
-    [students, filter],
-  );
+  const filtered = useMemo(() => {
+    let list = students as Student[];
+    if (filter !== "Tất cả") list = list.filter((s) => s.class_type === filter);
+    if (statusFilter !== "Tất cả") list = list.filter((s) => s.status === statusFilter);
+    return list;
+  }, [students, filter, statusFilter]);
 
   const stats = useMemo(() => {
     const list = students as Student[];

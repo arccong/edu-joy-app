@@ -66,6 +66,25 @@ export function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Auto-mark: học sinh có lịch học nhưng chưa có bản ghi -> tự đánh "Đi học"
+  const autoRunRef = useRef<string>("");
+  useEffect(() => {
+    if (!autoMark) return;
+    const key = `${date}|${scheduled.map((s) => s.id).join(",")}`;
+    if (autoRunRef.current === key) return;
+    autoRunRef.current = key;
+    const missing = scheduled.filter((s) => !attMap.has(s.id));
+    if (missing.length === 0) return;
+    (async () => {
+      for (const s of missing) {
+        try { await setAtt({ data: { student_id: s.id, date, status: "Đi học", note: null, makeup_date: null } as any }); }
+        catch { /* ignore */ }
+      }
+      qc.invalidateQueries({ queryKey: ["attendance", date] });
+      toast.success(`Đã tự động điểm danh ${missing.length} học sinh`);
+    })();
+  }, [autoMark, date, scheduled, attMap, setAtt, qc]);
+
   return (
     <Card className="shadow-card">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

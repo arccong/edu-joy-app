@@ -49,6 +49,7 @@ export function StudentsTab() {
   const { data: students = [], isLoading } = useQuery({ queryKey: ["students"], queryFn: () => fetchList() });
 
   const [filter, setFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Tất cả");
   const [visible, setVisible] = useState<Set<ColKey>>(() => {
     if (typeof window === "undefined") return new Set(DEFAULT_COLS);
     try {

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const ClassType = z.enum(["Piano", "Múa", "Vẽ"]);
 const StudentStatus = z.enum(["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"]);
-const AttendanceStatus = z.enum(["Đi học", "Nghỉ có phép", "Nghỉ không phép"]);
+const AttendanceStatus = z.enum(["Đi học", "Nghỉ có phép", "Nghỉ không phép", "Bảo lưu"]);
 
 const TimeStr = z.string().regex(/^\d{2}:\d{2}$/, "Sai định dạng HH:MM");
 const ScheduleSlot = z.object({

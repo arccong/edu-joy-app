@@ -91,10 +91,15 @@ export function ScheduleTab() {
   }, [attRows]);
 
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
-  const filteredStudents = useMemo(
-    () => (studentFilter === "all" ? inClass : inClass.filter((s) => s.id === studentFilter)),
-    [inClass, studentFilter],
-  );
+  const filteredStudents = useMemo(() => {
+    let list = inClass;
+    if (studentFilter !== "all") list = list.filter((s) => s.id === studentFilter);
+    if (nameSearch.trim()) {
+      const q = nameSearch.trim().toLowerCase();
+      list = list.filter((s) => s.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [inClass, studentFilter, nameSearch]);
 
   const TIME_ROWS = useMemo(() => {
     const slots: { start: string; end: string }[] = [];

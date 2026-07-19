@@ -66,14 +66,30 @@ export function AttendanceTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Auto-mark: học sinh có lịch học nhưng chưa có bản ghi -> tự đánh "Đi học"
+  // Auto-mark: chỉ điểm danh sau khi đã tới giờ học của slot đó.
+  // Trường hợp ngày trong quá khứ: điểm danh toàn bộ buổi chưa có bản ghi.
   const autoRunRef = useRef<string>("");
   useEffect(() => {
     if (!autoMark) return;
     const key = `${date}|${scheduled.map((s) => s.id).join(",")}`;
     if (autoRunRef.current === key) return;
     autoRunRef.current = key;
-    const missing = scheduled.filter((s) => !attMap.has(s.id));
+
+    const now = new Date();
+    const todayISO = toLocalISO(now);
+    const isPast = date < todayISO;
+    const isToday = date === todayISO;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const missing = scheduled.filter((s) => {
+      if (attMap.has(s.id)) return false;
+      if (isPast) return true;
+      if (!isToday) return false; // ngày tương lai: không tự điểm danh
+      const slot = (s.schedule_slots ?? []).find((sl) => sl.day === dow);
+      if (!slot) return false;
+      const [sh, sm] = slot.start.split(":").map(Number);
+      return nowMinutes >= sh * 60 + sm; // chỉ tự điểm danh sau khi tới giờ học
+    });
     if (missing.length === 0) return;
     (async () => {
       for (const s of missing) {
@@ -83,7 +99,7 @@ export function AttendanceTab() {
       qc.invalidateQueries({ queryKey: ["attendance", date] });
       toast.success(`Đã tự động điểm danh ${missing.length} học sinh`);
     })();
-  }, [autoMark, date, scheduled, attMap, setAtt, qc]);
+  }, [autoMark, date, scheduled, attMap, setAtt, qc, dow]);
 
   return (
     <Card className="shadow-card">
@@ -148,6 +164,7 @@ function AttendanceRow({
     { v: "Đi học", cls: "bg-success text-white" },
     { v: "Nghỉ có phép", cls: "bg-warning text-white" },
     { v: "Nghỉ không phép", cls: "bg-danger text-white" },
+    { v: "Bảo lưu", cls: "bg-primary text-primary-foreground" },
   ];
 
   return (

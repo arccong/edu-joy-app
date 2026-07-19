@@ -1,20 +1,21 @@
 import { useMemo, useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { StudentDialog } from "@/components/StudentDialog";
 import {
   CLASSES,
   DAYS_SHORT,
+  addScheduledDays,
+  coursePrefix,
   fmtDate,
   formatMoney,
   type ClassType,
@@ -22,7 +23,7 @@ import {
   type StudentStatus,
   type AttendanceRow,
 } from "@/lib/shared";
-import { deleteStudent, listAttendanceRange, listStudents } from "@/lib/students.functions";
+import { deleteStudent, listAttendanceRange, listStudents, upsertStudent } from "@/lib/students.functions";
 
 const ALL_COLS = [
   { key: "name", label: "Họ tên" },
@@ -34,7 +35,9 @@ const ALL_COLS = [
   { key: "perDay", label: "Ca/ngày" },
   { key: "total", label: "Tổng buổi" },
   { key: "remain", label: "Buổi còn lại" },
+  { key: "reserve", label: "Bảo lưu" },
   { key: "term", label: "Kỳ học" },
+  { key: "actualEnd", label: "NKT thực tế" },
   { key: "status", label: "Trạng thái" },
   { key: "actions", label: "Thao tác" },
 ] as const;
@@ -62,7 +65,6 @@ export function StudentsTab() {
     try { localStorage.setItem("students-cols", JSON.stringify(Array.from(visible))); } catch { /* ignore */ }
   }, [visible]);
 
-  // Lấy toàn bộ điểm danh 2 năm gần để đếm 'Buổi còn lại'
   const today = new Date();
   const from = new Date(today); from.setFullYear(from.getFullYear() - 2);
   const to = new Date(today);
@@ -76,6 +78,12 @@ export function StudentsTab() {
   const attendedByStudent = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of attendedRows) if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
+    return m;
+  }, [attendedRows]);
+
+  const reservedByStudent = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of attendedRows) if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
     return m;
   }, [attendedRows]);
 
@@ -150,14 +158,14 @@ export function StudentsTab() {
                 {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Thêm học sinh</Button>} />
+            <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Học sinh mới</Button>} />
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <EmptyState text="Chưa có học sinh nào. Bấm 'Thêm học sinh' để bắt đầu." />
+            <EmptyState text="Chưa có học sinh nào. Bấm 'Học sinh mới' để bắt đầu." />
           ) : (
             <div className="-mx-4 overflow-x-auto sm:mx-0">
               <Table>
@@ -172,7 +180,9 @@ export function StudentsTab() {
                     {show("perDay") && <TableHead className="text-center">Ca/ngày</TableHead>}
                     {show("total") && <TableHead className="text-center">Tổng buổi</TableHead>}
                     {show("remain") && <TableHead className="text-center">Buổi còn lại</TableHead>}
+                    {show("reserve") && <TableHead className="text-center">Bảo lưu</TableHead>}
                     {show("term") && <TableHead>Kỳ học</TableHead>}
+                    {show("actualEnd") && <TableHead>NKT thực tế</TableHead>}
                     {show("status") && <TableHead>Trạng thái</TableHead>}
                     {show("actions") && <TableHead className="text-right">Thao tác</TableHead>}
                   </TableRow>
@@ -180,11 +190,13 @@ export function StudentsTab() {
                 <TableBody>
                   {(filtered as Student[]).map((s) => {
                     const attended = attendedByStudent.get(s.id) ?? 0;
+                    const reserved = reservedByStudent.get(s.id) ?? 0;
                     const remain = Math.max(0, (s.total_sessions ?? 0) - attended);
+                    const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved);
                     return (
                       <TableRow key={s.id}>
                         {show("name") && <TableCell className="font-medium">{s.name}</TableCell>}
-                        {show("course") && <TableCell className="text-center"><span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">K{s.course_index ?? 1}</span></TableCell>}
+                        {show("course") && <TableCell className="text-center"><span className="inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{coursePrefix(s.class_type)}{s.course_index ?? 1}</span></TableCell>}
                         {show("age") && <TableCell>{s.age}</TableCell>}
                         {show("class") && <TableCell>{classChip(s.class_type)}</TableCell>}
                         {show("tuition") && <TableCell>{formatMoney(Number(s.tuition))}đ</TableCell>}
@@ -214,9 +226,15 @@ export function StudentsTab() {
                             <span className="ml-1 text-xs text-muted-foreground">/{s.total_sessions}</span>
                           </TableCell>
                         )}
+                        {show("reserve") && <TableCell className="text-center">{reserved > 0 ? <span className="font-semibold text-primary">{reserved}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
                         {show("term") && (
                           <TableCell className="text-sm text-muted-foreground">
                             {fmtDate(s.start_date)} → {fmtDate(s.end_date)}
+                          </TableCell>
+                        )}
+                        {show("actualEnd") && (
+                          <TableCell className="text-sm">
+                            <span className={reserved > 0 ? "font-semibold text-primary" : "text-muted-foreground"}>{fmtDate(actualEnd)}</span>
                           </TableCell>
                         )}
                         {show("status") && <TableCell>{statusBadge(s.status)}</TableCell>}
@@ -224,6 +242,7 @@ export function StudentsTab() {
                           <TableCell className="text-right">
                             <div className="inline-flex gap-1">
                               <StudentDialog student={s} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                              <NewCourseButton student={s} />
                               <DeleteStudentButton id={s.id} name={s.name} />
                             </div>
                           </TableCell>
@@ -238,6 +257,37 @@ export function StudentsTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function NewCourseButton({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const save = useServerFn(upsertStudent);
+  const mut = useMutation({
+    mutationFn: () => save({ data: {
+      name: student.name,
+      age: student.age,
+      class_type: student.class_type,
+      tuition: Number(student.tuition),
+      start_date: student.end_date,
+      end_date: student.end_date,
+      status: "Đang học",
+      reserve_days: 0,
+      total_sessions: student.total_sessions,
+      course_index: (student.course_index ?? 1) + 1,
+      schedule_slots: student.schedule_slots ?? [],
+    } as any }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast.success(`Đã tạo khóa mới ${coursePrefix(student.class_type)}${(student.course_index ?? 1) + 1} cho ${student.name}. Nhớ cập nhật ngày bắt đầu/kết thúc.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Button size="icon" variant="ghost" className="text-primary hover:bg-primary/10" title="Thêm khóa mới"
+      onClick={() => { if (confirm(`Tạo khóa học mới cho "${student.name}"? Khóa cũ vẫn được lưu.`)) mut.mutate(); }}>
+      <PlusCircle className="h-4 w-4" />
+    </Button>
   );
 }
 

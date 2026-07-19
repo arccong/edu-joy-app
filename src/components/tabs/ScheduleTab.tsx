@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 import { CalendarDays, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +69,7 @@ export function ScheduleTab() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentFilter, setStudentFilter] = useState<string>("all");
+  const [nameSearch, setNameSearch] = useState<string>("");
 
   const weekEnd = addDays(weekStart, 6);
   const fromISO = toLocalISO(weekStart);
@@ -89,10 +91,15 @@ export function ScheduleTab() {
   }, [attRows]);
 
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
-  const filteredStudents = useMemo(
-    () => (studentFilter === "all" ? inClass : inClass.filter((s) => s.id === studentFilter)),
-    [inClass, studentFilter],
-  );
+  const filteredStudents = useMemo(() => {
+    let list = inClass;
+    if (studentFilter !== "all") list = list.filter((s) => s.id === studentFilter);
+    if (nameSearch.trim()) {
+      const q = nameSearch.trim().toLowerCase();
+      list = list.filter((s) => s.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [inClass, studentFilter, nameSearch]);
 
   const TIME_ROWS = useMemo(() => {
     const slots: { start: string; end: string }[] = [];
@@ -141,8 +148,14 @@ export function ScheduleTab() {
           <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, -7))}><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
           <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
+          <Input
+            placeholder="Tìm theo tên học sinh..."
+            value={nameSearch}
+            onChange={(e) => setNameSearch(e.target.value)}
+            className="w-[200px]"
+          />
           <Select value={studentFilter} onValueChange={setStudentFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tìm học sinh..." /></SelectTrigger>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học sinh</SelectItem>
               {inClass.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -155,7 +168,7 @@ export function ScheduleTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); }}>
+        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
           <TabsList className="mb-4">
             {CLASSES.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
           </TabsList>

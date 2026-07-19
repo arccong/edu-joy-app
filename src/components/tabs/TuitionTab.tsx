@@ -53,6 +53,27 @@ export function TuitionTab() {
     return { total, byClass };
   }, [inMonth, cls, stuMap]);
 
+  // Thống kê: học sinh đang học trong tháng — đã đóng vs chưa đóng
+  const collection = useMemo(() => {
+    const monthStart = new Date(monthISO + "T00:00:00");
+    const monthEnd = new Date(monthStart); monthEnd.setMonth(monthEnd.getMonth() + 1); monthEnd.setDate(0);
+    const scope = students.filter((s) => {
+      if (cls !== "Tất cả" && s.class_type !== cls) return false;
+      if (s.status === "Kết thúc") return false;
+      const st = new Date(s.start_date + "T00:00:00");
+      const en = new Date(s.end_date + "T00:00:00");
+      return st <= monthEnd && en >= monthStart;
+    });
+    const paidIds = new Set(inMonth.map((p) => p.student_id));
+    const paid = scope.filter((s) => paidIds.has(s.id));
+    const unpaid = scope.filter((s) => !paidIds.has(s.id));
+    const expected = scope.reduce((a, s) => a + Number(s.tuition), 0);
+    const collected = inMonth
+      .filter((p) => cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls)
+      .reduce((a, b) => a + Number(b.amount), 0);
+    return { scope, paid, unpaid, expected, collected };
+  }, [students, inMonth, cls, stuMap, monthISO]);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-card">
@@ -79,6 +100,27 @@ export function TuitionTab() {
             <StatBox label="Piano" value={stats.byClass.Piano} tint="piano" />
             <StatBox label="Múa" value={stats.byClass["Múa"]} tint="mua" />
             <StatBox label="Vẽ" value={stats.byClass["Vẽ"]} tint="ve" />
+          </div>
+
+          <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+            <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <SummaryBox label="Học sinh đang học" value={collection.scope.length} suffix="" />
+              <SummaryBox label="Đã đóng" value={collection.paid.length} suffix={`/${collection.scope.length}`} tone="success" />
+              <SummaryBox label="Chưa đóng" value={collection.unpaid.length} suffix={`/${collection.scope.length}`} tone="warning" />
+              <SummaryBox label="Thu / Dự kiến" value={collection.collected} suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`} isMoney />
+            </div>
+            {collection.unpaid.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">Học sinh chưa đóng học phí tháng này:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {collection.unpaid.map((s) => (
+                    <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-[color:var(--warning)]">
+                      {s.name} · {s.class_type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-3 flex items-center gap-2">
@@ -135,6 +177,17 @@ export function TuitionTab() {
     </div>
   );
 }
+
+function SummaryBox({ label, value, suffix, tone, isMoney }: { label: string; value: number; suffix?: string; tone?: "success" | "warning"; isMoney?: boolean }) {
+  const toneCls = tone === "success" ? "text-[color:var(--success)]" : tone === "warning" ? "text-[color:var(--warning)]" : "text-foreground";
+  return (
+    <div className="rounded-md bg-background p-2">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`text-base font-bold ${toneCls}`}>{isMoney ? value.toLocaleString("vi-VN") + "đ" : value}{suffix ? <span className="text-xs font-normal text-muted-foreground">{suffix}</span> : null}</p>
+    </div>
+  );
+}
+
 
 function StatBox({ label, value, tint }: { label: string; value: number; tint?: "piano" | "mua" | "ve" }) {
   const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";

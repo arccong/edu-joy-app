@@ -178,6 +178,15 @@ export function TuitionTab() {
   );
 }
 
+function SummaryBox({ label, value, suffix, tone, isMoney }: { label: string; value: number; suffix?: string; tone?: "success" | "warning"; isMoney?: boolean }) {
+  const toneCls = tone === "success" ? "text-[color:var(--success)]" : tone === "warning" ? "text-[color:var(--warning)]" : "text-foreground";
+  return (
+    <div className="rounded-md bg-background p-2">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`text-base font-bold ${toneCls}`}>{isMoney ? value.toLocaleString("vi-VN") + "đ" : value}{suffix ? <span className="text-xs font-normal text-muted-foreground">{suffix}</span> : null}</p>
+    </div>
+  );
+
 function StatBox({ label, value, tint }: { label: string; value: number; tint?: "piano" | "mua" | "ve" }) {
   const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";
   return (

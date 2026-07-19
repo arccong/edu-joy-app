@@ -148,8 +148,14 @@ export function ScheduleTab() {
           <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, -7))}><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
           <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
+          <Input
+            placeholder="Tìm theo tên học sinh..."
+            value={nameSearch}
+            onChange={(e) => setNameSearch(e.target.value)}
+            className="w-[200px]"
+          />
           <Select value={studentFilter} onValueChange={setStudentFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tìm học sinh..." /></SelectTrigger>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học sinh</SelectItem>
               {inClass.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}

@@ -212,7 +212,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      attendance_status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép"
+      attendance_status:
+        | "Đi học"
+        | "Nghỉ có phép"
+        | "Nghỉ không phép"
+        | "Bảo lưu"
       class_type: "Piano" | "Múa" | "Vẽ"
       student_status: "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc"
     }
@@ -342,7 +346,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      attendance_status: ["Đi học", "Nghỉ có phép", "Nghỉ không phép"],
+      attendance_status: [
+        "Đi học",
+        "Nghỉ có phép",
+        "Nghỉ không phép",
+        "Bảo lưu",
+      ],
       class_type: ["Piano", "Múa", "Vẽ"],
       student_status: ["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"],
     },

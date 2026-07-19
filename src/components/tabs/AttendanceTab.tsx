@@ -164,6 +164,7 @@ function AttendanceRow({
     { v: "Đi học", cls: "bg-success text-white" },
     { v: "Nghỉ có phép", cls: "bg-warning text-white" },
     { v: "Nghỉ không phép", cls: "bg-danger text-white" },
+    { v: "Bảo lưu", cls: "bg-primary text-primary-foreground" },
   ];
 
   return (

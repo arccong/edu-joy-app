@@ -69,6 +69,7 @@ export function ScheduleTab() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentFilter, setStudentFilter] = useState<string>("all");
+  const [nameSearch, setNameSearch] = useState<string>("");
 
   const weekEnd = addDays(weekStart, 6);
   const fromISO = toLocalISO(weekStart);

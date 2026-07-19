@@ -168,7 +168,7 @@ export function ScheduleTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); }}>
+        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
           <TabsList className="mb-4">
             {CLASSES.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
           </TabsList>

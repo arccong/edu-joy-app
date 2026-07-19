@@ -1,6 +1,25 @@
 export type ClassType = "Piano" | "Múa" | "Vẽ";
 export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc";
-export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép";
+export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép" | "Bảo lưu";
+
+export function coursePrefix(c: ClassType): "P" | "M" | "V" {
+  return c === "Piano" ? "P" : c === "Múa" ? "M" : "V";
+}
+
+/** Cộng thêm N buổi (theo lịch học) vào ngày end_date để lấy ngày kết thúc thực tế */
+export function addScheduledDays(endISO: string, slots: ScheduleSlot[], extraSessions: number): string {
+  if (!endISO || extraSessions <= 0 || slots.length === 0) return endISO;
+  const perDay = slotsPerDayMap(slots);
+  const cursor = new Date(endISO + "T00:00:00");
+  if (isNaN(cursor.getTime())) return endISO;
+  let remain = extraSessions;
+  for (let i = 0; i < 365 * 4 && remain > 0; i++) {
+    cursor.setDate(cursor.getDate() + 1);
+    const inc = perDay.get(cursor.getDay()) ?? 0;
+    if (inc > 0) remain -= inc;
+  }
+  return toLocalISO(cursor);
+}
 
 export interface ScheduleSlot {
   day: number; // 0..6 (0=CN)

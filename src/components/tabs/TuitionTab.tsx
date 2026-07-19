@@ -186,6 +186,8 @@ function SummaryBox({ label, value, suffix, tone, isMoney }: { label: string; va
       <p className={`text-base font-bold ${toneCls}`}>{isMoney ? value.toLocaleString("vi-VN") + "đ" : value}{suffix ? <span className="text-xs font-normal text-muted-foreground">{suffix}</span> : null}</p>
     </div>
   );
+}
+
 
 function StatBox({ label, value, tint }: { label: string; value: number; tint?: "piano" | "mua" | "ve" }) {
   const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";

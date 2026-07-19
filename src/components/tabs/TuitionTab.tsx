@@ -53,6 +53,27 @@ export function TuitionTab() {
     return { total, byClass };
   }, [inMonth, cls, stuMap]);
 
+  // Thống kê: học sinh đang học trong tháng — đã đóng vs chưa đóng
+  const collection = useMemo(() => {
+    const monthStart = new Date(monthISO + "T00:00:00");
+    const monthEnd = new Date(monthStart); monthEnd.setMonth(monthEnd.getMonth() + 1); monthEnd.setDate(0);
+    const scope = students.filter((s) => {
+      if (cls !== "Tất cả" && s.class_type !== cls) return false;
+      if (s.status === "Kết thúc") return false;
+      const st = new Date(s.start_date + "T00:00:00");
+      const en = new Date(s.end_date + "T00:00:00");
+      return st <= monthEnd && en >= monthStart;
+    });
+    const paidIds = new Set(inMonth.map((p) => p.student_id));
+    const paid = scope.filter((s) => paidIds.has(s.id));
+    const unpaid = scope.filter((s) => !paidIds.has(s.id));
+    const expected = scope.reduce((a, s) => a + Number(s.tuition), 0);
+    const collected = inMonth
+      .filter((p) => cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls)
+      .reduce((a, b) => a + Number(b.amount), 0);
+    return { scope, paid, unpaid, expected, collected };
+  }, [students, inMonth, cls, stuMap, monthISO]);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-card">

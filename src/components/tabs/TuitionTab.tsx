@@ -102,6 +102,27 @@ export function TuitionTab() {
             <StatBox label="Vẽ" value={stats.byClass["Vẽ"]} tint="ve" />
           </div>
 
+          <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+            <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <SummaryBox label="Học sinh đang học" value={collection.scope.length} suffix="" />
+              <SummaryBox label="Đã đóng" value={collection.paid.length} suffix={`/${collection.scope.length}`} tone="success" />
+              <SummaryBox label="Chưa đóng" value={collection.unpaid.length} suffix={`/${collection.scope.length}`} tone="warning" />
+              <SummaryBox label="Thu / Dự kiến" value={collection.collected} suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`} isMoney />
+            </div>
+            {collection.unpaid.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">Học sinh chưa đóng học phí tháng này:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {collection.unpaid.map((s) => (
+                    <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-[color:var(--warning)]">
+                      {s.name} · {s.class_type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="mb-3 flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input placeholder="Tìm học sinh trong tháng..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />

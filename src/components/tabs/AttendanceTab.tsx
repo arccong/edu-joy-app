@@ -223,3 +223,255 @@ function AttendanceRow({
     </div>
   );
 }
+
+type BackfillRow = {
+  key: string;
+  student: Student;
+  date: string;
+  dow: number;
+  slot: ScheduleSlot;
+  selected: boolean;
+  status: AttendanceStatus;
+};
+
+function BackfillButton({ students }: { students: Student[] }) {
+  const [open, setOpen] = useState(false);
+  const yesterday = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toLocalISO(d);
+  }, []);
+  const defaultFrom = useMemo(() => {
+    const dates = students.map((s) => s.start_date).filter(Boolean).sort();
+    if (dates.length === 0) {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return toLocalISO(d);
+    }
+    return dates[0];
+  }, [students]);
+
+  const [from, setFrom] = useState(defaultFrom);
+  const [to, setTo] = useState(yesterday);
+  const [scope, setScope] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [studentId, setStudentId] = useState<string>("all");
+  const [rows, setRows] = useState<BackfillRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const fetchRange = useServerFn(listAttendanceRange);
+  const setAtt = useServerFn(setAttendance);
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (open) {
+      setFrom(defaultFrom);
+      setTo(yesterday);
+    }
+  }, [open, defaultFrom, yesterday]);
+
+  const filteredStudents = useMemo(() => {
+    let list = students.filter((s) => s.status !== "Kết thúc" && s.status !== "Bảo lưu");
+    if (scope !== "Tất cả") list = list.filter((s) => s.class_type === scope);
+    if (studentId !== "all") list = list.filter((s) => s.id === studentId);
+    return list;
+  }, [students, scope, studentId]);
+
+  async function loadRows() {
+    if (!from || !to || from > to) {
+      toast.error("Khoảng ngày không hợp lệ");
+      return;
+    }
+    setLoading(true);
+    try {
+      const existing = (await fetchRange({ data: { from, to } })) as { student_id: string; date: string }[];
+      const has = new Set(existing.map((r) => `${r.student_id}|${r.date}`));
+      const result: BackfillRow[] = [];
+      const start = new Date(from + "T00:00:00");
+      const end = new Date(to + "T00:00:00");
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = toLocalISO(d);
+        const dow = d.getDay();
+        for (const s of filteredStudents) {
+          if (iso < s.start_date || iso > s.end_date) continue;
+          const slots = (s.schedule_slots ?? []).filter((sl) => sl.day === dow);
+          for (const slot of slots) {
+            const key = `${s.id}|${iso}|${slot.start}`;
+            if (has.has(`${s.id}|${iso}`)) continue;
+            result.push({ key, student: s, date: iso, dow, slot, selected: true, status: "Đi học" });
+          }
+        }
+      }
+      result.sort((a, b) => a.date.localeCompare(b.date) || a.student.name.localeCompare(b.student.name));
+      setRows(result);
+      if (result.length === 0) toast.info("Không có buổi nào cần bù");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const selectedCount = rows.filter((r) => r.selected).length;
+  const allSelected = rows.length > 0 && selectedCount === rows.length;
+
+  async function saveAll() {
+    const picks = rows.filter((r) => r.selected);
+    if (picks.length === 0) return;
+    setSaving(true);
+    setProgress(0);
+    let ok = 0;
+    let fail = 0;
+    // gộp theo (student_id, date) — chỉ lưu 1 bản ghi/ngày (schema unique)
+    const dedup = new Map<string, BackfillRow>();
+    for (const r of picks) dedup.set(`${r.student.id}|${r.date}`, r);
+    const list = Array.from(dedup.values());
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      try {
+        await setAtt({
+          data: {
+            student_id: r.student.id,
+            date: r.date,
+            status: r.status,
+            note: null,
+            makeup_date: null,
+          } as any,
+        });
+        ok++;
+      } catch {
+        fail++;
+      }
+      setProgress(i + 1);
+    }
+    setSaving(false);
+    qc.invalidateQueries({ queryKey: ["attendance"] });
+    toast.success(`Đã lưu ${ok} buổi${fail ? `, lỗi ${fail}` : ""}`);
+    setRows([]);
+    setOpen(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" size="sm">Điểm danh bù</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Điểm danh bù hàng loạt</DialogTitle>
+          <DialogDescription>Liệt kê các buổi học đã qua chưa điểm danh trong khoảng ngày đã chọn.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+          <div className="grid gap-1">
+            <Label className="text-xs">Từ ngày</Label>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-xs">Đến ngày</Label>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-xs">Lớp</Label>
+            <Select value={scope} onValueChange={(v) => setScope(v as typeof scope)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
+                {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-xs">Học sinh</Label>
+            <Select value={studentId} onValueChange={setStudentId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {students
+                  .filter((s) => scope === "Tất cả" || s.class_type === scope)
+                  .map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button onClick={loadRows} disabled={loading}>{loading ? "Đang tải..." : "Quét buổi thiếu"}</Button>
+          </div>
+        </div>
+
+        {rows.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(v) => setRows((rs) => rs.map((r) => ({ ...r, selected: !!v })))}
+            />
+            <span>Chọn tất cả ({selectedCount}/{rows.length})</span>
+            <div className="ml-auto flex gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Đi học" } : r))}>Đặt = Đi học</Button>
+              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Nghỉ có phép" } : r))}>Đặt = Nghỉ CP</Button>
+              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Nghỉ không phép" } : r))}>Đặt = Nghỉ KP</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-2 max-h-[400px] overflow-auto rounded-md border">
+          {rows.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Chưa có dữ liệu. Bấm "Quét buổi thiếu" để bắt đầu.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted/60 text-xs">
+                <tr>
+                  <th className="w-10 p-2"></th>
+                  <th className="p-2 text-left">Ngày</th>
+                  <th className="p-2 text-left">Thứ</th>
+                  <th className="p-2 text-left">Học sinh</th>
+                  <th className="p-2 text-left">Lớp</th>
+                  <th className="p-2 text-left">Khung giờ</th>
+                  <th className="p-2 text-left">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key} className="border-t">
+                    <td className="p-2 text-center">
+                      <Checkbox
+                        checked={r.selected}
+                        onCheckedChange={(v) => setRows((rs) => rs.map((x) => x.key === r.key ? { ...x, selected: !!v } : x))}
+                      />
+                    </td>
+                    <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
+                    <td className="p-2">{DAYS_SHORT[r.dow]}</td>
+                    <td className="p-2">{r.student.name}</td>
+                    <td className="p-2">{classChip(r.student.class_type)}</td>
+                    <td className="p-2 whitespace-nowrap">{r.slot.start}–{r.slot.end}</td>
+                    <td className="p-2">
+                      <Select
+                        value={r.status}
+                        onValueChange={(v) => setRows((rs) => rs.map((x) => x.key === r.key ? { ...x, status: v as AttendanceStatus } : x))}
+                      >
+                        <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Đi học">Đi học</SelectItem>
+                          <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
+                          <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
+                          <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <DialogFooter className="mt-3">
+          {saving && <span className="mr-auto text-xs text-muted-foreground">Đang lưu {progress}/{rows.filter((r) => r.selected).length}...</span>}
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Hủy</Button>
+          <Button onClick={saveAll} disabled={saving || selectedCount === 0}>Lưu {selectedCount} buổi</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

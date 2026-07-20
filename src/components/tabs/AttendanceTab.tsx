@@ -114,6 +114,7 @@ export function AttendanceTab() {
           <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <BackfillButton students={students as Student[]} />
           <label className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
             <Switch checked={autoMark} onCheckedChange={setAutoMark} />
             <span className="font-medium">Tự động điểm danh</span>
@@ -127,6 +128,7 @@ export function AttendanceTab() {
             </SelectContent>
           </Select>
         </div>
+
       </CardHeader>
       <CardContent>
         {scheduled.length === 0 ? (

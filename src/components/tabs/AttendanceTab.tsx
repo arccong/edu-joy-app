@@ -7,20 +7,25 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
   CLASSES,
   DAYS,
+  DAYS_SHORT,
   dayOfWeekOf,
+  fmtDate,
   toLocalISO,
   type AttendanceStatus,
   type ClassType,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
-import { listAttendance, listStudents, setAttendance } from "@/lib/students.functions";
+import { listAttendance, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+
 
 export function AttendanceTab() {
   const [date, setDate] = useState(toLocalISO(new Date()));

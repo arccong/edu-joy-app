@@ -508,13 +508,8 @@ type SessionRow = {
   isFuture: boolean;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  "": "Chưa điểm danh",
-  "Đi học": "Đi học",
-  "Nghỉ có phép": "Nghỉ có phép",
-  "Nghỉ không phép": "Nghỉ không phép",
-  "Bảo lưu": "Bảo lưu",
-};
+
+
 
 function ByStudentView() {
   const fetchList = useServerFn(listStudents);

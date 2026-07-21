@@ -146,3 +146,13 @@ export const setAttendance = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const deleteAttendance = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ student_id: z.string().uuid(), date: z.string() }).parse(d))
+  .handler(async ({ data }) => {
+    const sb = await admin();
+    const { error } = await (sb as any).from("attendance").delete().eq("student_id", data.student_id).eq("date", data.date);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+

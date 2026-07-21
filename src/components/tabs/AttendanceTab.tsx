@@ -16,18 +16,37 @@ import {
   CLASSES,
   DAYS,
   DAYS_SHORT,
+  addScheduledDays,
+  coursePrefix,
   dayOfWeekOf,
   fmtDate,
+  slotsPerDayMap,
   toLocalISO,
   type AttendanceStatus,
   type ClassType,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
-import { listAttendance, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
-
+import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+import { Badge } from "@/components/ui/badge";
 
 export function AttendanceTab() {
+  const [mode, setMode] = useState<"date" | "student">("date");
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+          <Button size="sm" variant={mode === "date" ? "default" : "ghost"} onClick={() => setMode("date")}>Theo ngày</Button>
+          <Button size="sm" variant={mode === "student" ? "default" : "ghost"} onClick={() => setMode("student")}>Theo học sinh</Button>
+        </div>
+      </div>
+      {mode === "date" ? <ByDateView /> : <ByStudentView />}
+    </div>
+  );
+}
+
+function ByDateView() {
+
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
   const [autoMark, setAutoMark] = useState<boolean>(() => {

@@ -1,32 +1,28 @@
 ## Mục tiêu
-Cung cấp cách điểm danh nhanh cho nhiều buổi đã qua nhưng chưa có bản ghi, không phải mở từng ngày một.
+Trong tab **Điểm danh**, thêm chế độ xem **"Theo học sinh"** để thống kê và chỉnh sửa toàn bộ các buổi trong khóa của một học sinh.
 
-## Giải pháp: Nút "Điểm danh bù hàng loạt" trong tab Điểm danh
+## Thay đổi
 
-Thêm 1 nút mới ở header tab Điểm danh (bên cạnh công tắc "Tự động điểm danh") để mở một hộp thoại cho phép bù điểm danh nhiều buổi/nhiều học sinh trong 1 lần.
+### 1. `src/components/tabs/AttendanceTab.tsx`
+- Thêm bộ chuyển chế độ ở đầu tab: **Theo ngày** (hiện tại) ↔ **Theo học sinh** (mới).
+- Chế độ "Theo học sinh":
+  - Combobox chọn học sinh (có tìm kiếm theo tên, lọc theo lớp).
+  - Header hiển thị thông tin khóa: tên, lớp, khóa (K1/K2…), ngày bắt đầu, NKT thực tế, tổng buổi.
+  - **Khối tổng hợp** (badges): Đi học / Nghỉ có phép / Nghỉ không phép / Bảo lưu / Chưa điểm danh / Tổng theo lịch.
+  - **Bảng chi tiết toàn bộ buổi** sinh từ `schedule_slots` giữa `start_date` → NKT thực tế (dùng `slotsPerDayMap` + `addScheduledDays` đã có trong `src/lib/shared.ts`):
+    - Cột: STT, Ngày (kèm thứ), Khung giờ, Trạng thái (Select inline: Đi học / Nghỉ có phép / Nghỉ không phép / Bảo lưu / *Chưa điểm danh*), Ghi chú (input), Ngày học bù (date, chỉ khi Nghỉ có phép).
+    - Buổi trong tương lai hiển thị mờ, vẫn cho sửa.
+    - Highlight dòng "hôm nay".
+  - **Sửa inline**: mỗi thay đổi gọi `setAttendance` (đã có sẵn `upsert onConflict student_id,date`); "Chưa điểm danh" → gọi server fn mới `deleteAttendance` để xóa bản ghi.
+  - Nút **Lưu tất cả** (tùy chọn) cho các thay đổi hàng loạt trước khi commit.
 
-### Luồng sử dụng
-1. Bấm nút **"Điểm danh bù"** → mở dialog.
-2. Chọn khoảng thời gian (mặc định: từ `start_date` sớm nhất của học sinh đang chọn → hôm qua).
-3. Chọn phạm vi: **Tất cả lớp / Piano / Múa / Vẽ**, hoặc chọn cụ thể 1 học sinh.
-4. Hệ thống liệt kê tất cả **buổi học theo lịch** rơi vào khoảng đó **chưa có bản ghi điểm danh** — dạng bảng: `Ngày | Thứ | Học sinh | Lớp | Khung giờ | Trạng thái (dropdown)`.
-5. Mỗi dòng mặc định trạng thái = **"Đi học"**. Người dùng có thể:
-   - Đổi từng dòng sang Nghỉ có phép / Nghỉ không phép / Bảo lưu.
-   - Dùng nút nhanh trên đầu: **"Đặt tất cả = Đi học"** / **"Bỏ chọn dòng này"** (loại khỏi lần lưu).
-   - Tick chọn/bỏ chọn từng dòng (checkbox), hoặc "Chọn tất cả".
-6. Bấm **"Lưu N buổi"** → gọi `setAttendance` tuần tự cho từng dòng đã tick, hiển thị progress + toast tổng kết.
+### 2. `src/lib/students.functions.ts`
+- Thêm `deleteAttendance({ student_id, date })` để hỗ trợ đặt lại về "Chưa điểm danh".
+- Tái sử dụng `listAttendanceByStudent` đã có để nạp toàn bộ điểm danh của học sinh.
 
-### Điểm cần lưu ý
-- Bỏ qua học sinh có `status = "Kết thúc"` hoặc ngày > `end_date` / < `start_date` của học sinh đó.
-- Bỏ qua học sinh đang `Bảo lưu` cho các ngày trong khoảng bảo lưu (giữ đơn giản: nếu status hiện tại là "Bảo lưu" thì loại toàn bộ, người dùng có thể tick lại thủ công).
-- Không ghi đè các buổi đã có bản ghi (chỉ hiển thị buổi thiếu).
-- Sau khi lưu xong: invalidate query `attendance` để UI cập nhật.
-
-## Tệp sẽ thay đổi
-- `src/components/tabs/AttendanceTab.tsx`: thêm nút + dialog + logic sinh danh sách buổi thiếu và lưu hàng loạt.
-- Không cần thay đổi database, server function, hay `shared.ts` — dùng lại `setAttendance` và `listAttendanceRange` đã có.
+### 3. Không đổi schema DB, không đổi các tab khác.
 
 ## Chi tiết kỹ thuật
-- Sinh danh sách buổi: lặp từng ngày trong khoảng, với mỗi học sinh trong phạm vi kiểm tra `schedule_slots` có slot khớp `day = dow` và ngày nằm trong `[start_date, end_date]`; loại các cặp `(student_id, date)` đã có trong kết quả `listAttendanceRange`.
-- Lưu: `for...of` gọi `setAttendance` với `await`; đếm success/fail; toast cuối.
-- Dialog dùng `Dialog` shadcn đã có; bảng dùng `Table` shadcn.
+- Sinh danh sách buổi: lặp ngày từ `start_date` đến ngày kết thúc thực tế (`end_date + reserve_days`), với mỗi ngày dùng `slotsPerDayMap` để biết số buổi và bung theo `schedule_slots` cùng thứ để lấy khung giờ.
+- Map với `attendance` theo `date` (nếu có nhiều buổi/ngày, key = `date + slot_index` — nhưng bảng `attendance` hiện chỉ unique theo `(student_id, date)`; giữ nguyên: gộp các slot cùng ngày thành 1 dòng nếu chỉ có 1 ca, hoặc hiển thị 2 dòng cùng ngày với chung 1 trạng thái từ bản ghi ngày đó).
+- Query cache key `["attendance-by-student", studentId]`, invalidate sau mỗi mutation.

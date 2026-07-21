@@ -16,18 +16,37 @@ import {
   CLASSES,
   DAYS,
   DAYS_SHORT,
+  addScheduledDays,
+  coursePrefix,
   dayOfWeekOf,
   fmtDate,
+  slotsPerDayMap,
   toLocalISO,
   type AttendanceStatus,
   type ClassType,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
-import { listAttendance, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
-
+import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+import { Badge } from "@/components/ui/badge";
 
 export function AttendanceTab() {
+  const [mode, setMode] = useState<"date" | "student">("date");
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+          <Button size="sm" variant={mode === "date" ? "default" : "ghost"} onClick={() => setMode("date")}>Theo ngày</Button>
+          <Button size="sm" variant={mode === "student" ? "default" : "ghost"} onClick={() => setMode("student")}>Theo học sinh</Button>
+        </div>
+      </div>
+      {mode === "date" ? <ByDateView /> : <ByStudentView />}
+    </div>
+  );
+}
+
+function ByDateView() {
+
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
   const [autoMark, setAutoMark] = useState<boolean>(() => {
@@ -474,4 +493,298 @@ function BackfillButton({ students }: { students: Student[] }) {
     </Dialog>
   );
 }
+
+// ================== BY-STUDENT VIEW ==================
+
+type SessionRow = {
+  key: string;
+  date: string;
+  dow: number;
+  slot: ScheduleSlot;
+  slotIndex: number; // index in that day (0 or 1)
+  slotsInDay: number;
+  isPast: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+
+
+
+function ByStudentView() {
+  const fetchList = useServerFn(listStudents);
+  const fetchByStudent = useServerFn(listAttendanceByStudent);
+  const setAtt = useServerFn(setAttendance);
+  const delAtt = useServerFn(deleteAttendance);
+  const qc = useQueryClient();
+
+  const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [search, setSearch] = useState("");
+  const [studentId, setStudentId] = useState<string>("");
+
+  const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchList() as any });
+
+  const filteredStudents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (students as Student[])
+      .filter((s) => classFilter === "Tất cả" || s.class_type === classFilter)
+      .filter((s) => !q || s.name.toLowerCase().includes(q));
+  }, [students, classFilter, search]);
+
+  useEffect(() => {
+    if (!studentId && filteredStudents.length > 0) setStudentId(filteredStudents[0].id);
+    if (studentId && !filteredStudents.some((s) => s.id === studentId) && filteredStudents.length > 0) {
+      setStudentId(filteredStudents[0].id);
+    }
+  }, [filteredStudents, studentId]);
+
+  const student = useMemo(() => (students as Student[]).find((s) => s.id === studentId), [students, studentId]);
+
+  const { data: attRows = [], isLoading } = useQuery<any[]>({
+    queryKey: ["attendance-by-student", studentId],
+    queryFn: () => fetchByStudent({ data: { student_id: studentId } }) as any,
+    enabled: !!studentId,
+  });
+
+  const attMap = useMemo(() => {
+    const m = new Map<string, { status: AttendanceStatus; note: string | null; makeup_date: string | null }>();
+    for (const r of attRows) m.set(r.date, { status: r.status, note: r.note ?? null, makeup_date: r.makeup_date ?? null });
+    return m;
+  }, [attRows]);
+
+  const sessions = useMemo<SessionRow[]>(() => {
+    if (!student) return [];
+    const slots = (student.schedule_slots ?? []) as ScheduleSlot[];
+    if (slots.length === 0 || !student.start_date || !student.end_date) return [];
+    const actualEnd = addScheduledDays(student.end_date, slots, student.reserve_days ?? 0);
+    const perDay = slotsPerDayMap(slots);
+    const todayISO = toLocalISO(new Date());
+    const rows: SessionRow[] = [];
+    const cursor = new Date(student.start_date + "T00:00:00");
+    const end = new Date(actualEnd + "T00:00:00");
+    let safety = 0;
+    while (cursor <= end && safety < 365 * 6) {
+      safety++;
+      const iso = toLocalISO(cursor);
+      const dow = cursor.getDay();
+      const daySlots = slots.filter((sl) => sl.day === dow).sort((a, b) => a.start.localeCompare(b.start));
+      const count = perDay.get(dow) ?? 0;
+      if (daySlots.length > 0 && count > 0) {
+        daySlots.forEach((slot, idx) => {
+          rows.push({
+            key: `${iso}|${idx}`,
+            date: iso,
+            dow,
+            slot,
+            slotIndex: idx,
+            slotsInDay: daySlots.length,
+            isPast: iso < todayISO,
+            isToday: iso === todayISO,
+            isFuture: iso > todayISO,
+          });
+        });
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return rows;
+  }, [student]);
+
+  const summary = useMemo(() => {
+    const s = { present: 0, excused: 0, absent: 0, reserved: 0, blank: 0 };
+    // 1 attendance record covers 1 date (all slots of that day merge)
+    const dateSeen = new Map<string, AttendanceStatus | "">();
+    for (const r of sessions) {
+      if (dateSeen.has(r.date)) continue;
+      const rec = attMap.get(r.date);
+      dateSeen.set(r.date, rec?.status ?? "");
+    }
+    // count per session (weighted by slotsInDay so total matches "Tổng buổi")
+    const sessionsPerDate = new Map<string, number>();
+    for (const r of sessions) sessionsPerDate.set(r.date, (sessionsPerDate.get(r.date) ?? 0) + 1);
+    for (const [date, status] of dateSeen) {
+      const n = sessionsPerDate.get(date) ?? 1;
+      if (status === "Đi học") s.present += n;
+      else if (status === "Nghỉ có phép") s.excused += n;
+      else if (status === "Nghỉ không phép") s.absent += n;
+      else if (status === "Bảo lưu") s.reserved += n;
+      else s.blank += n;
+    }
+    return s;
+  }, [sessions, attMap]);
+
+  const setMut = useMutation({
+    mutationFn: (v: { date: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>
+      setAtt({ data: { student_id: studentId, ...v } as any }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const delMut = useMutation({
+    mutationFn: (date: string) => delAtt({ data: { student_id: studentId, date } as any }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle>Điểm danh theo học sinh</CardTitle>
+          <CardDescription>Toàn bộ buổi trong khóa — sửa trạng thái/ghi chú trực tiếp.</CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
+              {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input placeholder="Tìm học sinh..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-[180px]" />
+          <Select value={studentId} onValueChange={setStudentId}>
+            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
+            <SelectContent>
+              {filteredStudents.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name} · {coursePrefix(s.class_type)}{s.course_index}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!student ? (
+          <EmptyState text="Chọn một học sinh để xem." />
+        ) : (
+          <div className="space-y-3">
+            <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-[1fr_auto]">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold">{student.name}</span>
+                {classChip(student.class_type)}
+                <Badge variant="outline">Khóa {coursePrefix(student.class_type)}{student.course_index}</Badge>
+                <span className="text-muted-foreground">
+                  {fmtDate(student.start_date)} → {fmtDate(addScheduledDays(student.end_date, student.schedule_slots ?? [], student.reserve_days ?? 0))}
+                </span>
+                <span className="text-muted-foreground">· Tổng: {student.total_sessions} buổi</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <Badge className="bg-success text-white">Đi học: {summary.present}</Badge>
+                <Badge className="bg-warning text-white">Nghỉ CP: {summary.excused}</Badge>
+                <Badge className="bg-danger text-white">Nghỉ KP: {summary.absent}</Badge>
+                <Badge className="bg-primary text-primary-foreground">Bảo lưu: {summary.reserved}</Badge>
+                <Badge variant="outline">Chưa ĐD: {summary.blank}</Badge>
+                <Badge variant="secondary">Σ {sessions.length}</Badge>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">Đang tải...</div>
+            ) : sessions.length === 0 ? (
+              <EmptyState text="Học sinh chưa có lịch học hợp lệ." />
+            ) : (
+              <div className="max-h-[560px] overflow-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted/70 text-xs">
+                    <tr>
+                      <th className="w-12 p-2 text-left">#</th>
+                      <th className="p-2 text-left">Ngày</th>
+                      <th className="p-2 text-left">Thứ</th>
+                      <th className="p-2 text-left">Khung giờ</th>
+                      <th className="p-2 text-left">Trạng thái</th>
+                      <th className="p-2 text-left">Ghi chú</th>
+                      <th className="p-2 text-left">Học bù</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((r, i) => {
+                      const rec = attMap.get(r.date);
+                      const status: AttendanceStatus | "" = rec?.status ?? "";
+                      return (
+                        <tr
+                          key={r.key}
+                          className={[
+                            "border-t",
+                            r.isFuture ? "opacity-50" : "",
+                            r.isToday ? "bg-primary/5" : "",
+                          ].join(" ")}
+                        >
+                          <td className="p-2 text-muted-foreground">{i + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
+                          <td className="p-2">{DAYS_SHORT[r.dow]}</td>
+                          <td className="p-2 whitespace-nowrap">{r.slot.start}–{r.slot.end}</td>
+                          <td className="p-2">
+                            <Select
+                              value={status || "__blank__"}
+                              onValueChange={(v) => {
+                                if (v === "__blank__") delMut.mutate(r.date);
+                                else setMut.mutate({
+                                  date: r.date,
+                                  status: v as AttendanceStatus,
+                                  note: rec?.note ?? null,
+                                  makeup_date: rec?.makeup_date ?? null,
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__blank__">Chưa điểm danh</SelectItem>
+                                <SelectItem value="Đi học">Đi học</SelectItem>
+                                <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
+                                <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
+                                <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              className="h-8"
+                              placeholder="—"
+                              defaultValue={rec?.note ?? ""}
+                              disabled={!status}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (!status) return;
+                                if ((rec?.note ?? "") === v) return;
+                                setMut.mutate({
+                                  date: r.date,
+                                  status: status as AttendanceStatus,
+                                  note: v || null,
+                                  makeup_date: rec?.makeup_date ?? null,
+                                });
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="date"
+                              className="h-8 w-[150px]"
+                              defaultValue={rec?.makeup_date ?? ""}
+                              disabled={status !== "Nghỉ có phép"}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (status !== "Nghỉ có phép") return;
+                                if ((rec?.makeup_date ?? "") === v) return;
+                                setMut.mutate({
+                                  date: r.date,
+                                  status: "Nghỉ có phép",
+                                  note: rec?.note ?? null,
+                                  makeup_date: v || null,
+                                });
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 

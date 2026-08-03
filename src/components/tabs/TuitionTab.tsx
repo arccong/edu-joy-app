@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { CLASSES, fmtDate, fmtMonth, monthKey, toLocalISO, type ClassType, type Student, type TuitionPayment } from "@/lib/shared";
+import { CLASSES, addScheduledDays, fmtDate, fmtMonth, monthKey, toLocalISO, type ClassType, type Student, type TuitionPayment } from "@/lib/shared";
 import { listStudents } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
 

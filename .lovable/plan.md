@@ -1,28 +1,49 @@
-## Mục tiêu
-Trong tab **Điểm danh**, thêm chế độ xem **"Theo học sinh"** để thống kê và chỉnh sửa toàn bộ các buổi trong khóa của một học sinh.
+# Nâng cấp: điều hướng mobile, sửa lỗi & 2 trang mới
 
-## Thay đổi
+## 1. Menu trang trên mobile
+- Ở `src/routes/index.tsx`: dưới `sm`, thay thanh tab lưới bằng **một ô chọn sổ xuống** (Select) hiển thị icon + tên trang hiện tại; mở ra danh sách đủ 6 trang (nay là 8) kèm icon + tên tiếng Việt.
+- Từ `sm` trở lên giữ nguyên thanh tab như hiện tại.
 
-### 1. `src/components/tabs/AttendanceTab.tsx`
-- Thêm bộ chuyển chế độ ở đầu tab: **Theo ngày** (hiện tại) ↔ **Theo học sinh** (mới).
-- Chế độ "Theo học sinh":
-  - Combobox chọn học sinh (có tìm kiếm theo tên, lọc theo lớp).
-  - Header hiển thị thông tin khóa: tên, lớp, khóa (K1/K2…), ngày bắt đầu, NKT thực tế, tổng buổi.
-  - **Khối tổng hợp** (badges): Đi học / Nghỉ có phép / Nghỉ không phép / Bảo lưu / Chưa điểm danh / Tổng theo lịch.
-  - **Bảng chi tiết toàn bộ buổi** sinh từ `schedule_slots` giữa `start_date` → NKT thực tế (dùng `slotsPerDayMap` + `addScheduledDays` đã có trong `src/lib/shared.ts`):
-    - Cột: STT, Ngày (kèm thứ), Khung giờ, Trạng thái (Select inline: Đi học / Nghỉ có phép / Nghỉ không phép / Bảo lưu / *Chưa điểm danh*), Ghi chú (input), Ngày học bù (date, chỉ khi Nghỉ có phép).
-    - Buổi trong tương lai hiển thị mờ, vẫn cho sửa.
-    - Highlight dòng "hôm nay".
-  - **Sửa inline**: mỗi thay đổi gọi `setAttendance` (đã có sẵn `upsert onConflict student_id,date`); "Chưa điểm danh" → gọi server fn mới `deleteAttendance` để xóa bản ghi.
-  - Nút **Lưu tất cả** (tùy chọn) cho các thay đổi hàng loạt trước khi commit.
+## 2. Danh sách học sinh
+- Bỏ cột **Ca/ngày** khỏi bảng và khỏi menu ẩn/hiện cột.
 
-### 2. `src/lib/students.functions.ts`
-- Thêm `deleteAttendance({ student_id, date })` để hỗ trợ đặt lại về "Chưa điểm danh".
-- Tái sử dụng `listAttendanceByStudent` đã có để nạp toàn bộ điểm danh của học sinh.
+## 3. Điểm danh
+- Vẫn hiển thị học sinh có lịch trong ngày, cho phép điểm danh bất kỳ lúc nào.
+- Ràng buộc duy nhất: trạng thái **"Đi học"** chỉ được đặt khi thời điểm hiện tại ≥ (giờ bắt đầu buổi − 20 phút). Trước mốc đó, tùy chọn "Đi học" bị khóa kèm chú thích "Chỉ điểm danh Đi học trước 20 phút".
+- Tự động điểm danh áp dụng cùng mốc −20 phút.
 
-### 3. Không đổi schema DB, không đổi các tab khác.
+## 4. Học phí — sửa "Dự kiến"
+- "Dự kiến" của tháng = tổng học phí của các học sinh **đến hạn đóng trong tháng đó**, tức:
+  - buổi cuối khóa (NKT thực tế) rơi trong tháng → đóng khóa mới, **cộng** học phí; hoặc
+  - khóa mới bắt đầu trong tháng → **cộng** học phí.
+- Học sinh đang giữa khóa (không có mốc nào trong tháng) **không** tính vào dự kiến, và không bị liệt kê là "chưa đóng".
+- "Đã đóng / Chưa đóng" tính trên đúng nhóm đến hạn này.
+
+## 5. Thời khóa biểu
+- Trong ô lịch chỉ hiện **tên học sinh** (bỏ dòng giờ nhỏ), vì cột trái đã có khung giờ.
+
+## 6. Trang mới: Nhật ký học tập
+- Bảng mới `learning_logs`: `student_id` (có thể null với bài chung lớp Múa), `class_type`, `date`, `title` (tác phẩm/bài học), `content`, `attachments` (jsonb: link ảnh/video), `is_class_wide`.
+- Giao diện:
+  - **Hôm nay**: danh sách học sinh có lịch hôm nay, mỗi người 1 thẻ "Đang học: …" để nhập/sửa nhanh. Lớp **Múa** nhập 1 bài chung cho buổi, tự áp cho mọi học sinh Múa hôm đó; **Piano/Vẽ** nhập riêng từng học sinh.
+  - **Lịch sử**: chọn học sinh → timeline theo buổi (ngày, khung giờ, tên bài, nội dung, đính kèm).
+  - Đính kèm: nhập link ảnh/video (URL), hiển thị ảnh thu nhỏ / nút mở link.
+
+## 7. Trang mới: Tài chính (Thu – Chi)
+- Bảng `expense_categories` (danh mục chi cố định: Lương giáo viên, Mặt bằng, Điện, Nước, Thuế… kèm số tiền mặc định, bật/tắt).
+- Bảng `finance_entries`: `month`, `kind` ('thu' | 'chi'), `category`, `amount`, `note`.
+- Thu = học phí đã đóng trong tháng (từ `tuition_payments`) + khoản thu khác nhập tay.
+- Chi = các danh mục cố định (tự sinh cho tháng đang xem theo số tiền mặc định, cho sửa) + khoản chi khác.
+- Hiển thị: Tổng thu / Tổng chi / **Lợi nhuận**, bảng chi tiết, chọn tháng bất kỳ để xem lại; tab **theo năm** tổng hợp 12 tháng kèm biểu đồ cột thu–chi–lợi nhuận.
+
+## 8. Nút "Xuất dữ liệu" ở tất cả các trang
+- Xuất **Excel (.xlsx)** cho dữ liệu bảng: Học sinh, Điểm danh (theo ngày & theo học sinh), Học phí, Tài chính, Nhật ký học tập.
+- Xuất thêm **PDF** cho các trang có bố cục: Thời khóa biểu tuần, Nhật ký học tập, báo cáo Tài chính tháng/năm.
+- Tên file có ngày/tháng, tiếng Việt có dấu hiển thị đúng.
 
 ## Chi tiết kỹ thuật
-- Sinh danh sách buổi: lặp ngày từ `start_date` đến ngày kết thúc thực tế (`end_date + reserve_days`), với mỗi ngày dùng `slotsPerDayMap` để biết số buổi và bung theo `schedule_slots` cùng thứ để lấy khung giờ.
-- Map với `attendance` theo `date` (nếu có nhiều buổi/ngày, key = `date + slot_index` — nhưng bảng `attendance` hiện chỉ unique theo `(student_id, date)`; giữ nguyên: gộp các slot cùng ngày thành 1 dòng nếu chỉ có 1 ca, hoặc hiển thị 2 dòng cùng ngày với chung 1 trạng thái từ bản ghi ngày đó).
-- Query cache key `["attendance-by-student", studentId]`, invalidate sau mỗi mutation.
+- Migration mới: `learning_logs`, `expense_categories`, `finance_entries` (GRANT chỉ `service_role`, RLS bật, không mở anon/authenticated — đồng bộ với mô hình hiện tại truy cập qua server functions).
+- Server functions mới: `src/lib/learning.functions.ts`, `src/lib/finance.functions.ts`; dùng `supabaseAdmin` như các file hiện có.
+- Component mới: `src/components/tabs/LearningTab.tsx`, `src/components/tabs/FinanceTab.tsx`.
+- Xuất file client-side: thêm `xlsx` (SheetJS) và `jspdf` + `jspdf-autotable` (nhúng font Unicode để hiển thị tiếng Việt); gom vào helper `src/lib/export.ts`.
+- Học phí dự kiến: dùng `addScheduledDays(end_date, slots, reserve_days)` sẵn có để lấy NKT thực tế và so với tháng đang xem.

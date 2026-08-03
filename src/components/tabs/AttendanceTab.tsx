@@ -183,11 +183,12 @@ function ByDateView() {
 }
 
 function AttendanceRow({
-  student, slot, rec, onChange,
+  student, slot, rec, onChange, presentAllowed = true,
 }: {
   student: Student;
   slot?: ScheduleSlot;
   rec?: { status: AttendanceStatus; note: string | null; makeup_date: string | null };
+  presentAllowed?: boolean;
   onChange: (status: AttendanceStatus, extra: { note?: string | null; makeup_date?: string | null }) => void;
 }) {
   const [note, setNote] = useState(rec?.note ?? "");

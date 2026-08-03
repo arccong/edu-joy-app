@@ -176,7 +176,7 @@ export function StudentsTab() {
                     {show("class") && <TableHead>Lớp</TableHead>}
                     {show("tuition") && <TableHead>Học phí</TableHead>}
                     {show("schedule") && <TableHead>Lịch học (giờ)</TableHead>}
-                    {show("perDay") && <TableHead className="text-center">Ca/ngày</TableHead>}
+                    
                     {show("total") && <TableHead className="text-center">Tổng buổi</TableHead>}
                     {show("remain") && <TableHead className="text-center">Buổi còn lại</TableHead>}
                     {show("reserve") && <TableHead className="text-center">Bảo lưu</TableHead>}

@@ -104,7 +104,7 @@ export function TuitionTab() {
 
           <div className="mb-4 rounded-lg border bg-muted/30 p-3">
             <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <SummaryBox label="Học sinh đang học" value={collection.scope.length} suffix="" />
+              <SummaryBox label="Đến kỳ đóng" value={collection.scope.length} suffix="" />
               <SummaryBox label="Đã đóng" value={collection.paid.length} suffix={`/${collection.scope.length}`} tone="success" />
               <SummaryBox label="Chưa đóng" value={collection.unpaid.length} suffix={`/${collection.scope.length}`} tone="warning" />
               <SummaryBox label="Thu / Dự kiến" value={collection.collected} suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`} isMoney />

@@ -217,7 +217,7 @@ export function StudentsTab() {
                             </div>
                           </TableCell>
                         )}
-                        {show("perDay") && <TableCell className="text-center">{s.sessions_per_day ?? 1}</TableCell>}
+                        
                         {show("total") && <TableCell className="text-center">{s.total_sessions ?? "—"}</TableCell>}
                         {show("remain") && (
                           <TableCell className="text-center">

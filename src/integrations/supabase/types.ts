@@ -82,6 +82,119 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_amount: number
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_amount?: number
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_amount?: number
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_entries: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          id: string
+          is_fixed: boolean
+          kind: string
+          month: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category: string
+          created_at?: string
+          id?: string
+          is_fixed?: boolean
+          kind: string
+          month: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          id?: string
+          is_fixed?: boolean
+          kind?: string
+          month?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learning_logs: {
+        Row: {
+          attachments: Json
+          class_type: Database["public"]["Enums"]["class_type"]
+          content: string | null
+          created_at: string
+          date: string
+          id: string
+          is_class_wide: boolean
+          student_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json
+          class_type: Database["public"]["Enums"]["class_type"]
+          content?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          is_class_wide?: boolean
+          student_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json
+          class_type?: Database["public"]["Enums"]["class_type"]
+          content?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          is_class_wide?: boolean
+          student_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           age: number

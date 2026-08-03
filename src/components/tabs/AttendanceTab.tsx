@@ -157,12 +157,20 @@ function ByDateView() {
             {scheduled.map((s) => {
               const rec = attMap.get(s.id);
               const slot = (s.schedule_slots ?? []).find((sl: ScheduleSlot) => sl.day === dow);
+              const now = new Date();
+              const todayISO = toLocalISO(now);
+              let presentAllowed = date < todayISO;
+              if (date === todayISO && slot) {
+                const [sh, sm] = slot.start.split(":").map(Number);
+                presentAllowed = now.getHours() * 60 + now.getMinutes() >= sh * 60 + sm - 20;
+              }
               return (
                 <AttendanceRow
                   key={s.id}
                   student={s}
                   slot={slot}
                   rec={rec}
+                  presentAllowed={presentAllowed}
                   onChange={(status, extra) => mut.mutate({ student_id: s.id, status, ...extra })}
                 />
               );

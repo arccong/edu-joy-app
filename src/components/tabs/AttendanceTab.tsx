@@ -112,7 +112,7 @@ function ByDateView() {
       const slot = (s.schedule_slots ?? []).find((sl) => sl.day === dow);
       if (!slot) return false;
       const [sh, sm] = slot.start.split(":").map(Number);
-      return nowMinutes >= sh * 60 + sm; // chỉ tự điểm danh sau khi tới giờ học
+      return nowMinutes >= sh * 60 + sm - 20; // cho phép từ 20 phút trước giờ học
     });
     if (missing.length === 0) return;
     (async () => {

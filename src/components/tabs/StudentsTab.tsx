@@ -33,7 +33,6 @@ const ALL_COLS = [
   { key: "tuition", label: "Học phí" },
   { key: "schedule", label: "Lịch học (giờ)" },
   { key: "total", label: "Tổng buổi" },
-  { key: "total", label: "Tổng buổi" },
   { key: "remain", label: "Buổi còn lại" },
   { key: "reserve", label: "Bảo lưu" },
   { key: "term", label: "Kỳ học" },

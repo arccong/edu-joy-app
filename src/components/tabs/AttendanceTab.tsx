@@ -218,17 +218,22 @@ function AttendanceRow({
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {opts.map((o) => (
-            <Button
-              key={o.v}
-              size="sm"
-              variant={current === o.v ? "default" : "outline"}
-              className={current === o.v ? o.cls : ""}
-              onClick={() => onChange(o.v, o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null })}
-            >
-              {o.v}
-            </Button>
-          ))}
+          {opts.map((o) => {
+            const blocked = o.v === "Đi học" && !presentAllowed;
+            return (
+              <Button
+                key={o.v}
+                size="sm"
+                variant={current === o.v ? "default" : "outline"}
+                className={current === o.v ? o.cls : ""}
+                disabled={blocked}
+                title={blocked ? "Chỉ được điểm danh 'Đi học' từ 20 phút trước giờ học" : undefined}
+                onClick={() => onChange(o.v, o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null })}
+              >
+                {o.v}
+              </Button>
+            );
+          })}
         </div>
       </div>
       {current === "Nghỉ có phép" && (

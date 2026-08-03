@@ -112,7 +112,7 @@ function ByDateView() {
       const slot = (s.schedule_slots ?? []).find((sl) => sl.day === dow);
       if (!slot) return false;
       const [sh, sm] = slot.start.split(":").map(Number);
-      return nowMinutes >= sh * 60 + sm; // chỉ tự điểm danh sau khi tới giờ học
+      return nowMinutes >= sh * 60 + sm - 20; // cho phép từ 20 phút trước giờ học
     });
     if (missing.length === 0) return;
     (async () => {
@@ -157,12 +157,20 @@ function ByDateView() {
             {scheduled.map((s) => {
               const rec = attMap.get(s.id);
               const slot = (s.schedule_slots ?? []).find((sl: ScheduleSlot) => sl.day === dow);
+              const now = new Date();
+              const todayISO = toLocalISO(now);
+              let presentAllowed = date < todayISO;
+              if (date === todayISO && slot) {
+                const [sh, sm] = slot.start.split(":").map(Number);
+                presentAllowed = now.getHours() * 60 + now.getMinutes() >= sh * 60 + sm - 20;
+              }
               return (
                 <AttendanceRow
                   key={s.id}
                   student={s}
                   slot={slot}
                   rec={rec}
+                  presentAllowed={presentAllowed}
                   onChange={(status, extra) => mut.mutate({ student_id: s.id, status, ...extra })}
                 />
               );
@@ -175,11 +183,12 @@ function ByDateView() {
 }
 
 function AttendanceRow({
-  student, slot, rec, onChange,
+  student, slot, rec, onChange, presentAllowed = true,
 }: {
   student: Student;
   slot?: ScheduleSlot;
   rec?: { status: AttendanceStatus; note: string | null; makeup_date: string | null };
+  presentAllowed?: boolean;
   onChange: (status: AttendanceStatus, extra: { note?: string | null; makeup_date?: string | null }) => void;
 }) {
   const [note, setNote] = useState(rec?.note ?? "");
@@ -209,17 +218,22 @@ function AttendanceRow({
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {opts.map((o) => (
-            <Button
-              key={o.v}
-              size="sm"
-              variant={current === o.v ? "default" : "outline"}
-              className={current === o.v ? o.cls : ""}
-              onClick={() => onChange(o.v, o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null })}
-            >
-              {o.v}
-            </Button>
-          ))}
+          {opts.map((o) => {
+            const blocked = o.v === "Đi học" && !presentAllowed;
+            return (
+              <Button
+                key={o.v}
+                size="sm"
+                variant={current === o.v ? "default" : "outline"}
+                className={current === o.v ? o.cls : ""}
+                disabled={blocked}
+                title={blocked ? "Chỉ được điểm danh 'Đi học' từ 20 phút trước giờ học" : undefined}
+                onClick={() => onChange(o.v, o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null })}
+              >
+                {o.v}
+              </Button>
+            );
+          })}
         </div>
       </div>
       {current === "Nghỉ có phép" && (

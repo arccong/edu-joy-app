@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, Search, Wallet } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Search, Wallet, Download } from "lucide-react";
+import { exportXlsx } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { CLASSES, fmtDate, fmtMonth, monthKey, toLocalISO, type ClassType, type Student, type TuitionPayment } from "@/lib/shared";
+import { CLASSES, addScheduledDays, fmtDate, fmtMonth, monthKey, toLocalISO, type ClassType, type Student, type TuitionPayment } from "@/lib/shared";
 import { listStudents } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
 
@@ -53,16 +54,16 @@ export function TuitionTab() {
     return { total, byClass };
   }, [inMonth, cls, stuMap]);
 
-  // Thống kê: học sinh đang học trong tháng — đã đóng vs chưa đóng
+  // Chỉ tính "dự kiến" cho học sinh ĐẾN KỲ ĐÓNG trong tháng:
+  // - khóa mới bắt đầu trong tháng, HOẶC
+  // - buổi cuối khóa (NKT thực tế) rơi vào tháng → chốt đóng khóa mới
   const collection = useMemo(() => {
-    const monthStart = new Date(monthISO + "T00:00:00");
-    const monthEnd = new Date(monthStart); monthEnd.setMonth(monthEnd.getMonth() + 1); monthEnd.setDate(0);
     const scope = students.filter((s) => {
       if (cls !== "Tất cả" && s.class_type !== cls) return false;
-      if (s.status === "Kết thúc") return false;
-      const st = new Date(s.start_date + "T00:00:00");
-      const en = new Date(s.end_date + "T00:00:00");
-      return st <= monthEnd && en >= monthStart;
+      const startsThisMonth = s.start_date.slice(0, 7) === month;
+      const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
+      const endsThisMonth = actualEnd.slice(0, 7) === month;
+      return startsThisMonth || (endsThisMonth && s.status !== "Kết thúc");
     });
     const paidIds = new Set(inMonth.map((p) => p.student_id));
     const paid = scope.filter((s) => paidIds.has(s.id));
@@ -72,7 +73,7 @@ export function TuitionTab() {
       .filter((p) => cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls)
       .reduce((a, b) => a + Number(b.amount), 0);
     return { scope, paid, unpaid, expected, collected };
-  }, [students, inMonth, cls, stuMap, monthISO]);
+  }, [students, inMonth, cls, stuMap, month]);
 
   return (
     <div className="space-y-6">
@@ -91,6 +92,20 @@ export function TuitionTab() {
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => {
+              if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
+              exportXlsx(`hoc-phi-${month}`, [{
+                name: "Học phí",
+                rows: [
+                  ["Học sinh", "Lớp", "Tháng", "Kỳ", "Số tiền", "Ngày đóng", "Ghi chú"],
+                  ...filtered.map((p) => {
+                    const s = stuMap.get(p.student_id)!;
+                    return [s.name, s.class_type, p.month.slice(0, 7), p.ky_index, Number(p.amount), fmtDate(p.paid_date), p.note ?? ""];
+                  }),
+                ],
+              }]);
+              toast.success("Đã xuất dữ liệu học phí");
+            }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <PaymentDialog students={students} defaultMonth={monthISO} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhận</Button>} />
           </div>
         </CardHeader>
@@ -104,7 +119,7 @@ export function TuitionTab() {
 
           <div className="mb-4 rounded-lg border bg-muted/30 p-3">
             <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <SummaryBox label="Học sinh đang học" value={collection.scope.length} suffix="" />
+              <SummaryBox label="Đến kỳ đóng" value={collection.scope.length} suffix="" />
               <SummaryBox label="Đã đóng" value={collection.paid.length} suffix={`/${collection.scope.length}`} tone="success" />
               <SummaryBox label="Chưa đóng" value={collection.unpaid.length} suffix={`/${collection.scope.length}`} tone="warning" />
               <SummaryBox label="Thu / Dự kiến" value={collection.collected} suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`} isMoney />

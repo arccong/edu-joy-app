@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
+import { exportXlsx } from "@/lib/export";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +33,6 @@ const ALL_COLS = [
   { key: "class", label: "Lớp" },
   { key: "tuition", label: "Học phí" },
   { key: "schedule", label: "Lịch học (giờ)" },
-  { key: "perDay", label: "Ca/ngày" },
   { key: "total", label: "Tổng buổi" },
   { key: "remain", label: "Buổi còn lại" },
   { key: "reserve", label: "Bảo lưu" },
@@ -158,6 +158,25 @@ export function StudentsTab() {
                 {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={() => {
+              if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
+              exportXlsx("danh-sach-hoc-sinh", [{
+                name: "Học sinh",
+                rows: [
+                  ["Họ tên", "Tên khóa", "Tuổi", "Lớp", "Học phí", "Lịch học", "Tổng buổi", "Bảo lưu", "Bắt đầu", "Kết thúc", "NKT thực tế", "Trạng thái"],
+                  ...(filtered as Student[]).map((s) => {
+                    const reserved = reservedByStudent.get(s.id) ?? 0;
+                    return [
+                      s.name, `${coursePrefix(s.class_type)}${s.course_index ?? 1}`, s.age, s.class_type, Number(s.tuition),
+                      (s.schedule_slots ?? []).map((sl) => `${DAYS_SHORT[sl.day]} ${sl.start}-${sl.end}`).join(", "),
+                      s.total_sessions ?? 0, reserved, fmtDate(s.start_date), fmtDate(s.end_date),
+                      fmtDate(addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved)), s.status,
+                    ];
+                  }),
+                ],
+              }]);
+              toast.success("Đã xuất danh sách học sinh");
+            }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Học sinh mới</Button>} />
           </div>
         </CardHeader>
@@ -177,7 +196,7 @@ export function StudentsTab() {
                     {show("class") && <TableHead>Lớp</TableHead>}
                     {show("tuition") && <TableHead>Học phí</TableHead>}
                     {show("schedule") && <TableHead>Lịch học (giờ)</TableHead>}
-                    {show("perDay") && <TableHead className="text-center">Ca/ngày</TableHead>}
+                    
                     {show("total") && <TableHead className="text-center">Tổng buổi</TableHead>}
                     {show("remain") && <TableHead className="text-center">Buổi còn lại</TableHead>}
                     {show("reserve") && <TableHead className="text-center">Bảo lưu</TableHead>}
@@ -218,7 +237,7 @@ export function StudentsTab() {
                             </div>
                           </TableCell>
                         )}
-                        {show("perDay") && <TableCell className="text-center">{s.sessions_per_day ?? 1}</TableCell>}
+                        
                         {show("total") && <TableCell className="text-center">{s.total_sessions ?? "—"}</TableCell>}
                         {show("remain") && (
                           <TableCell className="text-center">

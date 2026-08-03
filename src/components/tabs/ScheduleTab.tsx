@@ -226,10 +226,9 @@ export function ScheduleTab() {
                           return (
                             <td key={dow} className="border p-1 align-top">
                               <div className="space-y-1">
-                                {cellStudents.map(({ s, slot, dim }, idx) => (
+                                {cellStudents.map(({ s, dim }, idx) => (
                                   <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
                                     <div className="font-medium">{s.name}</div>
-                                    <div className="text-[10px] text-muted-foreground">{slot.start}–{slot.end}</div>
                                   </div>
                                 ))}
                               </div>

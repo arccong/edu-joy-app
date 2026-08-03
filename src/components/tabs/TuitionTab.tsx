@@ -53,16 +53,16 @@ export function TuitionTab() {
     return { total, byClass };
   }, [inMonth, cls, stuMap]);
 
-  // Thống kê: học sinh đang học trong tháng — đã đóng vs chưa đóng
+  // Chỉ tính "dự kiến" cho học sinh ĐẾN KỲ ĐÓNG trong tháng:
+  // - khóa mới bắt đầu trong tháng, HOẶC
+  // - buổi cuối khóa (NKT thực tế) rơi vào tháng → chốt đóng khóa mới
   const collection = useMemo(() => {
-    const monthStart = new Date(monthISO + "T00:00:00");
-    const monthEnd = new Date(monthStart); monthEnd.setMonth(monthEnd.getMonth() + 1); monthEnd.setDate(0);
     const scope = students.filter((s) => {
       if (cls !== "Tất cả" && s.class_type !== cls) return false;
-      if (s.status === "Kết thúc") return false;
-      const st = new Date(s.start_date + "T00:00:00");
-      const en = new Date(s.end_date + "T00:00:00");
-      return st <= monthEnd && en >= monthStart;
+      const startsThisMonth = s.start_date.slice(0, 7) === month;
+      const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
+      const endsThisMonth = actualEnd.slice(0, 7) === month;
+      return startsThisMonth || (endsThisMonth && s.status !== "Kết thúc");
     });
     const paidIds = new Set(inMonth.map((p) => p.student_id));
     const paid = scope.filter((s) => paidIds.has(s.id));
@@ -72,7 +72,7 @@ export function TuitionTab() {
       .filter((p) => cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls)
       .reduce((a, b) => a + Number(b.amount), 0);
     return { scope, paid, unpaid, expected, collected };
-  }, [students, inMonth, cls, stuMap, monthISO]);
+  }, [students, inMonth, cls, stuMap, month]);
 
   return (
     <div className="space-y-6">

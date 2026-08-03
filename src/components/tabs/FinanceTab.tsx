@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui-bits";
-import { fmtDate, fmtMonth, formatMoney, parseMoney, type TuitionPayment } from "@/lib/shared";
+import { fmtMonth, formatMoney, parseMoney, type TuitionPayment } from "@/lib/shared";
 import { listPayments } from "@/lib/tuition.functions";
 import { deleteFinanceEntry, listExpenseCategories, listFinanceEntries, upsertFinanceEntry } from "@/lib/finance.functions";
 import { exportXlsx } from "@/lib/export";

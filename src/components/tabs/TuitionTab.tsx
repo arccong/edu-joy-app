@@ -91,6 +91,20 @@ export function TuitionTab() {
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => {
+              if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
+              exportXlsx(`hoc-phi-${month}`, [{
+                name: "Học phí",
+                rows: [
+                  ["Học sinh", "Lớp", "Tháng", "Kỳ", "Số tiền", "Ngày đóng", "Ghi chú"],
+                  ...filtered.map((p) => {
+                    const s = stuMap.get(p.student_id)!;
+                    return [s.name, s.class_type, p.month.slice(0, 7), p.ky_index, Number(p.amount), fmtDate(p.paid_date), p.note ?? ""];
+                  }),
+                ],
+              }]);
+              toast.success("Đã xuất dữ liệu học phí");
+            }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <PaymentDialog students={students} defaultMonth={monthISO} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhận</Button>} />
           </div>
         </CardHeader>

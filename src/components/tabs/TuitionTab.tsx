@@ -84,9 +84,10 @@ export function TuitionTab() {
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[160px]" />
+            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[185px] pr-2" />
             <Select value={cls} onValueChange={(v) => setCls(v as any)}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
+
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}

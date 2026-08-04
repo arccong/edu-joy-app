@@ -116,34 +116,55 @@ export type Database = {
         Row: {
           amount: number
           category: string
+          class_type: string | null
+          course_label: string | null
           created_at: string
           id: string
+          income_type: string | null
           is_fixed: boolean
           kind: string
           month: string
           note: string | null
+          paid_date: string | null
+          student_name: string | null
+          term_end: string | null
+          term_start: string | null
           updated_at: string
         }
         Insert: {
           amount?: number
           category: string
+          class_type?: string | null
+          course_label?: string | null
           created_at?: string
           id?: string
+          income_type?: string | null
           is_fixed?: boolean
           kind: string
           month: string
           note?: string | null
+          paid_date?: string | null
+          student_name?: string | null
+          term_end?: string | null
+          term_start?: string | null
           updated_at?: string
         }
         Update: {
           amount?: number
           category?: string
+          class_type?: string | null
+          course_label?: string | null
           created_at?: string
           id?: string
+          income_type?: string | null
           is_fixed?: boolean
           kind?: string
           month?: string
           note?: string | null
+          paid_date?: string | null
+          student_name?: string | null
+          term_end?: string | null
+          term_start?: string | null
           updated_at?: string
         }
         Relationships: []

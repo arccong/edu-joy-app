@@ -19,6 +19,8 @@ import {
   coursePrefix,
   fmtDate,
   formatMoney,
+  slotsPerDayMap,
+
   type ClassType,
   type Student,
   type StudentStatus,
@@ -75,17 +77,30 @@ export function StudentsTab() {
     queryFn: () => fetchAttRange({ data: { from: fromISO, to: toISO } }) as any,
   });
 
+  // 1 giờ học = 1 buổi → quy đổi mỗi ngày điểm danh theo số giờ của các ca trong thứ đó
+  const sessionsOnDate = (s: Student | undefined, dateISO: string) => {
+    if (!s) return 1;
+    const dow = new Date(dateISO + "T00:00:00").getDay();
+    const n = slotsPerDayMap(s.schedule_slots ?? []).get(dow) ?? 0;
+    return n > 0 ? n : 1;
+  };
+
+  const studentById = useMemo(() => new Map((students as Student[]).map((s) => [s.id, s])), [students]);
+
   const attendedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows) if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
+    for (const r of attendedRows)
+      if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
     return m;
-  }, [attendedRows]);
+  }, [attendedRows, studentById]);
 
   const reservedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows) if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
+    for (const r of attendedRows)
+      if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
     return m;
-  }, [attendedRows]);
+  }, [attendedRows, studentById]);
+
 
   const filtered = useMemo(() => {
     let list = students as Student[];
@@ -145,14 +160,14 @@ export function StudentsTab() {
               </PopoverContent>
             </Popover>
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[175px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
                 {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}

@@ -37,13 +37,31 @@ const EntryInput = z.object({
   amount: z.number().min(0),
   note: z.string().max(500).nullable().optional(),
   is_fixed: z.boolean().default(false),
+  class_type: z.string().max(20).nullable().optional(),
+  income_type: z.enum(["hoc_phi", "khac"]).nullable().optional(),
+  student_name: z.string().max(120).nullable().optional(),
+  course_label: z.string().max(30).nullable().optional(),
+  term_start: z.string().nullable().optional(),
+  term_end: z.string().nullable().optional(),
+  paid_date: z.string().nullable().optional(),
 });
 
 export const upsertFinanceEntry = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => EntryInput.parse(d))
   .handler(async ({ data }) => {
     const sb = await admin();
-    const payload = { ...data, month: normalizeMonth(data.month), note: data.note ?? null };
+    const payload = {
+      ...data,
+      month: normalizeMonth(data.month),
+      note: data.note ?? null,
+      class_type: data.class_type ?? null,
+      income_type: data.income_type ?? null,
+      student_name: data.student_name ?? null,
+      course_label: data.course_label ?? null,
+      term_start: data.term_start || null,
+      term_end: data.term_end || null,
+      paid_date: data.paid_date || null,
+    };
     if (data.id) {
       const { error } = await (sb as any).from("finance_entries").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);

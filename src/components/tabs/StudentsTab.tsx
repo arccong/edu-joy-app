@@ -75,17 +75,30 @@ export function StudentsTab() {
     queryFn: () => fetchAttRange({ data: { from: fromISO, to: toISO } }) as any,
   });
 
+  // 1 giờ học = 1 buổi → quy đổi mỗi ngày điểm danh theo số giờ của các ca trong thứ đó
+  const sessionsOnDate = (s: Student | undefined, dateISO: string) => {
+    if (!s) return 1;
+    const dow = new Date(dateISO + "T00:00:00").getDay();
+    const n = slotsPerDayMap(s.schedule_slots ?? []).get(dow) ?? 0;
+    return n > 0 ? n : 1;
+  };
+
+  const studentById = useMemo(() => new Map((students as Student[]).map((s) => [s.id, s])), [students]);
+
   const attendedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows) if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
+    for (const r of attendedRows)
+      if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
     return m;
-  }, [attendedRows]);
+  }, [attendedRows, studentById]);
 
   const reservedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows) if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + 1);
+    for (const r of attendedRows)
+      if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
     return m;
-  }, [attendedRows]);
+  }, [attendedRows, studentById]);
+
 
   const filtered = useMemo(() => {
     let list = students as Student[];

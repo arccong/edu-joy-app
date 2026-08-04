@@ -19,6 +19,8 @@ import {
   coursePrefix,
   fmtDate,
   formatMoney,
+  slotsPerDayMap,
+
   type ClassType,
   type Student,
   type StudentStatus,

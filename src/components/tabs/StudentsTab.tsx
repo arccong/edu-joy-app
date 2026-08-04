@@ -167,7 +167,7 @@ export function StudentsTab() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[175px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
                 {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}

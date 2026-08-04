@@ -160,7 +160,7 @@ export function StudentsTab() {
               </PopoverContent>
             </Popover>
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}

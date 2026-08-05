@@ -327,7 +327,9 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
           <TableHead>Tháng</TableHead>
           <TableHead>Lớp</TableHead>
           <TableHead>Khoản mục</TableHead>
-          <TableHead className="text-right">Số tiền</TableHead>
+          <TableHead className="text-right">Đơn giá</TableHead>
+          <TableHead className="text-center">SL</TableHead>
+          <TableHead className="text-right">Thành tiền</TableHead>
           <TableHead>Ghi chú</TableHead>
           <TableHead className="text-right">Thao tác</TableHead>
         </TableRow></TableHeader>
@@ -337,7 +339,10 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
               <TableCell>{e.month.slice(0, 7)}</TableCell>
               <TableCell>{e.class_type ?? "Chung"}</TableCell>
               <TableCell className="font-medium">{e.category}{e.is_fixed && <span className="ml-1 rounded bg-muted px-1 text-[10px]">cố định</span>}</TableCell>
+              <TableCell className="text-right">{formatMoney(Number(e.unit_amount || e.amount))}đ</TableCell>
+              <TableCell className="text-center">{e.quantity ?? 1}</TableCell>
               <TableCell className="text-right font-semibold">{formatMoney(Number(e.amount))}đ</TableCell>
+
               <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">{e.note}</TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex gap-1">

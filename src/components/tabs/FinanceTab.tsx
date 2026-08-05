@@ -234,8 +234,9 @@ export function FinanceTab() {
 
           <div>
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu học phí</h3>
-            {paidRows.length === 0 && tuitionEntries.length === 0 ? (
+            {paidRows.length === 0 && tuitionEntries.length === 0 && autoTuitionRows.length === 0 ? (
               <EmptyState text="Chưa có khoản thu học phí trong kỳ này." />
+
             ) : (
               <div className="-mx-4 overflow-x-auto sm:mx-0">
                 <Table>
@@ -263,6 +264,18 @@ export function FinanceTab() {
                         </TableRow>
                       );
                     })}
+                    {autoTuitionRows.map((s) => (
+                      <TableRow key={`auto-${s.id}`}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell>{s.class_type}</TableCell>
+                        <TableCell>{coursePrefix(s.class_type)}{s.course_index ?? 1}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{fmtDate(s.start_date)} → {fmtDate(s.end_date)}</TableCell>
+                        <TableCell>{fmtDate(s.start_date)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatMoney(Number(s.tuition))}đ</TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">Tự động từ danh sách học sinh</TableCell>
+                      </TableRow>
+                    ))}
+
                     {tuitionEntries.map((e) => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.student_name ?? e.category}</TableCell>
@@ -288,10 +301,13 @@ export function FinanceTab() {
             )}
           </div>
 
-          <div>
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu khác</h3>
-            {otherEntries.length === 0 ? <EmptyState text="Chưa có khoản thu khác." /> : <EntryTable rows={otherEntries} cats={cats} students={students} />}
-          </div>
+          {otherEntries.length > 0 && (
+            <div>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu khác</h3>
+              <EntryTable rows={otherEntries} cats={cats} students={students} />
+            </div>
+          )}
+
 
           <div>
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingDown className="h-4 w-4 text-destructive" />Khoản chi</h3>

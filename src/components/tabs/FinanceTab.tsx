@@ -589,10 +589,25 @@ function EntryDialog({
             </>
           )}
 
-          <div className="grid gap-1">
-            <Label>Số tiền (VNĐ)</Label>
-            <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
-          </div>
+          {formKind === "hoc_phi" ? (
+            <div className="grid gap-1">
+              <Label>Số tiền (VNĐ)</Label>
+              <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-[1fr_100px] gap-3">
+              <div className="grid gap-1">
+                <Label>Đơn giá (VNĐ)</Label>
+                <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
+              </div>
+              <div className="grid gap-1">
+                <Label>Số lượng</Label>
+                <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} />
+              </div>
+              <p className="col-span-2 text-xs text-muted-foreground">Thành tiền: <span className="font-semibold">{formatMoney(parseMoney(amountStr) * Math.max(1, qty))}đ</span></p>
+            </div>
+          )}
+
           {formKind === "chi" && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isFixed} onChange={(e) => setIsFixed(e.target.checked)} />

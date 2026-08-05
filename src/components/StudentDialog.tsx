@@ -213,9 +213,9 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Đang học">Đang học</SelectItem>
-                  <SelectItem value="Nghỉ phép">Nghỉ phép</SelectItem>
                   <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
-                  <SelectItem value="Kết thúc">Kết thúc</SelectItem>
+                  <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
+
                 </SelectContent>
               </Select>
             </div>

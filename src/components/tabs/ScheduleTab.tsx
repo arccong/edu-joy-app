@@ -1,14 +1,17 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
-import { CalendarDays, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Loader2, PauseCircle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   CLASSES,
   DAYS_ORDER,
@@ -17,12 +20,14 @@ import {
   fmtDate,
   startOfWeek,
   toLocalISO,
+  slotsPerDayMap,
   type AttendanceRow,
   type ClassType,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
-import { listAttendanceRange, listStudents } from "@/lib/students.functions";
+import { listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+
 
 type TimeRow = { label: string; start: string; end: string; ca: "sang" | "chieu" };
 

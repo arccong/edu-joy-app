@@ -396,7 +396,9 @@ function EntryDialog({
   const [mode, setMode] = useState<"tiep_theo" | "moi">("tiep_theo");
   const [month, setMonth] = useState(existing?.month.slice(0, 7) ?? defaultMonth);
   const [category, setCategory] = useState(existing?.category ?? "");
-  const [amountStr, setAmountStr] = useState(existing ? formatMoney(Number(existing.amount)) : "");
+  const [amountStr, setAmountStr] = useState(existing ? formatMoney(Number(existing.unit_amount || existing.amount)) : "");
+  const [qty, setQty] = useState<number>(existing?.quantity ?? 1);
+
   const [note, setNote] = useState(existing?.note ?? "");
   const [isFixed, setIsFixed] = useState(existing?.is_fixed ?? false);
   const [classType, setClassType] = useState<string>(existing?.class_type ?? defaultClass ?? "Chung");

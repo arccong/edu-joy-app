@@ -105,7 +105,7 @@ export function FinanceTab() {
       if (thu || chi) rows.push({ m: key, thu, chi });
     }
     return rows;
-  }, [view, year, payments, entries, cls, stuMap]);
+  }, [view, year, payments, entries, cls, stuMap, students]);
 
   const doExport = () => {
     const label = view === "month" ? fmtMonth(month + "-01") : `Năm ${year}`;
@@ -133,11 +133,16 @@ export function FinanceTab() {
               s ? `${fmtDate(s.start_date)} → ${fmtDate(s.end_date)}` : "", fmtDate(p.paid_date), Number(p.amount),
             ];
           }),
+          ...autoTuitionRows.map((s) => [
+            s.name, s.class_type, `${coursePrefix(s.class_type)}${s.course_index ?? 1}`,
+            `${fmtDate(s.start_date)} → ${fmtDate(s.end_date)}`, fmtDate(s.start_date), Number(s.tuition),
+          ]),
           ...tuitionEntries.map((e) => [
             e.student_name ?? e.category, e.class_type ?? "", e.course_label ?? "",
             e.term_start && e.term_end ? `${fmtDate(e.term_start)} → ${fmtDate(e.term_end)}` : "",
             e.paid_date ? fmtDate(e.paid_date) : "", Number(e.amount),
           ]),
+
         ],
       },
       {

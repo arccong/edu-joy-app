@@ -1,10 +1,32 @@
 export type ClassType = "Piano" | "Múa" | "Vẽ";
-export type StudentStatus = "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc";
+export type StudentStatus = "Đang học" | "Bảo lưu" | "Hoàn thành";
 export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép" | "Bảo lưu";
+
+export const STUDENT_STATUSES: StudentStatus[] = ["Đang học", "Bảo lưu", "Hoàn thành"];
+
+/** Trạng thái hiển thị: hết buổi trong khóa → Hoàn thành */
+export function effectiveStatus(status: StudentStatus, remain: number): StudentStatus {
+  if (status === "Đang học" && remain <= 0) return "Hoàn thành";
+  return status;
+}
+
+/** Ngày học kế tiếp (theo lịch học) sau ngày cho trước */
+export function nextScheduledDate(afterISO: string, slots: ScheduleSlot[]): string {
+  if (!afterISO || slots.length === 0) return afterISO;
+  const days = new Set(slots.map((s) => s.day));
+  const cursor = new Date(afterISO + "T00:00:00");
+  if (isNaN(cursor.getTime())) return afterISO;
+  for (let i = 0; i < 60; i++) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (days.has(cursor.getDay())) return toLocalISO(cursor);
+  }
+  return afterISO;
+}
 
 export function coursePrefix(c: ClassType): "P" | "M" | "V" {
   return c === "Piano" ? "P" : c === "Múa" ? "M" : "V";
 }
+
 
 /** Cộng thêm N buổi (theo lịch học) vào ngày end_date để lấy ngày kết thúc thực tế */
 export function addScheduledDays(endISO: string, slots: ScheduleSlot[], extraSessions: number): string {

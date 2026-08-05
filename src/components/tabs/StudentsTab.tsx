@@ -17,9 +17,13 @@ import {
   DAYS_SHORT,
   addScheduledDays,
   coursePrefix,
+  effectiveStatus,
   fmtDate,
   formatMoney,
+  nextScheduledDate,
+  computeEndDate,
   slotsPerDayMap,
+
 
   type ClassType,
   type Student,

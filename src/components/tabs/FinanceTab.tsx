@@ -361,7 +361,7 @@ function EntryDialog({
   const [paidDate, setPaidDate] = useState(existing?.paid_date ?? "");
 
   const classStudents = useMemo(
-    () => students.filter((s) => (classType === "Chung" ? true : s.class_type === classType) && s.status !== "Kết thúc"),
+    () => students.filter((s) => (classType === "Chung" ? true : s.class_type === classType) && s.status !== "Hoàn thành"),
     [students, classType],
   );
 

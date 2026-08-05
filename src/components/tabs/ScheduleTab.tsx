@@ -136,6 +136,7 @@ export function ScheduleTab() {
   };
 
   return (
+    <div className="space-y-6">
     <Card className="shadow-card">
       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -144,6 +145,7 @@ export function ScheduleTab() {
             Từ {fmtDate(fromISO)} đến {fmtDate(toISO)}
           </CardDescription>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, -7))}><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>

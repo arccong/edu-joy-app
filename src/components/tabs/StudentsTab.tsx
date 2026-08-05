@@ -212,7 +212,7 @@ export function StudentsTab() {
                       s.name, `${coursePrefix(s.class_type)}${s.course_index ?? 1}`, s.age, s.class_type, Number(s.tuition),
                       (s.schedule_slots ?? []).map((sl) => `${DAYS_SHORT[sl.day]} ${sl.start}-${sl.end}`).join(", "),
                       s.total_sessions ?? 0, reserved, fmtDate(s.start_date), fmtDate(s.end_date),
-                      fmtDate(addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved)), s.status,
+                      fmtDate(addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved)), statusOf(s),
                     ];
                   }),
                 ],
@@ -298,7 +298,7 @@ export function StudentsTab() {
                             <span className={reserved > 0 ? "font-semibold text-primary" : "text-muted-foreground"}>{fmtDate(actualEnd)}</span>
                           </TableCell>
                         )}
-                        {show("status") && <TableCell>{statusBadge(s.status)}</TableCell>}
+                        {show("status") && <TableCell>{statusBadge(effectiveStatus(s.status, remain))}</TableCell>}
                         {show("actions") && (
                           <TableCell className="text-right">
                             <div className="inline-flex gap-1">
@@ -330,8 +330,9 @@ function NewCourseButton({ student }: { student: Student }) {
       age: student.age,
       class_type: student.class_type,
       tuition: Number(student.tuition),
-      start_date: student.end_date,
-      end_date: student.end_date,
+      start_date: nextStart,
+      end_date: nextEnd,
+
       status: "Đang học",
       reserve_days: 0,
       total_sessions: student.total_sessions,

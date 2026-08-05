@@ -324,6 +324,10 @@ export function StudentsTab() {
 function NewCourseButton({ student }: { student: Student }) {
   const qc = useQueryClient();
   const save = useServerFn(upsertStudent);
+  const slots = student.schedule_slots ?? [];
+  const actualEnd = addScheduledDays(student.end_date, slots, student.reserve_days ?? 0);
+  const nextStart = nextScheduledDate(actualEnd, slots);
+  const nextEnd = computeEndDate(nextStart, slots, student.total_sessions ?? 24) ?? nextStart;
   const mut = useMutation({
     mutationFn: () => save({ data: {
       name: student.name,
@@ -332,17 +336,17 @@ function NewCourseButton({ student }: { student: Student }) {
       tuition: Number(student.tuition),
       start_date: nextStart,
       end_date: nextEnd,
-
       status: "Đang học",
       reserve_days: 0,
       total_sessions: student.total_sessions,
       course_index: (student.course_index ?? 1) + 1,
-      schedule_slots: student.schedule_slots ?? [],
+      schedule_slots: slots,
     } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success(`Đã tạo khóa mới ${coursePrefix(student.class_type)}${(student.course_index ?? 1) + 1} cho ${student.name}. Nhớ cập nhật ngày bắt đầu/kết thúc.`);
+      toast.success(`Đã tạo khóa mới ${coursePrefix(student.class_type)}${(student.course_index ?? 1) + 1} cho ${student.name}: ${fmtDate(nextStart)} → ${fmtDate(nextEnd)}`);
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
   return (

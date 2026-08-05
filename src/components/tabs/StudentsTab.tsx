@@ -17,9 +17,13 @@ import {
   DAYS_SHORT,
   addScheduledDays,
   coursePrefix,
+  effectiveStatus,
   fmtDate,
   formatMoney,
+  nextScheduledDate,
+  computeEndDate,
   slotsPerDayMap,
+
 
   type ClassType,
   type Student,
@@ -46,7 +50,7 @@ const ALL_COLS = [
 type ColKey = typeof ALL_COLS[number]["key"];
 const DEFAULT_COLS: ColKey[] = ALL_COLS.map((c) => c.key);
 
-const STATUS_OPTS: StudentStatus[] = ["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"];
+const STATUS_OPTS: StudentStatus[] = ["Đang học", "Bảo lưu", "Hoàn thành"];
 
 export function StudentsTab() {
   const fetchList = useServerFn(listStudents);
@@ -102,12 +106,35 @@ export function StudentsTab() {
   }, [attendedRows, studentById]);
 
 
+  const remainOf = (s: Student) => Math.max(0, (s.total_sessions ?? 0) - (attendedByStudent.get(s.id) ?? 0));
+  const statusOf = (s: Student) => effectiveStatus(s.status, remainOf(s));
+
+  // Tự động chuyển "Đang học" → "Hoàn thành" khi đã học hết số buổi của khóa
+  const qcAuto = useQueryClient();
+  const saveStudent = useServerFn(upsertStudent);
+  useEffect(() => {
+    const done = (students as Student[]).filter((s) => s.status === "Đang học" && (s.total_sessions ?? 0) > 0 && remainOf(s) === 0);
+    if (done.length === 0) return;
+    (async () => {
+      for (const s of done) {
+        await saveStudent({ data: {
+          id: s.id, name: s.name, age: s.age, class_type: s.class_type, tuition: Number(s.tuition),
+          start_date: s.start_date, end_date: s.end_date, status: "Hoàn thành", reserve_days: s.reserve_days ?? 0,
+          total_sessions: s.total_sessions, course_index: s.course_index ?? 1, schedule_slots: s.schedule_slots ?? [],
+        } as any }).catch(() => {});
+      }
+      qcAuto.invalidateQueries({ queryKey: ["students"] });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, attendedByStudent]);
+
   const filtered = useMemo(() => {
     let list = students as Student[];
     if (filter !== "Tất cả") list = list.filter((s) => s.class_type === filter);
-    if (statusFilter !== "Tất cả") list = list.filter((s) => s.status === statusFilter);
+    if (statusFilter !== "Tất cả") list = list.filter((s) => statusOf(s) === statusFilter);
     return list;
-  }, [students, filter, statusFilter]);
+  }, [students, filter, statusFilter, attendedByStudent]);
+
 
   const stats = useMemo(() => {
     const list = students as Student[];
@@ -185,7 +212,7 @@ export function StudentsTab() {
                       s.name, `${coursePrefix(s.class_type)}${s.course_index ?? 1}`, s.age, s.class_type, Number(s.tuition),
                       (s.schedule_slots ?? []).map((sl) => `${DAYS_SHORT[sl.day]} ${sl.start}-${sl.end}`).join(", "),
                       s.total_sessions ?? 0, reserved, fmtDate(s.start_date), fmtDate(s.end_date),
-                      fmtDate(addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved)), s.status,
+                      fmtDate(addScheduledDays(s.end_date, s.schedule_slots ?? [], reserved)), statusOf(s),
                     ];
                   }),
                 ],
@@ -271,7 +298,7 @@ export function StudentsTab() {
                             <span className={reserved > 0 ? "font-semibold text-primary" : "text-muted-foreground"}>{fmtDate(actualEnd)}</span>
                           </TableCell>
                         )}
-                        {show("status") && <TableCell>{statusBadge(s.status)}</TableCell>}
+                        {show("status") && <TableCell>{statusBadge(effectiveStatus(s.status, remain))}</TableCell>}
                         {show("actions") && (
                           <TableCell className="text-right">
                             <div className="inline-flex gap-1">
@@ -297,24 +324,29 @@ export function StudentsTab() {
 function NewCourseButton({ student }: { student: Student }) {
   const qc = useQueryClient();
   const save = useServerFn(upsertStudent);
+  const slots = student.schedule_slots ?? [];
+  const actualEnd = addScheduledDays(student.end_date, slots, student.reserve_days ?? 0);
+  const nextStart = nextScheduledDate(actualEnd, slots);
+  const nextEnd = computeEndDate(nextStart, slots, student.total_sessions ?? 24) ?? nextStart;
   const mut = useMutation({
     mutationFn: () => save({ data: {
       name: student.name,
       age: student.age,
       class_type: student.class_type,
       tuition: Number(student.tuition),
-      start_date: student.end_date,
-      end_date: student.end_date,
+      start_date: nextStart,
+      end_date: nextEnd,
       status: "Đang học",
       reserve_days: 0,
       total_sessions: student.total_sessions,
       course_index: (student.course_index ?? 1) + 1,
-      schedule_slots: student.schedule_slots ?? [],
+      schedule_slots: slots,
     } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success(`Đã tạo khóa mới ${coursePrefix(student.class_type)}${(student.course_index ?? 1) + 1} cho ${student.name}. Nhớ cập nhật ngày bắt đầu/kết thúc.`);
+      toast.success(`Đã tạo khóa mới ${coursePrefix(student.class_type)}${(student.course_index ?? 1) + 1} cho ${student.name}: ${fmtDate(nextStart)} → ${fmtDate(nextEnd)}`);
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
   return (

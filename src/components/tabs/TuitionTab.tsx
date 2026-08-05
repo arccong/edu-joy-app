@@ -63,7 +63,7 @@ export function TuitionTab() {
       const startsThisMonth = s.start_date.slice(0, 7) === month;
       const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
       const endsThisMonth = actualEnd.slice(0, 7) === month;
-      return startsThisMonth || (endsThisMonth && s.status !== "Kết thúc");
+      return startsThisMonth || (endsThisMonth && s.status !== "Hoàn thành");
     });
     const paidIds = new Set(inMonth.map((p) => p.student_id));
     const paid = scope.filter((s) => paidIds.has(s.id));

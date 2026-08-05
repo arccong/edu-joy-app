@@ -38,7 +38,7 @@ export const Route = createFileRoute("/")({
 
 const TABS = [
   { value: "students", label: "Học sinh", Icon: Users },
-  { value: "schedule", label: "Thời khóa biểu", Icon: CalendarDays },
+  { value: "schedule", label: "Lịch học", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", Icon: BookOpen },
   { value: "tuition", label: "Học phí", Icon: Wallet },

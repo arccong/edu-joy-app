@@ -24,7 +24,9 @@ type Entry = {
   id: string; month: string; kind: "thu" | "chi"; category: string; amount: number; note: string | null; is_fixed: boolean;
   class_type: string | null; income_type: "hoc_phi" | "khac" | null; student_name: string | null;
   course_label: string | null; term_start: string | null; term_end: string | null; paid_date: string | null;
+  quantity?: number | null; unit_amount?: number | null;
 };
+
 type Category = { id: string; name: string; default_amount: number; sort_order: number; active: boolean };
 
 const DEFAULT_EXPENSES = ["Tiền điện", "Tiền nước", "Lương giáo viên", "Tiền thuế"];
@@ -61,12 +63,25 @@ export function FinanceTab() {
   const otherEntries = useMemo(() => periodEntries.filter((e) => e.kind === "thu" && e.income_type !== "hoc_phi"), [periodEntries]);
   const expenseEntries = useMemo(() => periodEntries.filter((e) => e.kind === "chi"), [periodEntries]);
 
+  /** Tự động lấy học phí từ học sinh có khóa bắt đầu trong kỳ (nếu chưa ghi nhận ở nơi khác) */
+  const autoTuitionRows = useMemo(() => {
+    return students.filter((s) => {
+      if (cls !== "Tất cả" && s.class_type !== cls) return false;
+      if (!s.start_date || !inPeriod(s.start_date)) return false;
+      const label = `${coursePrefix(s.class_type)}${s.course_index ?? 1}`;
+      const paidHere = payments.some((p) => p.student_id === s.id && p.month.slice(0, 7) === s.start_date.slice(0, 7));
+      const manual = entries.some((e) => e.income_type === "hoc_phi" && e.student_name === s.name && (e.course_label ?? "") === label);
+      return !paidHere && !manual;
+    });
+  }, [students, payments, entries, cls, view, month, year]);
+
   const sum = (rows: { amount: number }[]) => rows.reduce((a, b) => a + Number(b.amount), 0);
-  const tuitionIncome = sum(paidRows as any) + sum(tuitionEntries);
+  const tuitionIncome = sum(paidRows as any) + sum(tuitionEntries) + autoTuitionRows.reduce((a, s) => a + Number(s.tuition), 0);
   const otherIncome = sum(otherEntries);
   const expense = sum(expenseEntries);
   const income = tuitionIncome + otherIncome;
   const profit = income - expense;
+
 
   const byMonth = useMemo(() => {
     if (view !== "year") return [];
@@ -77,14 +92,20 @@ export function FinanceTab() {
         payments
           .filter((p) => p.month.slice(0, 7) === key && (cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls))
           .reduce((a, b) => a + Number(b.amount), 0) +
-        entries.filter((e) => e.month.slice(0, 7) === key && e.kind === "thu" && matchClass(e.class_type)).reduce((a, b) => a + Number(b.amount), 0);
+        entries.filter((e) => e.month.slice(0, 7) === key && e.kind === "thu" && matchClass(e.class_type)).reduce((a, b) => a + Number(b.amount), 0) +
+        students
+          .filter((s) => (cls === "Tất cả" || s.class_type === cls) && s.start_date?.slice(0, 7) === key
+            && !payments.some((p) => p.student_id === s.id && p.month.slice(0, 7) === key)
+            && !entries.some((e) => e.income_type === "hoc_phi" && e.student_name === s.name && (e.course_label ?? "") === `${coursePrefix(s.class_type)}${s.course_index ?? 1}`))
+          .reduce((a, s) => a + Number(s.tuition), 0);
+
       const chi = entries
         .filter((e) => e.month.slice(0, 7) === key && e.kind === "chi" && matchClass(e.class_type))
         .reduce((a, b) => a + Number(b.amount), 0);
       if (thu || chi) rows.push({ m: key, thu, chi });
     }
     return rows;
-  }, [view, year, payments, entries, cls, stuMap]);
+  }, [view, year, payments, entries, cls, stuMap, students]);
 
   const doExport = () => {
     const label = view === "month" ? fmtMonth(month + "-01") : `Năm ${year}`;
@@ -112,11 +133,16 @@ export function FinanceTab() {
               s ? `${fmtDate(s.start_date)} → ${fmtDate(s.end_date)}` : "", fmtDate(p.paid_date), Number(p.amount),
             ];
           }),
+          ...autoTuitionRows.map((s) => [
+            s.name, s.class_type, `${coursePrefix(s.class_type)}${s.course_index ?? 1}`,
+            `${fmtDate(s.start_date)} → ${fmtDate(s.end_date)}`, fmtDate(s.start_date), Number(s.tuition),
+          ]),
           ...tuitionEntries.map((e) => [
             e.student_name ?? e.category, e.class_type ?? "", e.course_label ?? "",
             e.term_start && e.term_end ? `${fmtDate(e.term_start)} → ${fmtDate(e.term_end)}` : "",
             e.paid_date ? fmtDate(e.paid_date) : "", Number(e.amount),
           ]),
+
         ],
       },
       {
@@ -208,8 +234,9 @@ export function FinanceTab() {
 
           <div>
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu học phí</h3>
-            {paidRows.length === 0 && tuitionEntries.length === 0 ? (
+            {paidRows.length === 0 && tuitionEntries.length === 0 && autoTuitionRows.length === 0 ? (
               <EmptyState text="Chưa có khoản thu học phí trong kỳ này." />
+
             ) : (
               <div className="-mx-4 overflow-x-auto sm:mx-0">
                 <Table>
@@ -237,6 +264,18 @@ export function FinanceTab() {
                         </TableRow>
                       );
                     })}
+                    {autoTuitionRows.map((s) => (
+                      <TableRow key={`auto-${s.id}`}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell>{s.class_type}</TableCell>
+                        <TableCell>{coursePrefix(s.class_type)}{s.course_index ?? 1}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{fmtDate(s.start_date)} → {fmtDate(s.end_date)}</TableCell>
+                        <TableCell>{fmtDate(s.start_date)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatMoney(Number(s.tuition))}đ</TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">Tự động từ danh sách học sinh</TableCell>
+                      </TableRow>
+                    ))}
+
                     {tuitionEntries.map((e) => (
                       <TableRow key={e.id}>
                         <TableCell className="font-medium">{e.student_name ?? e.category}</TableCell>
@@ -262,10 +301,13 @@ export function FinanceTab() {
             )}
           </div>
 
-          <div>
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu khác</h3>
-            {otherEntries.length === 0 ? <EmptyState text="Chưa có khoản thu khác." /> : <EntryTable rows={otherEntries} cats={cats} students={students} />}
-          </div>
+          {otherEntries.length > 0 && (
+            <div>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingUp className="h-4 w-4 text-[color:var(--success)]" />Thu khác</h3>
+              <EntryTable rows={otherEntries} cats={cats} students={students} />
+            </div>
+          )}
+
 
           <div>
             <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold"><TrendingDown className="h-4 w-4 text-destructive" />Khoản chi</h3>
@@ -285,7 +327,9 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
           <TableHead>Tháng</TableHead>
           <TableHead>Lớp</TableHead>
           <TableHead>Khoản mục</TableHead>
-          <TableHead className="text-right">Số tiền</TableHead>
+          <TableHead className="text-right">Đơn giá</TableHead>
+          <TableHead className="text-center">SL</TableHead>
+          <TableHead className="text-right">Thành tiền</TableHead>
           <TableHead>Ghi chú</TableHead>
           <TableHead className="text-right">Thao tác</TableHead>
         </TableRow></TableHeader>
@@ -295,7 +339,10 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
               <TableCell>{e.month.slice(0, 7)}</TableCell>
               <TableCell>{e.class_type ?? "Chung"}</TableCell>
               <TableCell className="font-medium">{e.category}{e.is_fixed && <span className="ml-1 rounded bg-muted px-1 text-[10px]">cố định</span>}</TableCell>
+              <TableCell className="text-right">{formatMoney(Number(e.unit_amount || e.amount))}đ</TableCell>
+              <TableCell className="text-center">{e.quantity ?? 1}</TableCell>
               <TableCell className="text-right font-semibold">{formatMoney(Number(e.amount))}đ</TableCell>
+
               <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">{e.note}</TableCell>
               <TableCell className="text-right">
                 <div className="inline-flex gap-1">
@@ -349,7 +396,9 @@ function EntryDialog({
   const [mode, setMode] = useState<"tiep_theo" | "moi">("tiep_theo");
   const [month, setMonth] = useState(existing?.month.slice(0, 7) ?? defaultMonth);
   const [category, setCategory] = useState(existing?.category ?? "");
-  const [amountStr, setAmountStr] = useState(existing ? formatMoney(Number(existing.amount)) : "");
+  const [amountStr, setAmountStr] = useState(existing ? formatMoney(Number(existing.unit_amount || existing.amount)) : "");
+  const [qty, setQty] = useState<number>(existing?.quantity ?? 1);
+
   const [note, setNote] = useState(existing?.note ?? "");
   const [isFixed, setIsFixed] = useState(existing?.is_fixed ?? false);
   const [classType, setClassType] = useState<string>(existing?.class_type ?? defaultClass ?? "Chung");
@@ -361,7 +410,7 @@ function EntryDialog({
   const [paidDate, setPaidDate] = useState(existing?.paid_date ?? "");
 
   const classStudents = useMemo(
-    () => students.filter((s) => (classType === "Chung" ? true : s.class_type === classType) && s.status !== "Kết thúc"),
+    () => students.filter((s) => (classType === "Chung" ? true : s.class_type === classType) && s.status !== "Hoàn thành"),
     [students, classType],
   );
 
@@ -389,7 +438,10 @@ function EntryDialog({
         month: isTuition && paidDate ? paidDate.slice(0, 7) : month,
         kind: formKind === "chi" ? "chi" : "thu",
         category: isTuition ? `Học phí · ${studentName}${courseLabel ? ` (${courseLabel})` : ""}` : category,
-        amount: parseMoney(amountStr),
+        amount: parseMoney(amountStr) * (isTuition ? 1 : Math.max(1, qty)),
+        unit_amount: parseMoney(amountStr),
+        quantity: isTuition ? 1 : Math.max(1, qty),
+
         note: note || null,
         is_fixed: formKind === "chi" ? isFixed : false,
         class_type: classType === "Chung" ? null : classType,
@@ -537,10 +589,25 @@ function EntryDialog({
             </>
           )}
 
-          <div className="grid gap-1">
-            <Label>Số tiền (VNĐ)</Label>
-            <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
-          </div>
+          {formKind === "hoc_phi" ? (
+            <div className="grid gap-1">
+              <Label>Số tiền (VNĐ)</Label>
+              <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-[1fr_100px] gap-3">
+              <div className="grid gap-1">
+                <Label>Đơn giá (VNĐ)</Label>
+                <Input inputMode="numeric" value={amountStr} onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))} placeholder="0" />
+              </div>
+              <div className="grid gap-1">
+                <Label>Số lượng</Label>
+                <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} />
+              </div>
+              <p className="col-span-2 text-xs text-muted-foreground">Thành tiền: <span className="font-semibold">{formatMoney(parseMoney(amountStr) * Math.max(1, qty))}đ</span></p>
+            </div>
+          )}
+
           {formKind === "chi" && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={isFixed} onChange={(e) => setIsFixed(e.target.checked)} />

@@ -37,6 +37,9 @@ const EntryInput = z.object({
   amount: z.number().min(0),
   note: z.string().max(500).nullable().optional(),
   is_fixed: z.boolean().default(false),
+  quantity: z.number().int().min(1).default(1),
+  unit_amount: z.number().min(0).default(0),
+
   class_type: z.string().max(20).nullable().optional(),
   income_type: z.enum(["hoc_phi", "khac"]).nullable().optional(),
   student_name: z.string().max(120).nullable().optional(),

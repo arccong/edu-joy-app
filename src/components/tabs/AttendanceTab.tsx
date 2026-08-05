@@ -305,7 +305,7 @@ function BackfillButton({ students }: { students: Student[] }) {
   }, [open, defaultFrom, yesterday]);
 
   const filteredStudents = useMemo(() => {
-    let list = students.filter((s) => s.status !== "Kết thúc" && s.status !== "Bảo lưu");
+    let list = students.filter((s) => s.status !== "Hoàn thành" && s.status !== "Bảo lưu");
     if (scope !== "Tất cả") list = list.filter((s) => s.class_type === scope);
     if (studentId !== "all") list = list.filter((s) => s.id === studentId);
     return list;

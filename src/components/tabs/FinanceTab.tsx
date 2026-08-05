@@ -24,7 +24,9 @@ type Entry = {
   id: string; month: string; kind: "thu" | "chi"; category: string; amount: number; note: string | null; is_fixed: boolean;
   class_type: string | null; income_type: "hoc_phi" | "khac" | null; student_name: string | null;
   course_label: string | null; term_start: string | null; term_end: string | null; paid_date: string | null;
+  quantity?: number | null; unit_amount?: number | null;
 };
+
 type Category = { id: string; name: string; default_amount: number; sort_order: number; active: boolean };
 
 const DEFAULT_EXPENSES = ["Tiền điện", "Tiền nước", "Lương giáo viên", "Tiền thuế"];
@@ -61,12 +63,25 @@ export function FinanceTab() {
   const otherEntries = useMemo(() => periodEntries.filter((e) => e.kind === "thu" && e.income_type !== "hoc_phi"), [periodEntries]);
   const expenseEntries = useMemo(() => periodEntries.filter((e) => e.kind === "chi"), [periodEntries]);
 
+  /** Tự động lấy học phí từ học sinh có khóa bắt đầu trong kỳ (nếu chưa ghi nhận ở nơi khác) */
+  const autoTuitionRows = useMemo(() => {
+    return students.filter((s) => {
+      if (cls !== "Tất cả" && s.class_type !== cls) return false;
+      if (!s.start_date || !inPeriod(s.start_date)) return false;
+      const label = `${coursePrefix(s.class_type)}${s.course_index ?? 1}`;
+      const paidHere = payments.some((p) => p.student_id === s.id && p.month.slice(0, 7) === s.start_date.slice(0, 7));
+      const manual = entries.some((e) => e.income_type === "hoc_phi" && e.student_name === s.name && (e.course_label ?? "") === label);
+      return !paidHere && !manual;
+    });
+  }, [students, payments, entries, cls, view, month, year]);
+
   const sum = (rows: { amount: number }[]) => rows.reduce((a, b) => a + Number(b.amount), 0);
-  const tuitionIncome = sum(paidRows as any) + sum(tuitionEntries);
+  const tuitionIncome = sum(paidRows as any) + sum(tuitionEntries) + autoTuitionRows.reduce((a, s) => a + Number(s.tuition), 0);
   const otherIncome = sum(otherEntries);
   const expense = sum(expenseEntries);
   const income = tuitionIncome + otherIncome;
   const profit = income - expense;
+
 
   const byMonth = useMemo(() => {
     if (view !== "year") return [];

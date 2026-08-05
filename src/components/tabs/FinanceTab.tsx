@@ -92,7 +92,13 @@ export function FinanceTab() {
         payments
           .filter((p) => p.month.slice(0, 7) === key && (cls === "Tất cả" || stuMap.get(p.student_id)?.class_type === cls))
           .reduce((a, b) => a + Number(b.amount), 0) +
-        entries.filter((e) => e.month.slice(0, 7) === key && e.kind === "thu" && matchClass(e.class_type)).reduce((a, b) => a + Number(b.amount), 0);
+        entries.filter((e) => e.month.slice(0, 7) === key && e.kind === "thu" && matchClass(e.class_type)).reduce((a, b) => a + Number(b.amount), 0) +
+        students
+          .filter((s) => (cls === "Tất cả" || s.class_type === cls) && s.start_date?.slice(0, 7) === key
+            && !payments.some((p) => p.student_id === s.id && p.month.slice(0, 7) === key)
+            && !entries.some((e) => e.income_type === "hoc_phi" && e.student_name === s.name && (e.course_label ?? "") === `${coursePrefix(s.class_type)}${s.course_index ?? 1}`))
+          .reduce((a, s) => a + Number(s.tuition), 0);
+
       const chi = entries
         .filter((e) => e.month.slice(0, 7) === key && e.kind === "chi" && matchClass(e.class_type))
         .reduce((a, b) => a + Number(b.amount), 0);

@@ -126,9 +126,11 @@ export type Database = {
           month: string
           note: string | null
           paid_date: string | null
+          quantity: number
           student_name: string | null
           term_end: string | null
           term_start: string | null
+          unit_amount: number
           updated_at: string
         }
         Insert: {
@@ -144,9 +146,11 @@ export type Database = {
           month: string
           note?: string | null
           paid_date?: string | null
+          quantity?: number
           student_name?: string | null
           term_end?: string | null
           term_start?: string | null
+          unit_amount?: number
           updated_at?: string
         }
         Update: {
@@ -162,9 +166,11 @@ export type Database = {
           month?: string
           note?: string | null
           paid_date?: string | null
+          quantity?: number
           student_name?: string | null
           term_end?: string | null
           term_start?: string | null
+          unit_amount?: number
           updated_at?: string
         }
         Relationships: []
@@ -352,7 +358,12 @@ export type Database = {
         | "Nghỉ không phép"
         | "Bảo lưu"
       class_type: "Piano" | "Múa" | "Vẽ"
-      student_status: "Đang học" | "Nghỉ phép" | "Bảo lưu" | "Kết thúc"
+      student_status:
+        | "Đang học"
+        | "Nghỉ phép"
+        | "Bảo lưu"
+        | "Kết thúc"
+        | "Hoàn thành"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -487,7 +498,13 @@ export const Constants = {
         "Bảo lưu",
       ],
       class_type: ["Piano", "Múa", "Vẽ"],
-      student_status: ["Đang học", "Nghỉ phép", "Bảo lưu", "Kết thúc"],
+      student_status: [
+        "Đang học",
+        "Nghỉ phép",
+        "Bảo lưu",
+        "Kết thúc",
+        "Hoàn thành",
+      ],
     },
   },
 } as const

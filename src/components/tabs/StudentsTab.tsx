@@ -102,12 +102,35 @@ export function StudentsTab() {
   }, [attendedRows, studentById]);
 
 
+  const remainOf = (s: Student) => Math.max(0, (s.total_sessions ?? 0) - (attendedByStudent.get(s.id) ?? 0));
+  const statusOf = (s: Student) => effectiveStatus(s.status, remainOf(s));
+
+  // Tự động chuyển "Đang học" → "Hoàn thành" khi đã học hết số buổi của khóa
+  const qcAuto = useQueryClient();
+  const saveStudent = useServerFn(upsertStudent);
+  useEffect(() => {
+    const done = (students as Student[]).filter((s) => s.status === "Đang học" && (s.total_sessions ?? 0) > 0 && remainOf(s) === 0);
+    if (done.length === 0) return;
+    (async () => {
+      for (const s of done) {
+        await saveStudent({ data: {
+          id: s.id, name: s.name, age: s.age, class_type: s.class_type, tuition: Number(s.tuition),
+          start_date: s.start_date, end_date: s.end_date, status: "Hoàn thành", reserve_days: s.reserve_days ?? 0,
+          total_sessions: s.total_sessions, course_index: s.course_index ?? 1, schedule_slots: s.schedule_slots ?? [],
+        } as any }).catch(() => {});
+      }
+      qcAuto.invalidateQueries({ queryKey: ["students"] });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, attendedByStudent]);
+
   const filtered = useMemo(() => {
     let list = students as Student[];
     if (filter !== "Tất cả") list = list.filter((s) => s.class_type === filter);
-    if (statusFilter !== "Tất cả") list = list.filter((s) => s.status === statusFilter);
+    if (statusFilter !== "Tất cả") list = list.filter((s) => statusOf(s) === statusFilter);
     return list;
-  }, [students, filter, statusFilter]);
+  }, [students, filter, statusFilter, attendedByStudent]);
+
 
   const stats = useMemo(() => {
     const list = students as Student[];

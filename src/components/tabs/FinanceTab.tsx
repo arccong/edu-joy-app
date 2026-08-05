@@ -438,7 +438,10 @@ function EntryDialog({
         month: isTuition && paidDate ? paidDate.slice(0, 7) : month,
         kind: formKind === "chi" ? "chi" : "thu",
         category: isTuition ? `Học phí · ${studentName}${courseLabel ? ` (${courseLabel})` : ""}` : category,
-        amount: parseMoney(amountStr),
+        amount: parseMoney(amountStr) * (isTuition ? 1 : Math.max(1, qty)),
+        unit_amount: parseMoney(amountStr),
+        quantity: isTuition ? 1 : Math.max(1, qty),
+
         note: note || null,
         is_fixed: formKind === "chi" ? isFixed : false,
         class_type: classType === "Chung" ? null : classType,

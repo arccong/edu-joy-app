@@ -50,7 +50,7 @@ const ALL_COLS = [
 type ColKey = typeof ALL_COLS[number]["key"];
 const DEFAULT_COLS: ColKey[] = ALL_COLS.map((c) => c.key);
 
-const STATUS_OPTS: StudentStatus[] = ["Đang học", "Bảo lưu", "Hoàn thành"];
+const STATUS_OPTS: StudentStatus[] = ["Đang học", "Chuẩn bị", "Bảo lưu", "Hoàn thành"];
 
 export function StudentsTab() {
   const fetchList = useServerFn(listStudents);
@@ -91,17 +91,31 @@ export function StudentsTab() {
 
   const studentById = useMemo(() => new Map((students as Student[]).map((s) => [s.id, s])), [students]);
 
+  // Chỉ tính các buổi nằm trong khóa hiện tại của học sinh (từ ngày bắt đầu → NKT thực tế)
+  const inCourse = (s: Student | undefined, dateISO: string) => {
+    if (!s?.start_date) return false;
+    const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
+    return dateISO >= s.start_date && (!actualEnd || dateISO <= actualEnd);
+  };
+
   const attendedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows)
-      if (r.status === "Đi học") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
+    for (const r of attendedRows) {
+      const s = studentById.get(r.student_id);
+      if (r.status === "Đi học" && inCourse(s, r.date))
+        m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(s, r.date));
+    }
     return m;
   }, [attendedRows, studentById]);
 
+  // Cột "Bảo lưu": tổng số buổi bảo lưu (bảng Học sinh bảo lưu) trong khóa đang học
   const reservedByStudent = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of attendedRows)
-      if (r.status === "Bảo lưu") m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(studentById.get(r.student_id), r.date));
+    for (const r of attendedRows) {
+      const s = studentById.get(r.student_id);
+      if (r.status === "Bảo lưu" && inCourse(s, r.date))
+        m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(s, r.date));
+    }
     return m;
   }, [attendedRows, studentById]);
 
@@ -109,17 +123,30 @@ export function StudentsTab() {
   const remainOf = (s: Student) => Math.max(0, (s.total_sessions ?? 0) - (attendedByStudent.get(s.id) ?? 0));
   const statusOf = (s: Student) => effectiveStatus(s.status, remainOf(s));
 
-  // Tự động chuyển "Đang học" → "Hoàn thành" khi đã học hết số buổi của khóa
+  // Tự động chuyển "Đang học" → "Hoàn thành" khi hết buổi;
+  // "Chuẩn bị" → "Đang học" khi khóa trước của học sinh đó đã hoàn thành
   const qcAuto = useQueryClient();
   const saveStudent = useServerFn(upsertStudent);
   useEffect(() => {
-    const done = (students as Student[]).filter((s) => s.status === "Đang học" && (s.total_sessions ?? 0) > 0 && remainOf(s) === 0);
-    if (done.length === 0) return;
+    const list = students as Student[];
+    const done = list.filter((s) => s.status === "Đang học" && (s.total_sessions ?? 0) > 0 && remainOf(s) === 0);
+    const promote = list.filter((s) => {
+      if (s.status !== "Chuẩn bị") return false;
+      const prevActive = list.some(
+        (o) => o.id !== s.id && o.name === s.name && o.class_type === s.class_type && statusOf(o) === "Đang học",
+      );
+      return !prevActive;
+    });
+    const changes: Array<{ s: Student; status: StudentStatus }> = [
+      ...done.map((s) => ({ s, status: "Hoàn thành" as StudentStatus })),
+      ...promote.map((s) => ({ s, status: "Đang học" as StudentStatus })),
+    ];
+    if (changes.length === 0) return;
     (async () => {
-      for (const s of done) {
+      for (const { s, status } of changes) {
         await saveStudent({ data: {
           id: s.id, name: s.name, age: s.age, class_type: s.class_type, tuition: Number(s.tuition),
-          start_date: s.start_date, end_date: s.end_date, status: "Hoàn thành", reserve_days: s.reserve_days ?? 0,
+          start_date: s.start_date, end_date: s.end_date, status, reserve_days: s.reserve_days ?? 0,
           total_sessions: s.total_sessions, course_index: s.course_index ?? 1, schedule_slots: s.schedule_slots ?? [],
         } as any }).catch(() => {});
       }

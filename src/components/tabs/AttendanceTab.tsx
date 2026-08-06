@@ -75,13 +75,19 @@ function ByDateView() {
   }, [attRows]);
 
   const dow = dayOfWeekOf(date);
+  // Học sinh đang bảo lưu ngày này (có bản ghi "Bảo lưu" trong bảng Học sinh bảo lưu) → không hiện
+  const reservedToday = useMemo(
+    () => new Set(attRows.filter((r) => r.status === "Bảo lưu").map((r) => r.student_id as string)),
+    [attRows],
+  );
   const scheduled = useMemo(() => {
     if (dow === null) return [];
     return (students as Student[])
-      .filter((s) => s.status !== "Bảo lưu")
+      .filter((s) => s.status !== "Bảo lưu" && s.status !== "Chuẩn bị")
+      .filter((s) => !reservedToday.has(s.id))
       .filter((s) => (classFilter === "Tất cả" || s.class_type === classFilter))
       .filter((s) => (s.schedule_slots ?? []).some((sl: ScheduleSlot) => sl.day === dow));
-  }, [students, dow, classFilter]);
+  }, [students, dow, classFilter, reservedToday]);
 
   const mut = useMutation({
     mutationFn: (v: { student_id: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>
@@ -199,7 +205,7 @@ function AttendanceRow({
     { v: "Đi học", cls: "bg-success text-white" },
     { v: "Nghỉ có phép", cls: "bg-warning text-white" },
     { v: "Nghỉ không phép", cls: "bg-danger text-white" },
-    { v: "Bảo lưu", cls: "bg-primary text-primary-foreground" },
+    
   ];
 
   return (
@@ -305,7 +311,7 @@ function BackfillButton({ students }: { students: Student[] }) {
   }, [open, defaultFrom, yesterday]);
 
   const filteredStudents = useMemo(() => {
-    let list = students.filter((s) => s.status !== "Hoàn thành" && s.status !== "Bảo lưu");
+    let list = students.filter((s) => s.status !== "Hoàn thành" && s.status !== "Bảo lưu" && s.status !== "Chuẩn bị");
     if (scope !== "Tất cả") list = list.filter((s) => s.class_type === scope);
     if (studentId !== "all") list = list.filter((s) => s.id === studentId);
     return list;
@@ -487,7 +493,6 @@ function BackfillButton({ students }: { students: Student[] }) {
                           <SelectItem value="Đi học">Đi học</SelectItem>
                           <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
                           <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
-                          <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
@@ -745,7 +750,6 @@ function ByStudentView() {
                                 <SelectItem value="Đi học">Đi học</SelectItem>
                                 <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
                                 <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
-                                <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
                               </SelectContent>
                             </Select>
                           </td>

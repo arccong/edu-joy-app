@@ -12,8 +12,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { CLASSES, addScheduledDays, fmtDate, fmtMonth, monthKey, toLocalISO, type ClassType, type Student, type TuitionPayment } from "@/lib/shared";
-import { listStudents } from "@/lib/students.functions";
+import {
+  CLASSES,
+  DAYS,
+  DAYS_ORDER,
+  addScheduledDays,
+  computeEndDate,
+  coursePrefix,
+  dayOfWeekOf,
+  defaultSessionsFor,
+  defaultTuitionFor,
+  fmtDate,
+  fmtMonth,
+  formatMoney,
+  monthKey,
+  nextScheduledDate,
+  parseMoney,
+  toLocalISO,
+  weeklySessions,
+  type ClassType,
+  type ScheduleSlot,
+  type Student,
+  type TuitionPayment,
+} from "@/lib/shared";
+import { listStudents, upsertStudent } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
 
 export function TuitionTab() {
@@ -107,7 +129,7 @@ export function TuitionTab() {
               }]);
               toast.success("Đã xuất dữ liệu học phí");
             }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <PaymentDialog students={students} defaultMonth={monthISO} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhận</Button>} />
+            <RecordPaymentDialog students={students} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhận</Button>} />
           </div>
         </CardHeader>
         <CardContent>
@@ -175,7 +197,7 @@ export function TuitionTab() {
                         <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">{p.note}</TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex gap-1">
-                            <PaymentDialog students={students} defaultMonth={monthISO} existing={p} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                            <EditPaymentDialog existing={p} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
                             <DeletePaymentButton id={p.id} />
                           </div>
                         </TableCell>
@@ -230,43 +252,162 @@ function DeletePaymentButton({ id }: { id: string }) {
   );
 }
 
-function PaymentDialog({
-  students, defaultMonth, existing, trigger,
-}: {
-  students: Student[];
-  defaultMonth: string;
-  existing?: TuitionPayment;
-  trigger: React.ReactNode;
-}) {
+/** Sửa nhanh một ghi nhận đã có */
+function EditPaymentDialog({ existing, trigger }: { existing: TuitionPayment; trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertPayment);
-
-  const [studentId, setStudentId] = useState(existing?.student_id ?? students[0]?.id ?? "");
-  const [month, setMonth] = useState(existing?.month.slice(0, 7) ?? defaultMonth.slice(0, 7));
-  const [amount, setAmount] = useState(existing?.amount ?? 0);
-  const [paidDate, setPaidDate] = useState(existing?.paid_date ?? toLocalISO(new Date()));
-  const [kyIndex, setKyIndex] = useState(existing?.ky_index ?? 1);
-  const [note, setNote] = useState(existing?.note ?? "");
-
-  // Auto-suggest month + amount from student
-  const s = students.find((x) => x.id === studentId);
-  const suggestMonth = s ? monthKey(s.start_date).slice(0, 7) : "";
-  const suggestAmount = s?.tuition ?? 0;
+  const [amount, setAmount] = useState(Number(existing.amount));
+  const [paidDate, setPaidDate] = useState(existing.paid_date);
+  const [note, setNote] = useState(existing.note ?? "");
 
   const mut = useMutation({
     mutationFn: () => save({ data: {
-      id: existing?.id,
-      student_id: studentId,
-      month,
+      id: existing.id,
+      student_id: existing.student_id,
+      month: existing.month,
       amount: Number(amount),
       paid_date: paidDate,
-      ky_index: Number(kyIndex),
+      ky_index: existing.ky_index,
       note: note || null,
     } as any }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payments"] }); toast.success("Đã cập nhật"); setOpen(false); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Sửa ghi nhận học phí</DialogTitle></DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <Label>Số tiền (VNĐ)</Label>
+            <Input inputMode="numeric" value={formatMoney(amount)} onChange={(e) => setAmount(parseMoney(e.target.value))} />
+          </div>
+          <div className="grid gap-1">
+            <Label>Ngày đóng</Label>
+            <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+          </div>
+          <div className="grid gap-1">
+            <Label>Ghi chú</Label>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Không bắt buộc" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Lưu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Ghi nhận học phí: nhập đầy đủ thông tin khóa học → tự tạo/cập nhật học sinh */
+function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigger: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const savePayment = useServerFn(upsertPayment);
+  const saveStudent = useServerFn(upsertStudent);
+
+  const [mode, setMode] = useState<"next" | "new">("next");
+  const [baseId, setBaseId] = useState<string>("");
+  const [paidDate, setPaidDate] = useState(toLocalISO(new Date()));
+
+  const emptyForm = (cls: ClassType = "Piano") => ({
+    name: "",
+    age: 8,
+    class_type: cls,
+    tuition: defaultTuitionFor(cls),
+    total_sessions: defaultSessionsFor(cls),
+    course_index: 1,
+    schedule_slots: [] as ScheduleSlot[],
+    start_date: toLocalISO(new Date()),
+    end_date: "",
+  });
+  const [form, setForm] = useState(() => emptyForm());
+  const [tuitionStr, setTuitionStr] = useState(() => formatMoney(defaultTuitionFor("Piano")));
+
+  // Học sinh còn hiệu lực để chọn "Khóa tiếp theo"
+  const activeStudents = useMemo(
+    () => students.filter((s) => s.status === "Đang học" || s.status === "Hoàn thành"),
+    [students],
+  );
+  const base = useMemo(() => students.find((s) => s.id === baseId), [students, baseId]);
+
+  const pickBase = (id: string) => {
+    setBaseId(id);
+    const s = students.find((x) => x.id === id);
+    if (!s) return;
+    const slots = (s.schedule_slots ?? []) as ScheduleSlot[];
+    const actualEnd = addScheduledDays(s.end_date, slots, s.reserve_days ?? 0);
+    const start = nextScheduledDate(actualEnd, slots);
+    const end = computeEndDate(start, slots, s.total_sessions) ?? "";
+    setForm({
+      name: s.name,
+      age: s.age,
+      class_type: s.class_type,
+      tuition: Number(s.tuition),
+      total_sessions: s.total_sessions,
+      course_index: (s.course_index ?? 1) + 1,
+      schedule_slots: slots,
+      start_date: start,
+      end_date: end,
+    });
+    setTuitionStr(formatMoney(Number(s.tuition)));
+  };
+
+  const autoEnd = useMemo(
+    () => computeEndDate(form.start_date, form.schedule_slots, form.total_sessions),
+    [form.start_date, form.schedule_slots, form.total_sessions],
+  );
+  const perWeek = weeklySessions(form.schedule_slots);
+  const slotDays = new Set(form.schedule_slots.map((s) => s.day));
+
+  const setSlotField = (idx: number, patch: Partial<ScheduleSlot>) =>
+    setForm((f) => {
+      const arr = f.schedule_slots.slice();
+      arr[idx] = { ...arr[idx], ...patch };
+      return { ...f, schedule_slots: arr };
+    });
+  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: [...f.schedule_slots, { day: 1, start: "16:00", end: "17:00" }] }));
+  const removeSlot = (idx: number) => setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const endDate = form.end_date || autoEnd || "";
+      // Khóa tiếp theo mà khóa hiện tại vẫn đang học → "Chuẩn bị"
+      const status = mode === "next" && base && base.status === "Đang học" ? "Chuẩn bị" : "Đang học";
+      const res: any = await saveStudent({ data: {
+        name: form.name.trim(),
+        age: Number(form.age),
+        class_type: form.class_type,
+        tuition: Number(form.tuition),
+        start_date: form.start_date,
+        end_date: endDate,
+        status,
+        reserve_days: 0,
+        total_sessions: Number(form.total_sessions),
+        course_index: Number(form.course_index),
+        schedule_slots: form.schedule_slots,
+      } as any });
+      const newId = res?.id as string;
+      if (!newId) throw new Error("Không lấy được mã học sinh vừa tạo");
+      await savePayment({ data: {
+        student_id: newId,
+        month: monthKey(form.start_date),
+        amount: Number(form.tuition),
+        paid_date: paidDate,
+        ky_index: Number(form.course_index),
+        note: null,
+      } as any });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payments"] });
-      toast.success(existing ? "Đã cập nhật" : "Đã ghi nhận đóng học phí");
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast.success("Đã ghi nhận học phí và cập nhật danh sách học sinh");
       setOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -275,62 +416,150 @@ function PaymentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{existing ? "Sửa ghi nhận" : "Ghi nhận đóng học phí"}</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid gap-1">
-            <Label>Học sinh</Label>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {s.class_type}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+        <DialogHeader><DialogTitle>Ghi nhận đóng học phí</DialogTitle></DialogHeader>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label>Chế độ</Label>
+            <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+              <Button size="sm" variant={mode === "next" ? "default" : "ghost"}
+                onClick={() => { setMode("next"); setForm(emptyForm()); setBaseId(""); }}>Khóa tiếp theo</Button>
+              <Button size="sm" variant={mode === "new" ? "default" : "ghost"}
+                onClick={() => { setMode("new"); setBaseId(""); setForm(emptyForm()); setTuitionStr(formatMoney(defaultTuitionFor("Piano"))); }}>Học sinh mới</Button>
+            </div>
           </div>
+
+          {mode === "next" && (
+            <div className="grid gap-2">
+              <Label>Học sinh đang học</Label>
+              <Select value={baseId} onValueChange={pickBase}>
+                <SelectTrigger><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
+                <SelectContent>
+                  {activeStudents.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1} · {s.class_type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid gap-2">
+            <Label>Tên học sinh</Label>
+            <Input value={form.name} disabled={mode === "next"} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
-              <Label>Tháng học phí</Label>
-              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-              {suggestMonth && suggestMonth !== month && (
-                <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => setMonth(suggestMonth)}>
-                  Dùng tháng bắt đầu khóa: {suggestMonth}
+            <div className="grid gap-2">
+              <Label>Tuổi</Label>
+              <Input type="number" min={1} max={120} value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Lớp học</Label>
+              <Select value={form.class_type} disabled={mode === "next"} onValueChange={(v) => {
+                const cls = v as ClassType;
+                const t = defaultTuitionFor(cls);
+                setForm((f) => ({ ...f, class_type: cls, total_sessions: defaultSessionsFor(cls), tuition: t }));
+                setTuitionStr(formatMoney(t));
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label>Học phí/khóa (VNĐ)</Label>
+              <Input inputMode="numeric" value={tuitionStr} onChange={(e) => {
+                const n = parseMoney(e.target.value);
+                setTuitionStr(formatMoney(n));
+                setForm((f) => ({ ...f, tuition: n }));
+              }} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Tổng số buổi/khóa</Label>
+              <Input type="number" min={1} value={form.total_sessions} onChange={(e) => setForm({ ...form, total_sessions: Number(e.target.value) })} />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Tên khóa</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary">{coursePrefix(form.class_type)}</span>
+              <Input type="number" min={1} value={form.course_index} className="w-24"
+                onChange={(e) => setForm({ ...form, course_index: Math.max(1, Number(e.target.value) || 1) })} />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <Label>Khung giờ học ({perWeek} buổi/tuần)</Label>
+              <Button type="button" size="sm" variant="outline" onClick={addSlot}><Plus className="mr-1 h-4 w-4" />Thêm khung giờ</Button>
+            </div>
+            <div className="space-y-2">
+              {form.schedule_slots.map((sl, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Thứ</Label>
+                    <Select value={String(sl.day)} onValueChange={(v) => setSlotField(idx, { day: Number(v) })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{DAYS_ORDER.map((d) => <SelectItem key={d} value={String(d)}>{DAYS[d]}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Bắt đầu</Label>
+                    <Input type="time" step={900} value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} className="w-[110px]" />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Kết thúc</Label>
+                    <Input type="time" step={900} value={sl.end} onChange={(e) => setSlotField(idx, { end: e.target.value })} className="w-[110px]" />
+                  </div>
+                  <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => removeSlot(idx)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-2">
+              <Label>Ngày bắt đầu</Label>
+              <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Ngày kết thúc</Label>
+              <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+              {autoEnd && autoEnd !== form.end_date && (
+                <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => setForm((f) => ({ ...f, end_date: autoEnd }))}>
+                  Dùng ngày tự động: {fmtDate(autoEnd)}
                 </button>
               )}
             </div>
-            <div className="grid gap-1">
-              <Label>Kỳ số</Label>
-              <Input type="number" min={1} value={kyIndex} onChange={(e) => setKyIndex(Number(e.target.value))} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
-              <Label>Số tiền (VNĐ)</Label>
-              <Input type="number" min={0} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-              {suggestAmount && Number(amount) !== suggestAmount && (
-                <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => setAmount(suggestAmount)}>
-                  Dùng học phí khóa: {suggestAmount.toLocaleString("vi-VN")}đ
-                </button>
-              )}
-            </div>
-            <div className="grid gap-1">
+            <div className="grid gap-2">
               <Label>Ngày đóng</Label>
               <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
             </div>
           </div>
-          <div className="grid gap-1">
-            <Label>Ghi chú</Label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ghi chú (không bắt buộc)" />
-          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
-          <Button onClick={() => {
-            if (!studentId) return toast.error("Chọn học sinh");
-            if (!month) return toast.error("Chọn tháng");
-            mut.mutate();
-          }} disabled={mut.isPending}>
+          <Button
+            disabled={mut.isPending}
+            onClick={() => {
+              if (!form.name.trim()) return toast.error("Vui lòng nhập tên học sinh");
+              if (perWeek < 2) return toast.error("Học sinh phải học tối thiểu 2 buổi/tuần");
+              for (const s of form.schedule_slots) if (s.start >= s.end) return toast.error("Khung giờ không hợp lệ");
+              const sDow = dayOfWeekOf(form.start_date);
+              if (sDow === null || !slotDays.has(sDow)) return toast.error("Ngày bắt đầu không trùng lịch học");
+              const endDate = form.end_date || autoEnd || "";
+              const eDow = dayOfWeekOf(endDate);
+              if (eDow === null || !slotDays.has(eDow)) return toast.error("Ngày kết thúc không trùng lịch học");
+              mut.mutate();
+            }}
+          >
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Lưu
           </Button>
         </DialogFooter>

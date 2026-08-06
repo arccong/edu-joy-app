@@ -17,6 +17,8 @@ import {
   DAYS_ORDER,
   DAYS_SHORT,
   addDays,
+  addScheduledDays,
+  coursePrefix,
   fmtDate,
   startOfWeek,
   toLocalISO,
@@ -219,23 +221,31 @@ export function ScheduleTab() {
                         {DAYS_ORDER.map((dow, i) => {
                           const date = addDays(weekStart, i);
                           const dateISO = toLocalISO(date);
-                          const cellStudents: Array<{ s: Student; slot: ScheduleSlot; dim: boolean }> = [];
+                          const cellStudents: Array<{ s: Student; slot: ScheduleSlot; dim: boolean; suffix: string }> = [];
                           for (const s of filteredStudents) {
                             const slots = (s.schedule_slots ?? []) as ScheduleSlot[];
+                            const actualEnd = addScheduledDays(s.end_date, slots, s.reserve_days ?? 0);
+                            // chỉ hiện học sinh có khóa học bao phủ ngày này
+                            if (!s.start_date || dateISO < s.start_date) continue;
+                            if (actualEnd && dateISO > actualEnd) continue;
                             for (const sl of slots) {
                               if (sl.day !== dow) continue;
                               if (!overlaps(sl, row)) continue;
                               const attStatus = attByStudentDate.get(s.id)?.get(dateISO);
-                              const dim = attStatus === "Nghỉ có phép" || s.status === "Bảo lưu";
-                              cellStudents.push({ s, slot: sl, dim });
+                              let suffix = "";
+                              let dim = false;
+                              if (attStatus === "Bảo lưu" || s.status === "Bảo lưu") { suffix = " (BL)"; dim = true; }
+                              else if (attStatus === "Nghỉ có phép") { suffix = " (CP)"; dim = true; }
+                              else if (attStatus === "Nghỉ không phép") { suffix = " (KP)"; dim = true; }
+                              cellStudents.push({ s, slot: sl, dim, suffix });
                             }
                           }
                           return (
                             <td key={dow} className="border p-1 align-top">
                               <div className="space-y-1">
-                                {cellStudents.map(({ s, dim }, idx) => (
+                                {cellStudents.map(({ s, dim, suffix }, idx) => (
                                   <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
-                                    <div className="font-medium">{s.name}</div>
+                                    <div className="font-medium">{s.name}{suffix}</div>
                                   </div>
                                 ))}
                               </div>
@@ -250,8 +260,8 @@ export function ScheduleTab() {
             </table>
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-            <span>• Học sinh nghỉ có phép hoặc đang bảo lưu sẽ mờ 50%</span>
-            <span>• Lịch tự cập nhật từ thông tin học sinh và điểm danh</span>
+            <span>• (CP) nghỉ có phép · (KP) nghỉ không phép · (BL) đang bảo lưu — tên hiển thị mờ</span>
+            <span>• Chỉ hiện học sinh có khóa học trong tuần; tự cập nhật từ điểm danh</span>
           </div>
         </div>
       </CardContent>
@@ -265,14 +275,27 @@ export function ScheduleTab() {
 /** ================= Học sinh bảo lưu ================= */
 function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: Date }) {
   const fetchAtt = useServerFn(listAttendanceRange);
-  const [scope, setScope] = useState<"week" | "month">("week");
+  const [scope, setScope] = useState<"course" | "week" | "month">("course");
+
+  const courseWindow = (s: Student) => ({
+    from: s.start_date,
+    to: addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0),
+  });
 
   const range = useMemo(() => {
     if (scope === "week") return { from: toLocalISO(weekStart), to: toLocalISO(addDays(weekStart, 6)) };
-    const d = new Date();
-    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    return { from: toLocalISO(first), to: toLocalISO(last) };
+    if (scope === "month") {
+      const d = new Date();
+      return {
+        from: toLocalISO(new Date(d.getFullYear(), d.getMonth(), 1)),
+        to: toLocalISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+      };
+    }
+    const now = new Date();
+    return {
+      from: toLocalISO(new Date(now.getFullYear() - 2, now.getMonth(), 1)),
+      to: toLocalISO(new Date(now.getFullYear() + 1, now.getMonth(), 1)),
+    };
   }, [scope, weekStart]);
 
   const { data: rows = [] } = useQuery<AttendanceRow[]>({
@@ -281,15 +304,21 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
   });
 
   const byStudent = useMemo(() => {
+    const win = new Map(students.map((s) => [s.id, courseWindow(s)] as const));
     const m = new Map<string, string[]>();
     for (const r of rows) {
       if (r.status !== "Bảo lưu") continue;
+      if (scope === "course") {
+        const w = win.get(r.student_id);
+        if (!w || !w.from || r.date < w.from || (w.to && r.date > w.to)) continue;
+      }
       if (!m.has(r.student_id)) m.set(r.student_id, []);
       m.get(r.student_id)!.push(r.date);
     }
     for (const v of m.values()) v.sort();
     return m;
-  }, [rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, students, scope]);
 
   return (
     <Card className="shadow-card">
@@ -299,9 +328,10 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
           <CardDescription>Các buổi bảo lưu từ {fmtDate(range.from)} đến {fmtDate(range.to)}</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={scope} onValueChange={(v) => setScope(v as "week" | "month")}>
+          <Select value={scope} onValueChange={(v) => setScope(v as "course" | "week" | "month")}>
             <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="course">Trong khóa</SelectItem>
               <SelectItem value="week">Trong tuần</SelectItem>
               <SelectItem value="month">Trong tháng</SelectItem>
             </SelectContent>
@@ -323,6 +353,8 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
                     <thead>
                       <tr>
                         <th className="border bg-muted p-2 text-left text-xs font-semibold">Học sinh</th>
+                        <th className="border bg-muted p-2 text-center text-xs font-semibold">Khóa</th>
+                        <th className="border bg-muted p-2 text-left text-xs font-semibold">Kỳ học</th>
                         <th className="border bg-muted p-2 text-center text-xs font-semibold">Số buổi</th>
                         <th className="border bg-muted p-2 text-left text-xs font-semibold">Các ngày bảo lưu</th>
                       </tr>
@@ -330,9 +362,12 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
                     <tbody>
                       {list.map((s) => {
                         const dates = byStudent.get(s.id) ?? [];
+                        const w = courseWindow(s);
                         return (
                           <tr key={s.id}>
                             <td className="border p-2 font-medium">{s.name}</td>
+                            <td className="border p-2 text-center font-semibold text-primary">{coursePrefix(s.class_type)}{s.course_index ?? 1}</td>
+                            <td className="border p-2 whitespace-nowrap text-xs text-muted-foreground">{fmtDate(w.from)} → {fmtDate(w.to)}</td>
                             <td className="border p-2 text-center">{dates.length}</td>
                             <td className="border p-2">
                               <div className="flex flex-wrap gap-1">

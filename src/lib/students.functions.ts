@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const ClassType = z.enum(["Piano", "Múa", "Vẽ"]);
-const StudentStatus = z.enum(["Đang học", "Bảo lưu", "Hoàn thành"]);
+const StudentStatus = z.enum(["Đang học", "Bảo lưu", "Hoàn thành", "Chuẩn bị"]);
 const AttendanceStatus = z.enum(["Đi học", "Nghỉ có phép", "Nghỉ không phép", "Bảo lưu"]);
 
 const TimeStr = z.string().regex(/^\d{2}:\d{2}$/, "Sai định dạng HH:MM");
@@ -72,12 +72,12 @@ export const upsertStudent = createServerFn({ method: "POST" })
     if (data.id) {
       const { error } = await (sb as any).from("students").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
-    } else {
-      const { id: _ignore, ...insert } = payload;
-      const { error } = await (sb as any).from("students").insert(insert);
-      if (error) throw new Error(error.message);
+      return { ok: true, id: data.id };
     }
-    return { ok: true };
+    const { id: _ignore, ...insert } = payload;
+    const { data: row, error } = await (sb as any).from("students").insert(insert).select("id").single();
+    if (error) throw new Error(error.message);
+    return { ok: true, id: row?.id as string };
   });
 
 export const deleteStudent = createServerFn({ method: "POST" })

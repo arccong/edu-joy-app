@@ -24,7 +24,7 @@ import {
   type ClassType,
   type ScheduleSlot,
   type Student,
-  type StudentStatus,
+
 } from "@/lib/shared";
 import { upsertStudent } from "@/lib/students.functions";
 
@@ -206,31 +206,6 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Trạng thái</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StudentStatus })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Đang học">Đang học</SelectItem>
-                  <SelectItem value="Bảo lưu">Bảo lưu</SelectItem>
-                  <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
-
-                </SelectContent>
-              </Select>
-            </div>
-            {form.status === "Bảo lưu" && (
-              <div className="grid gap-2">
-                <Label>Số ngày bảo lưu</Label>
-                <Input type="number" min={0} value={form.reserve_days} onChange={(e) => setForm({ ...form, reserve_days: Number(e.target.value) })} />
-              </div>
-            )}
-          </div>
-          {form.status === "Bảo lưu" && (
-            <p className="rounded-md bg-primary/5 p-2 text-xs text-primary">
-              Ngày kết thúc sẽ tự động được cộng thêm số ngày bảo lưu.
-            </p>
-          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>

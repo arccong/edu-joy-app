@@ -364,6 +364,7 @@ export type Database = {
         | "Bảo lưu"
         | "Kết thúc"
         | "Hoàn thành"
+        | "Chuẩn bị"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -504,6 +505,7 @@ export const Constants = {
         "Bảo lưu",
         "Kết thúc",
         "Hoàn thành",
+        "Chuẩn bị",
       ],
     },
   },

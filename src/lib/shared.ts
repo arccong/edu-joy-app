@@ -1,8 +1,8 @@
 export type ClassType = "Piano" | "Múa" | "Vẽ";
-export type StudentStatus = "Đang học" | "Bảo lưu" | "Hoàn thành";
+export type StudentStatus = "Đang học" | "Bảo lưu" | "Hoàn thành" | "Chuẩn bị";
 export type AttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép" | "Bảo lưu";
 
-export const STUDENT_STATUSES: StudentStatus[] = ["Đang học", "Bảo lưu", "Hoàn thành"];
+export const STUDENT_STATUSES: StudentStatus[] = ["Đang học", "Chuẩn bị", "Bảo lưu", "Hoàn thành"];
 
 /** Trạng thái hiển thị: hết buổi trong khóa → Hoàn thành */
 export function effectiveStatus(status: StudentStatus, remain: number): StudentStatus {

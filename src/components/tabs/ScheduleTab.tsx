@@ -242,7 +242,7 @@ export function ScheduleTab() {
                           const dateISO = toLocalISO(date);
                           const cellStudents: Array<{ s: Student; slot: ScheduleSlot; dim: boolean; suffix: string }> = [];
                           for (const s of filteredStudents) {
-                            const slots = (s.schedule_slots ?? []) as ScheduleSlot[];
+                            const slots = slotsEffectiveOn(s, changes, dateISO);
                             const actualEnd = addScheduledDays(s.end_date, slots, s.reserve_days ?? 0);
                             // chỉ hiện học sinh có khóa học bao phủ ngày này
                             if (!s.start_date || dateISO < s.start_date) continue;

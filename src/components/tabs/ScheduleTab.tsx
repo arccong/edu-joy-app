@@ -186,7 +186,7 @@ export function ScheduleTab() {
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả học sinh</SelectItem>
-              {inClass.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              {people.map((p) => <SelectItem key={p.key} value={p.key}>{p.name}{p.courses.length > 1 ? ` (${p.courses.length} khóa)` : ""}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button onClick={exportImg} disabled={exporting}>

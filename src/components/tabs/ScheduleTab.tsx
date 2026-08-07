@@ -14,21 +14,37 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   CLASSES,
+  DAYS,
   DAYS_ORDER,
   DAYS_SHORT,
   addDays,
   addScheduledDays,
+  computeEndDate,
   coursePrefix,
+  describeSlots,
   fmtDate,
+  groupByPerson,
+  personKey,
+  slotsEffectiveOn,
   startOfWeek,
   toLocalISO,
   slotsPerDayMap,
   type AttendanceRow,
   type ClassType,
+  type ScheduleChange,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
-import { listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+import {
+  changeSchedule,
+  deleteReserveDates,
+  deleteScheduleChange,
+  listAttendanceRange,
+  listScheduleChanges,
+  listStudents,
+  replaceReserveDates,
+  setAttendance,
+} from "@/lib/students.functions";
 
 
 type TimeRow = { label: string; start: string; end: string; ca: "sang" | "chieu" };

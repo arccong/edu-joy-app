@@ -87,7 +87,9 @@ function buildTimeRows(slots: { start: string; end: string }[]): TimeRow[] {
 export function ScheduleTab() {
   const fetchList = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendanceRange);
+  const fetchChanges = useServerFn(listScheduleChanges);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchList() as any });
+  const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [cls, setCls] = useState<ClassType>("Piano");
@@ -114,9 +116,10 @@ export function ScheduleTab() {
   }, [attRows]);
 
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
+  const people = useMemo(() => groupByPerson(inClass), [inClass]);
   const filteredStudents = useMemo(() => {
     let list = inClass;
-    if (studentFilter !== "all") list = list.filter((s) => s.id === studentFilter);
+    if (studentFilter !== "all") list = list.filter((s) => personKey(s) === studentFilter);
     if (nameSearch.trim()) {
       const q = nameSearch.trim().toLowerCase();
       list = list.filter((s) => s.name.toLowerCase().includes(q));

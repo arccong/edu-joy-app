@@ -669,7 +669,7 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
 
   const active = useMemo(
-    () => students.filter((s) => s.class_type === cls && s.status !== "Hoàn thành" && s.status !== "Kết thúc"),
+    () => students.filter((s) => s.class_type === cls && s.status !== "Hoàn thành"),
     [students, cls],
   );
   const student = students.find((s) => s.id === studentId);

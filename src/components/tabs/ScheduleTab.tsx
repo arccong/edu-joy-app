@@ -280,12 +280,13 @@ export function ScheduleTab() {
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
             <span>• (CP) nghỉ có phép · (KP) nghỉ không phép · (BL) đang bảo lưu — tên hiển thị mờ</span>
-            <span>• Chỉ hiện học sinh có khóa học trong tuần; tự cập nhật từ điểm danh</span>
+            <span>• Tuần đã qua hiển thị theo lịch có hiệu lực tại thời điểm đó</span>
           </div>
         </div>
       </CardContent>
     </Card>
 
+    <ScheduleChangeCard students={students} changes={changes} />
     <ReserveCard students={students} weekStart={weekStart} />
     </div>
   );

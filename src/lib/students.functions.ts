@@ -69,7 +69,29 @@ export const upsertStudent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const sb = await admin();
     const { schedule_days, sessions_per_day } = derive(data.schedule_slots);
-    const payload = { ...data, schedule_days, sessions_per_day };
+    // Hồ sơ học sinh: dùng person_id nếu có, nếu không thì gộp theo tên + tuổi
+    let person_id = data.person_id ?? null;
+    if (!person_id) {
+      const { data: found } = await (sb as any)
+        .from("people")
+        .select("id")
+        .ilike("name", data.name.trim())
+        .eq("age", data.age)
+        .maybeSingle();
+      if (found?.id) person_id = found.id;
+      else {
+        const { data: created, error: pe } = await (sb as any)
+          .from("people")
+          .insert({ name: data.name.trim(), age: data.age })
+          .select("id")
+          .single();
+        if (pe) throw new Error(pe.message);
+        person_id = created?.id ?? null;
+      }
+    } else {
+      await (sb as any).from("people").update({ name: data.name.trim(), age: data.age }).eq("id", person_id);
+    }
+    const payload = { ...data, person_id, schedule_days, sessions_per_day };
     if (data.id) {
       const { error } = await (sb as any).from("students").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);

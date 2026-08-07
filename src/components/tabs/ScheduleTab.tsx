@@ -475,7 +475,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
               <SelectTrigger><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
               <SelectContent>
                 {list.length === 0 ? <SelectItem value="none" disabled>Không có học sinh</SelectItem>
-                  : list.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  : list.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

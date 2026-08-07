@@ -156,3 +156,131 @@ export const deleteAttendance = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/** ===== Hồ sơ học sinh ===== */
+export const listPeople = createServerFn({ method: "GET" }).handler(async () => {
+  const sb = await admin();
+  const { data, error } = await (sb as any).from("people").select("*").order("name");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
+
+/** ===== Đổi lịch học (giữ lịch sử) ===== */
+export const listScheduleChanges = createServerFn({ method: "GET" }).handler(async () => {
+  const sb = await admin();
+  const { data, error } = await (sb as any)
+    .from("schedule_changes")
+    .select("*")
+    .order("effective_from", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
+
+export const changeSchedule = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({
+      student_id: z.string().uuid(),
+      effective_from: z.string(),
+      new_slots: z.array(ScheduleSlot).min(1),
+      reason: z.string().max(300).nullable().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { computeEndDate, slotsPerDayMap } = await import("@/lib/shared");
+    const sb = await admin();
+    const { data: st, error: e1 } = await (sb as any).from("students").select("*").eq("id", data.student_id).single();
+    if (e1 || !st) throw new Error(e1?.message ?? "Không tìm thấy khóa học");
+
+    const oldSlots = (st.schedule_slots ?? []) as any[];
+    // Số buổi đã học trước ngày hiệu lực (1 giờ = 1 buổi)
+    const { data: att } = await (sb as any)
+      .from("attendance")
+      .select("date,status")
+      .eq("student_id", data.student_id)
+      .gte("date", st.start_date)
+      .lt("date", data.effective_from);
+    const perDay = slotsPerDayMap(oldSlots as any);
+    let used = 0;
+    for (const r of att ?? []) {
+      if (r.status !== "Đi học") continue;
+      const dow = new Date(r.date + "T00:00:00").getDay();
+      used += perDay.get(dow) ?? 1;
+    }
+    const remain = Math.max(1, (st.total_sessions ?? 0) - used);
+    const newEnd = computeEndDate(data.effective_from, data.new_slots as any, remain) ?? st.end_date;
+
+    const { error: e2 } = await (sb as any).from("schedule_changes").insert({
+      student_id: data.student_id,
+      effective_from: data.effective_from,
+      old_slots: oldSlots,
+      new_slots: data.new_slots,
+      reason: data.reason ?? null,
+    });
+    if (e2) throw new Error(e2.message);
+
+    const { schedule_days, sessions_per_day } = derive(data.new_slots);
+    const { error: e3 } = await (sb as any)
+      .from("students")
+      .update({ schedule_slots: data.new_slots, schedule_days, sessions_per_day, end_date: newEnd })
+      .eq("id", data.student_id);
+    if (e3) throw new Error(e3.message);
+    return { ok: true, end_date: newEnd, remain };
+  });
+
+export const deleteScheduleChange = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const sb = await admin();
+    const { error } = await (sb as any).from("schedule_changes").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** ===== Bảo lưu: sửa / xóa ===== */
+export const deleteReserveDates = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ student_id: z.string().uuid(), dates: z.array(z.string()).min(1) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const sb = await admin();
+    const { error } = await (sb as any)
+      .from("attendance")
+      .delete()
+      .eq("student_id", data.student_id)
+      .eq("status", "Bảo lưu")
+      .in("date", data.dates);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const replaceReserveDates = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({
+      student_id: z.string().uuid(),
+      old_dates: z.array(z.string()),
+      dates: z.array(z.string()).min(1),
+      note: z.string().max(300).nullable().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const sb = await admin();
+    if (data.old_dates.length > 0) {
+      const { error } = await (sb as any)
+        .from("attendance")
+        .delete()
+        .eq("student_id", data.student_id)
+        .eq("status", "Bảo lưu")
+        .in("date", data.old_dates);
+      if (error) throw new Error(error.message);
+    }
+    const rows = data.dates.map((d) => ({
+      student_id: data.student_id,
+      date: d,
+      status: "Bảo lưu",
+      note: data.note ?? "Bảo lưu theo lịch",
+      makeup_date: null,
+    }));
+    const { error: e2 } = await (sb as any).from("attendance").upsert(rows, { onConflict: "student_id,date" });
+    if (e2) throw new Error(e2.message);
+    return { ok: true };
+  });

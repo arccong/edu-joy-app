@@ -37,6 +37,7 @@ const StudentInput = z.object({
   total_sessions: z.number().int().min(1).max(500),
   course_index: z.number().int().min(1).default(1),
   schedule_slots: z.array(ScheduleSlot).min(1),
+  person_id: z.string().uuid().nullable().optional(),
 }).refine((d) => {
   // Tối thiểu 2 buổi/tuần (1 giờ = 1 buổi)
   const total = d.schedule_slots.reduce((acc, s) => {

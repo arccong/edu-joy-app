@@ -450,6 +450,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
       toast.success(`Đã thêm ${dates.length} buổi bảo lưu`);
       setOpen(false);
     },

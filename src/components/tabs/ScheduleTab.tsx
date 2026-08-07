@@ -377,24 +377,30 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
                         <th className="border bg-muted p-2 text-left text-xs font-semibold">Kỳ học</th>
                         <th className="border bg-muted p-2 text-center text-xs font-semibold">Số buổi</th>
                         <th className="border bg-muted p-2 text-left text-xs font-semibold">Các ngày bảo lưu</th>
+                        <th className="border bg-muted p-2 text-center text-xs font-semibold">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody>
                       {list.map((s) => {
                         const dates = byStudent.get(s.id) ?? [];
                         const w = courseWindow(s);
+                        const perDay = slotsPerDayMap(s.schedule_slots ?? []);
+                        const sessions = dates.reduce((acc, d) => acc + (perDay.get(new Date(d + "T00:00:00").getDay()) ?? 1), 0);
                         return (
                           <tr key={s.id}>
                             <td className="border p-2 font-medium">{s.name}</td>
                             <td className="border p-2 text-center font-semibold text-primary">{coursePrefix(s.class_type)}{s.course_index ?? 1}</td>
                             <td className="border p-2 whitespace-nowrap text-xs text-muted-foreground">{fmtDate(w.from)} → {fmtDate(w.to)}</td>
-                            <td className="border p-2 text-center">{dates.length}</td>
+                            <td className="border p-2 text-center">{sessions}</td>
                             <td className="border p-2">
                               <div className="flex flex-wrap gap-1">
                                 {dates.map((d) => (
                                   <span key={d} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{fmtDate(d)}</span>
                                 ))}
                               </div>
+                            </td>
+                            <td className="border p-2 text-center">
+                              <ReserveRowActions student={s} dates={dates} />
                             </td>
                           </tr>
                         );

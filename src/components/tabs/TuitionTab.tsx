@@ -34,6 +34,7 @@ import {
   type ScheduleSlot,
   type Student,
   type TuitionPayment,
+  groupByPerson,
 } from "@/lib/shared";
 import { listStudents, upsertStudent } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";

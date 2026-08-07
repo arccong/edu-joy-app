@@ -149,7 +149,7 @@ export function ScheduleTab() {
     try {
       const dataUrl = await toPng(frameRef.current, { backgroundColor: "#ffffff", pixelRatio: 2 });
       const link = document.createElement("a");
-      const suffix = studentFilter === "all" ? cls : `${cls}-${(inClass.find((s) => s.id === studentFilter)?.name ?? "").replace(/\s+/g, "_")}`;
+      const suffix = studentFilter === "all" ? cls : `${cls}-${(people.find((p) => p.key === studentFilter)?.name ?? "").replace(/\s+/g, "_")}`;
       link.download = `TKB-${suffix}-${fromISO}.png`;
       link.href = dataUrl;
       link.click();

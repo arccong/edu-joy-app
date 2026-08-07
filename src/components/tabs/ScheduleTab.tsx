@@ -205,7 +205,7 @@ export function ScheduleTab() {
         <div ref={frameRef} className="rounded-lg border bg-white p-4">
           <div className="mb-3 text-center">
             <h3 className="text-lg font-bold">Thời khóa biểu lớp {cls}</h3>
-            <p className="text-xs text-muted-foreground">Tuần từ {fmtDate(fromISO)} đến {fmtDate(toISO)}{studentFilter !== "all" ? ` · ${inClass.find((s) => s.id === studentFilter)?.name}` : ""}</p>
+            <p className="text-xs text-muted-foreground">Tuần từ {fmtDate(fromISO)} đến {fmtDate(toISO)}{studentFilter !== "all" ? ` · ${people.find((p) => p.key === studentFilter)?.name ?? ""}` : ""}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">

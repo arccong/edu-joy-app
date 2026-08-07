@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { CLASSES, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
+import { CLASSES, coursePrefix, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
 import { listStudents } from "@/lib/students.functions";
 import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
 import { exportXlsx } from "@/lib/export";
@@ -89,7 +89,7 @@ export function LearningTab() {
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả học sinh</SelectItem>
-                {inClass.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                {inClass.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
@@ -225,7 +225,7 @@ function LogDialog({ students, cls, existing, trigger }: { students: Student[]; 
               <Label>Học sinh</Label>
               <Select value={studentId} onValueChange={setStudentId}>
                 <SelectTrigger><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
-                <SelectContent>{students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           )}

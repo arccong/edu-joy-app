@@ -34,6 +34,7 @@ import {
   type ScheduleSlot,
   type Student,
   type TuitionPayment,
+  groupByPerson,
 } from "@/lib/shared";
 import { listStudents, upsertStudent } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
@@ -573,10 +574,14 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
   const results = useMemo(() => {
     if (!q.trim()) return [];
     const list = students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()));
-    return list.map((s) => {
-      const paid = payments.filter((p) => p.student_id === s.id);
+    return groupByPerson(list).map((g) => {
+      const ids = new Set(g.courses.map((c) => c.id));
+      const paid = payments
+        .filter((p) => ids.has(p.student_id))
+        .sort((a, b) => a.paid_date.localeCompare(b.paid_date));
       const total = paid.reduce((a, b) => a + Number(b.amount), 0);
-      return { s, paid, total };
+      const byId = new Map(g.courses.map((c) => [c.id, c] as const));
+      return { g, paid, total, byId };
     });
   }, [q, students, payments]);
 
@@ -584,31 +589,39 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
     <Card className="shadow-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />Tra cứu học phí theo học sinh</CardTitle>
-        <CardDescription>Xem số kỳ đã đóng và tổng tiền đến hiện tại.</CardDescription>
+        <CardDescription>Mỗi học sinh một hồ sơ, gộp tất cả khóa đã học.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Input placeholder="Nhập tên học sinh..." value={q} onChange={(e) => setQ(e.target.value)} />
         {q.trim() && results.length === 0 && <EmptyState text="Không tìm thấy học sinh." />}
         <div className="space-y-3">
-          {results.map(({ s, paid, total }) => (
-            <div key={s.id} className="rounded-lg border p-3">
+          {results.map(({ g, paid, total, byId }) => (
+            <div key={g.key} className="rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{s.name}</p>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    {classChip(s.class_type)}
-                    <span>{paid.length} kỳ · Tổng {total.toLocaleString("vi-VN")}đ</span>
+                  <p className="font-semibold">{g.name} <span className="text-xs font-normal text-muted-foreground">({g.age} tuổi)</span></p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {Array.from(new Set(g.courses.map((c) => c.class_type))).map((c) => (
+                      <span key={c}>{classChip(c)}</span>
+                    ))}
+                    <span>{g.courses.length} khóa · {paid.length} kỳ · Tổng {total.toLocaleString("vi-VN")}đ</span>
                   </div>
                 </div>
               </div>
               {paid.length > 0 && (
                 <ul className="mt-2 space-y-1 text-sm">
-                  {paid.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between rounded border-l-2 border-primary bg-muted/40 px-2 py-1">
-                      <span>{fmtMonth(p.month)} · Kỳ {p.ky_index} · {fmtDate(p.paid_date)}</span>
-                      <span className="font-medium">{Number(p.amount).toLocaleString("vi-VN")}đ</span>
-                    </li>
-                  ))}
+                  {paid.map((p) => {
+                    const c = byId.get(p.student_id);
+                    return (
+                      <li key={p.id} className="flex items-center justify-between rounded border-l-2 border-primary bg-muted/40 px-2 py-1">
+                        <span>
+                          {c ? `${coursePrefix(c.class_type)}${c.course_index ?? 1} · ` : ""}
+                          {fmtMonth(p.month)} · Kỳ {p.ky_index} · {fmtDate(p.paid_date)}
+                        </span>
+                        <span className="font-medium">{Number(p.amount).toLocaleString("vi-VN")}đ</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

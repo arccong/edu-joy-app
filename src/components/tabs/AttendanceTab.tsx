@@ -429,7 +429,7 @@ function BackfillButton({ students }: { students: Student[] }) {
                 <SelectItem value="all">Tất cả</SelectItem>
                 {students
                   .filter((s) => scope === "Tất cả" || s.class_type === scope)
-                  .map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  .map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

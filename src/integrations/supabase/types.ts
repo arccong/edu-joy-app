@@ -222,6 +222,71 @@ export type Database = {
           },
         ]
       }
+      people: {
+        Row: {
+          age: number
+          created_at: string
+          id: string
+          name: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          age?: number
+          created_at?: string
+          id?: string
+          name: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          created_at?: string
+          id?: string
+          name?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schedule_changes: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          new_slots: Json
+          old_slots: Json
+          reason: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          new_slots?: Json
+          old_slots?: Json
+          reason?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          new_slots?: Json
+          old_slots?: Json
+          reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           age: number
@@ -231,6 +296,7 @@ export type Database = {
           end_date: string
           id: string
           name: string
+          person_id: string | null
           reserve_days: number
           schedule_days: number[]
           schedule_slots: Json
@@ -249,6 +315,7 @@ export type Database = {
           end_date: string
           id?: string
           name: string
+          person_id?: string | null
           reserve_days?: number
           schedule_days?: number[]
           schedule_slots?: Json
@@ -267,6 +334,7 @@ export type Database = {
           end_date?: string
           id?: string
           name?: string
+          person_id?: string | null
           reserve_days?: number
           schedule_days?: number[]
           schedule_slots?: Json
@@ -277,7 +345,15 @@ export type Database = {
           tuition?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "students_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       telegram_settings: {
         Row: {

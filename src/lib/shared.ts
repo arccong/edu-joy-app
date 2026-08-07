@@ -64,6 +64,7 @@ export interface Student {
   sessions_per_day: 1 | 2;
   schedule_slots: ScheduleSlot[];
   course_index: number;
+  person_id?: string | null;
 }
 
 export interface AttendanceRow {
@@ -214,4 +215,72 @@ export function classChipStyles(c: ClassType) {
 /** Kiểm tra hs có bảo lưu vào ngày date không (tạm hiểu: status=Bảo lưu & date < end_date - reserve_days? — đơn giản hoá: nếu status=Bảo lưu thì mờ) */
 export function isReservedOn(_dateISO: string, status: StudentStatus): boolean {
   return status === "Bảo lưu";
+}
+
+/** ===== Hồ sơ học sinh (một bé — nhiều khóa/nhiều lớp) ===== */
+export interface Person {
+  id: string;
+  name: string;
+  age: number;
+  note: string | null;
+}
+
+/** Khóa nhận diện một học sinh (ưu tiên person_id, fallback tên + tuổi) */
+export function personKey(s: { person_id?: string | null; name: string; age: number }): string {
+  return s.person_id || `${s.name.trim().toLowerCase()}|${s.age}`;
+}
+
+export interface PersonGroup {
+  key: string;
+  name: string;
+  age: number;
+  courses: Student[];
+}
+
+/** Gộp danh sách khóa học thành danh sách học sinh duy nhất */
+export function groupByPerson(students: Student[]): PersonGroup[] {
+  const m = new Map<string, PersonGroup>();
+  for (const s of students) {
+    const k = personKey(s);
+    if (!m.has(k)) m.set(k, { key: k, name: s.name, age: s.age, courses: [] });
+    m.get(k)!.courses.push(s);
+  }
+  const out = Array.from(m.values());
+  for (const g of out) g.courses.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
+  return out.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+}
+
+/** ===== Lịch sử đổi lịch học ===== */
+export interface ScheduleChange {
+  id: string;
+  student_id: string;
+  effective_from: string;
+  old_slots: ScheduleSlot[];
+  new_slots: ScheduleSlot[];
+  reason: string | null;
+  created_at: string;
+}
+
+/** Lịch học có hiệu lực của một khóa tại ngày cho trước */
+export function slotsEffectiveOn(
+  student: Student,
+  changes: ScheduleChange[],
+  dateISO: string,
+): ScheduleSlot[] {
+  const list = changes
+    .filter((c) => c.student_id === student.id)
+    .sort((a, b) => a.effective_from.localeCompare(b.effective_from));
+  if (list.length === 0) return (student.schedule_slots ?? []) as ScheduleSlot[];
+  const upcoming = list.find((c) => c.effective_from > dateISO);
+  if (upcoming) return (upcoming.old_slots ?? []) as ScheduleSlot[];
+  return (student.schedule_slots ?? []) as ScheduleSlot[];
+}
+
+export function describeSlots(slots: ScheduleSlot[]): string {
+  if (!slots || slots.length === 0) return "—";
+  return slots
+    .slice()
+    .sort((a, b) => a.day - b.day || a.start.localeCompare(b.start))
+    .map((s) => `${DAYS_SHORT[s.day]} ${s.start}-${s.end}`)
+    .join(", ");
 }

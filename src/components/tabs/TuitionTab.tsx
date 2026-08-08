@@ -605,6 +605,11 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
             disabled={mut.isPending}
             onClick={() => {
               if (!form.name.trim()) return toast.error("Vui lòng nhập tên học sinh");
+              if (mode !== "new" && !base) return toast.error("Vui lòng chọn học sinh");
+              if (mode === "class") {
+                if (base && form.class_type === base.class_type) return toast.error("Vui lòng chọn lớp khác với lớp đang học");
+                if (scheduleConflict) return toast.error(scheduleConflict);
+              }
               if (perWeek < 2) return toast.error("Học sinh phải học tối thiểu 2 buổi/tuần");
               for (const s of form.schedule_slots) if (s.start >= s.end) return toast.error("Khung giờ không hợp lệ");
               const sDow = dayOfWeekOf(form.start_date);

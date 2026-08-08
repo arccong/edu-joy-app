@@ -426,7 +426,8 @@ function ReserveDialog({ students }: { students: Student[] }) {
   const [count, setCount] = useState(1);
   const [startDate, setStartDate] = useState(toLocalISO(new Date()));
 
-  const list = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
+  // Chỉ học sinh đang học mới được thêm lịch bảo lưu
+  const list = useMemo(() => students.filter((s) => s.class_type === cls && s.status === "Đang học"), [students, cls]);
   const student = students.find((s) => s.id === studentId);
 
   const dates = useMemo(() => {
@@ -669,8 +670,9 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
   const [reason, setReason] = useState("");
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
 
+  // Chỉ học sinh đang học mới được đổi lịch
   const active = useMemo(
-    () => students.filter((s) => s.class_type === cls && s.status !== "Hoàn thành"),
+    () => students.filter((s) => s.class_type === cls && s.status === "Đang học"),
     [students, cls],
   );
   const student = students.find((s) => s.id === studentId);

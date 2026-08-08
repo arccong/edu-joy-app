@@ -313,7 +313,7 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
   const savePayment = useServerFn(upsertPayment);
   const saveStudent = useServerFn(upsertStudent);
 
-  const [mode, setMode] = useState<"next" | "new">("next");
+  const [mode, setMode] = useState<"next" | "class" | "new">("next");
   const [baseId, setBaseId] = useState<string>("");
   const [paidDate, setPaidDate] = useState(toLocalISO(new Date()));
 
@@ -336,13 +336,46 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
     () => students.filter((s) => s.status === "Đang học" || s.status === "Hoàn thành"),
     [students],
   );
+  // "Học lớp mới": chỉ học sinh đang học
+  const studyingStudents = useMemo(() => students.filter((s) => s.status === "Đang học"), [students]);
   const base = useMemo(() => students.find((s) => s.id === baseId), [students, baseId]);
+
+  // Các khóa khác đang hiệu lực của cùng một hồ sơ học sinh (để kiểm tra trùng lịch)
+  const siblingCourses = useMemo(() => {
+    if (!base) return [] as Student[];
+    return students.filter(
+      (s) =>
+        s.id !== base.id &&
+        (base.person_id ? s.person_id === base.person_id : s.name.trim().toLowerCase() === base.name.trim().toLowerCase() && s.age === base.age) &&
+        (s.status === "Đang học" || s.status === "Chuẩn bị"),
+    );
+  }, [students, base]);
 
   const pickBase = (id: string) => {
     setBaseId(id);
     const s = students.find((x) => x.id === id);
     if (!s) return;
     const slots = (s.schedule_slots ?? []) as ScheduleSlot[];
+
+    if (mode === "class") {
+      // Đăng ký lớp khác cho học sinh đang học: giữ hồ sơ, nhập lịch mới
+      const other = CLASSES.find((c) => c !== s.class_type) as ClassType;
+      const t = defaultTuitionFor(other);
+      setForm({
+        name: s.name,
+        age: s.age,
+        class_type: other,
+        tuition: t,
+        total_sessions: defaultSessionsFor(other),
+        course_index: 1,
+        schedule_slots: [],
+        start_date: toLocalISO(new Date()),
+        end_date: "",
+      });
+      setTuitionStr(formatMoney(t));
+      return;
+    }
+
     const actualEnd = addScheduledDays(s.end_date, slots, s.reserve_days ?? 0);
     const start = nextScheduledDate(actualEnd, slots);
     const end = computeEndDate(start, slots, s.total_sessions) ?? "";
@@ -359,6 +392,21 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
     });
     setTuitionStr(formatMoney(Number(s.tuition)));
   };
+
+  // Lịch mới không được trùng bất kỳ lịch nào của các lớp đang học
+  const scheduleConflict = useMemo(() => {
+    if (mode !== "class" || form.schedule_slots.length === 0) return null as string | null;
+    for (const other of siblingCourses.concat(base ? [base] : [])) {
+      for (const b of (other.schedule_slots ?? []) as ScheduleSlot[]) {
+        for (const a of form.schedule_slots) {
+          if (a.day === b.day && a.start < b.end && b.start < a.end) {
+            return `Trùng lịch với lớp ${other.class_type} (${DAYS[a.day]} ${b.start}–${b.end})`;
+          }
+        }
+      }
+    }
+    return null;
+  }, [mode, form.schedule_slots, siblingCourses, base]);
 
   const autoEnd = useMemo(
     () => computeEndDate(form.start_date, form.schedule_slots, form.total_sessions),

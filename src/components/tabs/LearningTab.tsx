@@ -221,15 +221,15 @@ function DeleteLogButton({ id }: { id: string }) {
   );
 }
 
-function LogDialog({ students, cls, existing, trigger }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode }) {
+function LogDialog({ students, cls, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertLearningLog);
 
   const classWideDefault = existing?.is_class_wide ?? cls === "Múa";
   const [isClassWide, setIsClassWide] = useState(classWideDefault);
-  const [studentId, setStudentId] = useState(existing?.student_id ?? students[0]?.id ?? "");
-  const [date, setDate] = useState(existing?.date ?? toLocalISO(new Date()));
+  const [studentId, setStudentId] = useState(existing?.student_id ?? defaultStudentId ?? students[0]?.id ?? "");
+  const [date, setDate] = useState(existing?.date ?? defaultDate ?? toLocalISO(new Date()));
   const [title, setTitle] = useState(existing?.title ?? "");
   const [content, setContent] = useState(existing?.content ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>(existing?.attachments ?? []);

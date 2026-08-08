@@ -441,6 +441,7 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
         total_sessions: Number(form.total_sessions),
         course_index: Number(form.course_index),
         schedule_slots: form.schedule_slots,
+        person_id: mode === "new" ? null : (base?.person_id ?? null),
       } as any });
       const newId = res?.id as string;
       if (!newId) throw new Error("Không lấy được mã học sinh vừa tạo");

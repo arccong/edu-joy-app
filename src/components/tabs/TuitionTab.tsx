@@ -471,33 +471,38 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label>Chế độ</Label>
-            <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+            <div className="inline-flex flex-wrap rounded-md border bg-muted/40 p-0.5">
               <Button size="sm" variant={mode === "next" ? "default" : "ghost"}
                 onClick={() => { setMode("next"); setForm(emptyForm()); setBaseId(""); }}>Khóa tiếp theo</Button>
+              <Button size="sm" variant={mode === "class" ? "default" : "ghost"}
+                onClick={() => { setMode("class"); setForm(emptyForm()); setBaseId(""); }}>Học lớp mới</Button>
               <Button size="sm" variant={mode === "new" ? "default" : "ghost"}
                 onClick={() => { setMode("new"); setBaseId(""); setForm(emptyForm()); setTuitionStr(formatMoney(defaultTuitionFor("Piano"))); }}>Học sinh mới</Button>
             </div>
           </div>
 
-          {mode === "next" && (
+          {mode !== "new" && (
             <div className="grid gap-2">
-              <Label>Học sinh đang học</Label>
+              <Label>{mode === "class" ? "Học sinh đang học (đăng ký thêm lớp)" : "Học sinh đang học"}</Label>
               <Select value={baseId} onValueChange={pickBase}>
                 <SelectTrigger><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
                 <SelectContent>
-                  {activeStudents.map((s) => (
+                  {(mode === "class" ? studyingStudents : activeStudents).map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1} · {s.class_type}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {mode === "class" && (
+                <p className="text-xs text-muted-foreground">Lịch học lớp mới không được trùng với lịch các lớp đang học của học sinh này.</p>
+              )}
             </div>
           )}
 
           <div className="grid gap-2">
             <Label>Tên học sinh</Label>
-            <Input value={form.name} disabled={mode === "next"} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input value={form.name} disabled={mode !== "new"} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

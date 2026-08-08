@@ -33,15 +33,28 @@ export type LearningLog = {
 export function LearningTab() {
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
+  const fetchAtt = useServerFn(listAttendance);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: logs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
 
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentId, setStudentId] = useState<string>("all");
-  const todayISO = toLocalISO(new Date());
+  const [date, setDate] = useState<string>(toLocalISO(new Date()));
+  const todayISO = date;
+
+  const { data: attRows = [] } = useQuery<any[]>({
+    queryKey: ["attendance", date],
+    queryFn: () => fetchAtt({ data: { date } }) as any,
+  });
 
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
+
+  // Học sinh đã được điểm danh "Đi học" trong ngày
+  const attendedToday = useMemo(() => {
+    const ids = new Set(attRows.filter((r) => r.status === "Đi học").map((r) => r.student_id as string));
+    return inClass.filter((s) => ids.has(s.id) && (studentId === "all" || s.id === studentId));
+  }, [attRows, inClass, studentId]);
 
   const scoped = useMemo(() => {
     return logs.filter((l) => {

@@ -253,35 +253,116 @@ function DeletePaymentButton({ id }: { id: string }) {
   );
 }
 
-/** Sửa nhanh một ghi nhận đã có */
-function EditPaymentDialog({ existing, trigger }: { existing: TuitionPayment; trigger: React.ReactNode }) {
+/** Sửa ghi nhận học phí: sửa được cả thông tin khóa học đã nhập khi ghi nhận */
+function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPayment; student?: Student; trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertPayment);
+  const saveStudent = useServerFn(upsertStudent);
   const [amount, setAmount] = useState(Number(existing.amount));
   const [paidDate, setPaidDate] = useState(existing.paid_date);
   const [note, setNote] = useState(existing.note ?? "");
 
+  const [name, setName] = useState(student?.name ?? "");
+  const [age, setAge] = useState(student?.age ?? 8);
+  const [clsType, setClsType] = useState<ClassType>((student?.class_type ?? "Piano") as ClassType);
+  const [totalSessions, setTotalSessions] = useState(student?.total_sessions ?? 24);
+  const [courseIndex, setCourseIndex] = useState(student?.course_index ?? 1);
+  const [startDate, setStartDate] = useState(student?.start_date ?? "");
+  const [endDate, setEndDate] = useState(student?.end_date ?? "");
+
   const mut = useMutation({
-    mutationFn: () => save({ data: {
-      id: existing.id,
-      student_id: existing.student_id,
-      month: existing.month,
-      amount: Number(amount),
-      paid_date: paidDate,
-      ky_index: existing.ky_index,
-      note: note || null,
-    } as any }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payments"] }); toast.success("Đã cập nhật"); setOpen(false); },
+    mutationFn: async () => {
+      if (student) {
+        await saveStudent({ data: {
+          id: student.id,
+          name: name.trim(),
+          age: Number(age),
+          class_type: clsType,
+          tuition: Number(amount),
+          start_date: startDate,
+          end_date: endDate,
+          status: student.status,
+          reserve_days: student.reserve_days ?? 0,
+          total_sessions: Number(totalSessions),
+          course_index: Number(courseIndex),
+          schedule_slots: student.schedule_slots ?? [],
+          person_id: student.person_id ?? null,
+        } as any });
+      }
+      await save({ data: {
+        id: existing.id,
+        student_id: existing.student_id,
+        month: existing.month,
+        amount: Number(amount),
+        paid_date: paidDate,
+        ky_index: Number(courseIndex),
+        note: note || null,
+      } as any });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      toast.success("Đã cập nhật");
+      setOpen(false);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
         <DialogHeader><DialogTitle>Sửa ghi nhận học phí</DialogTitle></DialogHeader>
         <div className="grid gap-3">
+          {student && (
+            <>
+              <div className="grid gap-1">
+                <Label>Tên học sinh</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label>Tuổi</Label>
+                  <Input type="number" min={1} value={age} onChange={(e) => setAge(Number(e.target.value))} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Lớp học</Label>
+                  <Select value={clsType} onValueChange={(v) => {
+                    const c = v as ClassType;
+                    setClsType(c);
+                    setTotalSessions(defaultSessionsFor(c));
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label>Tổng số buổi/khóa</Label>
+                  <Input type="number" min={1} value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Tên khóa</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-primary">{coursePrefix(clsType)}</span>
+                    <Input type="number" min={1} value={courseIndex} onChange={(e) => setCourseIndex(Math.max(1, Number(e.target.value) || 1))} />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1">
+                  <Label>Ngày bắt đầu</Label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Ngày kết thúc</Label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
           <div className="grid gap-1">
             <Label>Số tiền (VNĐ)</Label>
             <Input inputMode="numeric" value={formatMoney(amount)} onChange={(e) => setAmount(parseMoney(e.target.value))} />

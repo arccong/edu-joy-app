@@ -94,6 +94,7 @@ export function LearningTab() {
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[150px]" />
             <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId("all"); }}>
               <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -106,14 +107,45 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <LogDialog students={inClass} cls={cls} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
+            <LogDialog students={inClass} cls={cls} defaultDate={date} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Hôm nay · {fmtDate(todayISO)}</h3>
+            <h3 className="mb-2 text-sm font-semibold">Học sinh đã điểm danh · {fmtDate(todayISO)}</h3>
+            {attendedToday.length === 0 ? (
+              <EmptyState text="Chưa có học sinh nào được điểm danh trong ngày này." />
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {attendedToday.map((s) => {
+                  const log = todayLogs.find((l) => l.student_id === s.id) ?? todayLogs.find((l) => l.is_class_wide);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</p>
+                        <p className="truncate text-xs text-muted-foreground">{log ? log.title : "Chưa ghi nhật ký"}</p>
+                      </div>
+                      <LogDialog
+                        students={inClass}
+                        cls={cls}
+                        existing={log && log.student_id === s.id ? log : undefined}
+                        defaultStudentId={s.id}
+                        defaultDate={todayISO}
+                        trigger={<Button size="sm" variant={log && log.student_id === s.id ? "outline" : "default"}>
+                          <Pencil className="mr-1 h-4 w-4" />{log && log.student_id === s.id ? "Sửa" : "Thêm"}
+                        </Button>}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">Nhật ký ngày {fmtDate(todayISO)}</h3>
             {todayLogs.length === 0 ? (
-              <EmptyState text="Chưa có bài học nào cho hôm nay." />
+              <EmptyState text="Chưa có bài học nào cho ngày này." />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} />)}

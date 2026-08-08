@@ -198,7 +198,7 @@ export function TuitionTab() {
                         <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">{p.note}</TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex gap-1">
-                            <EditPaymentDialog existing={p} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                            <EditPaymentDialog existing={p} student={stuMap.get(p.student_id)} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />ct
                             <DeletePaymentButton id={p.id} />
                           </div>
                         </TableCell>

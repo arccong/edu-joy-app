@@ -57,7 +57,7 @@ export function StudentsTab() {
   const fetchAttRange = useServerFn(listAttendanceRange);
   const { data: students = [], isLoading } = useQuery({ queryKey: ["students"], queryFn: () => fetchList() });
 
-  const [filter, setFilter] = useState<"Tất cả" | ClassType>("Tất cả");
+  const [filter, setFilter] = useState<ClassType>("Piano");
   const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Tất cả");
   const [visible, setVisible] = useState<Set<ColKey>>(() => {
     if (typeof window === "undefined") return new Set(DEFAULT_COLS);
@@ -156,8 +156,7 @@ export function StudentsTab() {
   }, [students, attendedByStudent]);
 
   const filtered = useMemo(() => {
-    let list = students as Student[];
-    if (filter !== "Tất cả") list = list.filter((s) => s.class_type === filter);
+    let list = (students as Student[]).filter((s) => s.class_type === filter);
     if (statusFilter !== "Tất cả") list = list.filter((s) => statusOf(s) === statusFilter);
     return list;
   }, [students, filter, statusFilter, attendedByStudent]);
@@ -213,10 +212,9 @@ export function StudentsTab() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+            <Select value={filter} onValueChange={(v) => setFilter(v as ClassType)}>
               <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>

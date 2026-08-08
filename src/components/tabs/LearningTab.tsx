@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { CLASSES, coursePrefix, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
-import { listStudents } from "@/lib/students.functions";
+import { listAttendance, listStudents } from "@/lib/students.functions";
 import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
 import { exportXlsx } from "@/lib/export";
 
@@ -33,15 +33,28 @@ export type LearningLog = {
 export function LearningTab() {
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
+  const fetchAtt = useServerFn(listAttendance);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: logs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
 
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentId, setStudentId] = useState<string>("all");
-  const todayISO = toLocalISO(new Date());
+  const [date, setDate] = useState<string>(toLocalISO(new Date()));
+  const todayISO = date;
+
+  const { data: attRows = [] } = useQuery<any[]>({
+    queryKey: ["attendance", date],
+    queryFn: () => fetchAtt({ data: { date } }) as any,
+  });
 
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
+
+  // Học sinh đã được điểm danh "Đi học" trong ngày
+  const attendedToday = useMemo(() => {
+    const ids = new Set(attRows.filter((r) => r.status === "Đi học").map((r) => r.student_id as string));
+    return inClass.filter((s) => ids.has(s.id) && (studentId === "all" || s.id === studentId));
+  }, [attRows, inClass, studentId]);
 
   const scoped = useMemo(() => {
     return logs.filter((l) => {
@@ -81,6 +94,7 @@ export function LearningTab() {
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[150px]" />
             <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId("all"); }}>
               <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -93,14 +107,45 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <LogDialog students={inClass} cls={cls} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
+            <LogDialog students={inClass} cls={cls} defaultDate={date} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Hôm nay · {fmtDate(todayISO)}</h3>
+            <h3 className="mb-2 text-sm font-semibold">Học sinh đã điểm danh · {fmtDate(todayISO)}</h3>
+            {attendedToday.length === 0 ? (
+              <EmptyState text="Chưa có học sinh nào được điểm danh trong ngày này." />
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {attendedToday.map((s) => {
+                  const log = todayLogs.find((l) => l.student_id === s.id) ?? todayLogs.find((l) => l.is_class_wide);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</p>
+                        <p className="truncate text-xs text-muted-foreground">{log ? log.title : "Chưa ghi nhật ký"}</p>
+                      </div>
+                      <LogDialog
+                        students={inClass}
+                        cls={cls}
+                        existing={log && log.student_id === s.id ? log : undefined}
+                        defaultStudentId={s.id}
+                        defaultDate={todayISO}
+                        trigger={<Button size="sm" variant={log && log.student_id === s.id ? "outline" : "default"}>
+                          <Pencil className="mr-1 h-4 w-4" />{log && log.student_id === s.id ? "Sửa" : "Thêm"}
+                        </Button>}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">Nhật ký ngày {fmtDate(todayISO)}</h3>
             {todayLogs.length === 0 ? (
-              <EmptyState text="Chưa có bài học nào cho hôm nay." />
+              <EmptyState text="Chưa có bài học nào cho ngày này." />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} />)}
@@ -176,15 +221,15 @@ function DeleteLogButton({ id }: { id: string }) {
   );
 }
 
-function LogDialog({ students, cls, existing, trigger }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode }) {
+function LogDialog({ students, cls, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertLearningLog);
 
   const classWideDefault = existing?.is_class_wide ?? cls === "Múa";
   const [isClassWide, setIsClassWide] = useState(classWideDefault);
-  const [studentId, setStudentId] = useState(existing?.student_id ?? students[0]?.id ?? "");
-  const [date, setDate] = useState(existing?.date ?? toLocalISO(new Date()));
+  const [studentId, setStudentId] = useState(existing?.student_id ?? defaultStudentId ?? students[0]?.id ?? "");
+  const [date, setDate] = useState(existing?.date ?? defaultDate ?? toLocalISO(new Date()));
   const [title, setTitle] = useState(existing?.title ?? "");
   const [content, setContent] = useState(existing?.content ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>(existing?.attachments ?? []);

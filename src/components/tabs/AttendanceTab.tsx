@@ -86,8 +86,14 @@ function ByDateView() {
       .filter((s) => s.status !== "Bảo lưu" && s.status !== "Chuẩn bị")
       .filter((s) => !reservedToday.has(s.id))
       .filter((s) => (classFilter === "Tất cả" || s.class_type === classFilter))
+      // Ngày điểm danh phải nằm trong kỳ học (ngày bắt đầu → ngày kết thúc thực tế)
+      .filter((s) => {
+        if (!s.start_date || date < s.start_date) return false;
+        const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
+        return !actualEnd || date <= actualEnd;
+      })
       .filter((s) => (s.schedule_slots ?? []).some((sl: ScheduleSlot) => sl.day === dow));
-  }, [students, dow, classFilter, reservedToday]);
+  }, [students, dow, classFilter, reservedToday, date]);
 
   const mut = useMutation({
     mutationFn: (v: { student_id: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>

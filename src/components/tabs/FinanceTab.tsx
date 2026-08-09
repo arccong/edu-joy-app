@@ -183,9 +183,9 @@ export function FinanceTab() {
               </SelectContent>
             </Select>
             {view === "month" ? (
-              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[185px] pr-2" />
+              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
             ) : (
-              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-[110px]" />
+              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-[120px]" />
             )}
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <EntryDialog

@@ -88,13 +88,13 @@ export function LearningTab() {
   return (
     <div className="space-y-6">
       <Card className="shadow-card">
-        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" />Nhật ký học tập</CardTitle>
+            <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 shrink-0 text-primary" />Nhật ký học tập</CardTitle>
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[150px]" />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
             <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId("all"); }}>
               <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>

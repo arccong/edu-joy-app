@@ -107,7 +107,7 @@ export function TuitionTab() {
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[185px] pr-2" />
+            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
             <Select value={cls} onValueChange={(v) => setCls(v as any)}>
               <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
 
@@ -428,7 +428,7 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
       (s) =>
         s.id !== base.id &&
         (base.person_id ? s.person_id === base.person_id : s.name.trim().toLowerCase() === base.name.trim().toLowerCase() && s.age === base.age) &&
-        (s.status === "Đang học" || s.status === "Chuẩn bị"),
+        (s.status === "Đang học" || s.status === "Chuẩn bị" || s.status === "Bảo lưu"),
     );
   }, [students, base]);
 
@@ -681,9 +681,12 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
           </div>
         </div>
         <DialogFooter>
+          {mode === "class" && scheduleConflict && (
+            <p className="mr-auto text-xs font-medium text-destructive">{scheduleConflict}</p>
+          )}
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
           <Button
-            disabled={mut.isPending}
+            disabled={mut.isPending || (mode === "class" && !!scheduleConflict)}
             onClick={() => {
               if (!form.name.trim()) return toast.error("Vui lòng nhập tên học sinh");
               if (mode !== "new" && !base) return toast.error("Vui lòng chọn học sinh");

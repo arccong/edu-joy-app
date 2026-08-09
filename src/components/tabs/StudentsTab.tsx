@@ -39,7 +39,6 @@ const ALL_COLS = [
   { key: "class", label: "Lớp" },
   { key: "tuition", label: "Học phí" },
   { key: "schedule", label: "Lịch học (giờ)" },
-  { key: "total", label: "Tổng buổi" },
   { key: "remain", label: "Buổi còn lại" },
   { key: "reserve", label: "Bảo lưu" },
   { key: "term", label: "Kỳ học" },
@@ -264,7 +263,6 @@ export function StudentsTab() {
                     {show("tuition") && <TableHead>Học phí</TableHead>}
                     {show("schedule") && <TableHead>Lịch học (giờ)</TableHead>}
                     
-                    {show("total") && <TableHead className="text-center">Tổng buổi</TableHead>}
                     {show("remain") && <TableHead className="text-center">Buổi còn lại</TableHead>}
                     {show("reserve") && <TableHead className="text-center">Bảo lưu</TableHead>}
                     {show("term") && <TableHead>Kỳ học</TableHead>}
@@ -305,7 +303,6 @@ export function StudentsTab() {
                           </TableCell>
                         )}
                         
-                        {show("total") && <TableCell className="text-center">{s.total_sessions ?? "—"}</TableCell>}
                         {show("remain") && (
                           <TableCell className="text-center">
                             <span className={`font-semibold ${remain <= 5 ? "text-[color:var(--warning)]" : ""}`}>{remain}</span>

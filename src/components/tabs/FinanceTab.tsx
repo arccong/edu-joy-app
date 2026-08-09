@@ -161,12 +161,13 @@ export function FinanceTab() {
   return (
     <div className="space-y-6">
       <Card className="shadow-card">
-        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2"><Coins className="h-5 w-5 text-primary" />Tài chính</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Coins className="h-5 w-5 shrink-0 text-primary" />Tài chính</CardTitle>
             <CardDescription>Thu · Chi · Lợi nhuận theo tháng và theo năm.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+
             <Select value={view} onValueChange={(v) => setView(v as "month" | "year")}>
               <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -182,9 +183,9 @@ export function FinanceTab() {
               </SelectContent>
             </Select>
             {view === "month" ? (
-              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[185px] pr-2" />
+              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
             ) : (
-              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-[110px]" />
+              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-[120px]" />
             )}
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <EntryDialog

@@ -107,7 +107,7 @@ export function TuitionTab() {
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[185px] pr-2" />
+            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
             <Select value={cls} onValueChange={(v) => setCls(v as any)}>
               <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
 

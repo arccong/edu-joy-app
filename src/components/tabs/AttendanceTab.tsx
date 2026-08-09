@@ -150,7 +150,7 @@ function ByDateView() {
             <Switch checked={autoMark} onCheckedChange={setAutoMark} />
             <span className="font-medium">Tự động điểm danh</span>
           </label>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[160px]" />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
           <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
             <SelectContent>

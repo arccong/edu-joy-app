@@ -161,12 +161,13 @@ export function FinanceTab() {
   return (
     <div className="space-y-6">
       <Card className="shadow-card">
-        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2"><Coins className="h-5 w-5 text-primary" />Tài chính</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Coins className="h-5 w-5 shrink-0 text-primary" />Tài chính</CardTitle>
             <CardDescription>Thu · Chi · Lợi nhuận theo tháng và theo năm.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+
             <Select value={view} onValueChange={(v) => setView(v as "month" | "year")}>
               <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>

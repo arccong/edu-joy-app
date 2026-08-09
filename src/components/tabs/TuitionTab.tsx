@@ -428,7 +428,7 @@ function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigg
       (s) =>
         s.id !== base.id &&
         (base.person_id ? s.person_id === base.person_id : s.name.trim().toLowerCase() === base.name.trim().toLowerCase() && s.age === base.age) &&
-        (s.status === "Đang học" || s.status === "Chuẩn bị"),
+        (s.status === "Đang học" || s.status === "Chuẩn bị" || s.status === "Bảo lưu"),
     );
   }, [students, base]);
 

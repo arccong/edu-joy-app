@@ -294,9 +294,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Card className="shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-5 w-5 text-primary" />Lịch học hôm nay</CardTitle>
@@ -306,7 +306,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {todayItems.length === 0 ? (
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
                   {todayItems.map(({ s, slot }, i) => {
                     const rec = attMap.get(s.id);
                     const startM = minutesOf(slot.start);
@@ -346,7 +346,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-          <Card className="shadow-card">
+          <Card className="flex flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><PauseCircle className="h-5 w-5 text-muted-foreground" />Nghỉ / Bảo lưu hôm nay</CardTitle>
             </CardHeader>
@@ -354,7 +354,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {absentToday.length === 0 ? (
                 <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-[18rem] space-y-2 overflow-y-auto pr-1">
                   {absentToday.map(({ s, reason }, i) => (
                     <div key={`${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
                       <div className="flex flex-wrap items-center gap-2">
@@ -372,13 +372,13 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         </div>
 
         {/* Cảnh báo + hoạt động */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Card id="dash-alerts" className="shadow-card scroll-mt-24">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-1">
               <AlertGroup title="Sắp hết hạn khóa (7 ngày tới)" empty={expiring.length === 0}>
                 {expiring.map(({ s, end }) => (
                   <AlertRow key={s.id} s={s} right={`Hết hạn: ${fmtDate(end)}`} students={students} />
@@ -397,7 +397,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-          <Card className="shadow-card">
+          <Card className="flex flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
             </CardHeader>
@@ -405,7 +405,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (
-                <ol className="space-y-2.5">
+                <ol className="max-h-[18rem] space-y-2.5 overflow-y-auto pr-1">
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

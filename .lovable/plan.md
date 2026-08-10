@@ -37,7 +37,7 @@ Ba nhóm, mỗi dòng có nút hành động tương ứng:
 
 ## Ghi chú kỹ thuật
 
-- Không cần thay đổi cơ sở dữ liệu. Mọi dữ liệu lấy từ các server function sẵn có: `listStudents`, `listAttendance`, `listPayments`, `listFinanceEntries`, `listScheduleChanges`, `listLearningLogs`; dòng thời gian dựng từ trường `created_at` của các bảng tương ứng.
+- Không cần thay đổi cơ sở dữ liệu. Mọi dữ liệu lấy từ các server function sẵn có: `listStudents`, `listAttendance`, `listPayments`, `listScheduleChanges`, `listLearningLogs`; dòng thời gian dựng từ trường `created_at` của các bảng tương ứng.
 - File mới `src/components/tabs/DashboardTab.tsx`, tách các khối lớn thành sub-component trong cùng thư mục nếu file vượt ~300 dòng.
 - Thêm mục `{ value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard }` vào đầu mảng `TABS` trong `src/routes/index.tsx`, đổi state mặc định thành `"dashboard"`; lưới tab desktop chuyển từ 8 sang 9 cột.
 - Các KPI/khối bấm vào sẽ gọi `setTab(...)` — truyền `onNavigate` prop từ `App` xuống `DashboardTab`.

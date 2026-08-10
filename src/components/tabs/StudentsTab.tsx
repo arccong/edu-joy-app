@@ -49,7 +49,7 @@ const ALL_COLS = [
 type ColKey = typeof ALL_COLS[number]["key"];
 const DEFAULT_COLS: ColKey[] = ALL_COLS.map((c) => c.key);
 
-const STATUS_OPTS: StudentStatus[] = ["Đang học", "Chuẩn bị", "Bảo lưu", "Hoàn thành"];
+const STATUS_OPTS: StudentStatus[] = ["Đang học", "Chuẩn bị", "Bảo lưu", "Hoàn thành", "Kết thúc"];
 
 export function StudentsTab() {
   const fetchList = useServerFn(listStudents);

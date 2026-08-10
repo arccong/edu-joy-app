@@ -95,7 +95,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: cats = [] } = useQuery<any[]>({ queryKey: ["expense-cats"], queryFn: () => fetchCats() as any });
 
-  const studentById = useMemo(() => new Map(students.map((s) => [s.id, s] as const)), [students]);
+  const activeStudents = useMemo(() => students.filter((s) => s.status !== "Kết thúc"), [students]);
+  const studentById = useMemo(() => new Map(activeStudents.map((s) => [s.id, s] as const)), [activeStudents]);
 
   const sessionsOnDate = (s: Student | undefined, dateISO: string) => {
     if (!s) return 1;
@@ -125,14 +126,14 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
   const todayItems = useMemo<TodayItem[]>(() => {
     const out: TodayItem[] = [];
-    for (const s of students) {
+    for (const s of activeStudents) {
       if (s.status === "Bảo lưu" || s.status === "Chuẩn bị") continue;
       if (reservedToday.has(s.id)) continue;
       if (!inCourse(s, todayISO)) continue;
       for (const sl of (s.schedule_slots ?? []) as ScheduleSlot[]) if (sl.day === dow) out.push({ s, slot: sl });
     }
     return out.sort((a, b) => a.slot.start.localeCompare(b.slot.start) || a.s.name.localeCompare(b.s.name, "vi"));
-  }, [students, reservedToday, todayISO, dow]);
+  }, [activeStudents, reservedToday, todayISO, dow]);
 
   const marked = todayItems.filter(({ s }) => attMap.has(s.id)).length;
   const rate = todayItems.length ? Math.round((marked / todayItems.length) * 100) : 0;
@@ -142,35 +143,35 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   };
   const donePart = todayItems.filter(({ slot }) => nowMinutes >= minutesOf(slot.end)).length;
 
-  const activeCount = students.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
-  const reserveCount = students.filter((s) => s.status === "Bảo lưu").length;
-  const prepareCount = students.filter((s) => s.status === "Chuẩn bị").length;
+  const activeCount = activeStudents.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
+  const reserveCount = activeStudents.filter((s) => s.status === "Bảo lưu").length;
+  const prepareCount = activeStudents.filter((s) => s.status === "Chuẩn bị").length;
 
   // Cảnh báo
   const expiring = useMemo(() => {
     const limit = toLocalISO(new Date(now.getTime() + 7 * 86400000));
-    return students
+    return activeStudents
       .filter((s) => s.status === "Đang học" && remainOf(s) > 0)
       .map((s) => ({ s, end: actualEndOf(s) }))
       .filter((x) => x.end && x.end >= todayISO && x.end <= limit)
       .sort((a, b) => a.end.localeCompare(b.end));
-  }, [students, attendedByStudent]);
+  }, [activeStudents, attendedByStudent]);
 
   const lowSessions = useMemo(
-    () => students
+    () => activeStudents
       .filter((s) => s.status === "Đang học")
       .map((s) => ({ s, remain: remainOf(s) }))
       .filter((x) => x.remain > 0 && x.remain <= 2)
       .sort((a, b) => a.remain - b.remain),
-    [students, attendedByStudent],
+    [activeStudents, attendedByStudent],
   );
 
   const unpaid = useMemo(() => {
     const paid = new Set(payments.map((p) => p.student_id));
-    return students
+    return activeStudents
       .filter((s) => (s.status === "Đang học" || s.status === "Hoàn thành") && !paid.has(s.id))
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
-  }, [students, payments]);
+  }, [activeStudents, payments]);
 
   const alertCount = expiring.length + lowSessions.length + unpaid.length;
 
@@ -193,6 +194,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     for (const r of attRange) {
       const s = studentById.get(r.student_id);
       if (!s || !r.created_at) continue;
+      if (r.status === "Đi học") continue;
       items.push({
         at: r.created_at,
         icon: r.status === "Bảo lưu" ? "reserve" : "att",
@@ -239,8 +241,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       <Card className="shadow-card">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold sm:text-xl">{greeting}! 👋</h2>
-            <p className="text-sm text-muted-foreground">{DAYS[dow]}, {fmtDate(todayISO)} — {summary}</p>
+            <h2 className="text-lg font-bold sm:text-xl" suppressHydrationWarning>{greeting}! 👋</h2>
+            <p className="text-sm text-muted-foreground" suppressHydrationWarning>{DAYS[dow]}, {fmtDate(todayISO)} — {summary}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <RecordPaymentDialog
@@ -292,9 +294,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Card className="shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-5 w-5 text-primary" />Lịch học hôm nay</CardTitle>
@@ -304,7 +306,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {todayItems.length === 0 ? (
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
                   {todayItems.map(({ s, slot }, i) => {
                     const rec = attMap.get(s.id);
                     const startM = minutesOf(slot.start);
@@ -344,7 +346,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-          <Card className="shadow-card">
+          <Card className="flex flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><PauseCircle className="h-5 w-5 text-muted-foreground" />Nghỉ / Bảo lưu hôm nay</CardTitle>
             </CardHeader>
@@ -352,7 +354,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {absentToday.length === 0 ? (
                 <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-[18rem] space-y-2 overflow-y-auto pr-1">
                   {absentToday.map(({ s, reason }, i) => (
                     <div key={`${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
                       <div className="flex flex-wrap items-center gap-2">
@@ -370,13 +372,13 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         </div>
 
         {/* Cảnh báo + hoạt động */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Card id="dash-alerts" className="shadow-card scroll-mt-24">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-1">
               <AlertGroup title="Sắp hết hạn khóa (7 ngày tới)" empty={expiring.length === 0}>
                 {expiring.map(({ s, end }) => (
                   <AlertRow key={s.id} s={s} right={`Hết hạn: ${fmtDate(end)}`} students={students} />
@@ -395,7 +397,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-          <Card className="shadow-card">
+          <Card className="flex flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
             </CardHeader>
@@ -403,7 +405,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (
-                <ol className="space-y-2.5">
+                <ol className="max-h-[18rem] space-y-2.5 overflow-y-auto pr-1">
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

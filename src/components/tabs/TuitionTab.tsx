@@ -388,7 +388,7 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
 }
 
 /** Ghi nhận học phí: nhập đầy đủ thông tin khóa học → tự tạo/cập nhật học sinh */
-function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigger: React.ReactNode }) {
+export function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const savePayment = useServerFn(upsertPayment);

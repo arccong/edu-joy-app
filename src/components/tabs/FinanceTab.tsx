@@ -383,7 +383,7 @@ function DeleteEntryButton({ id }: { id: string }) {
 
 type FormKind = "hoc_phi" | "thu_khac" | "chi";
 
-function EntryDialog({
+export function EntryDialog({
   cats, students, defaultMonth, defaultClass, existing, trigger,
 }: {
   cats: Category[]; students: Student[]; defaultMonth: string; defaultClass: ClassType | null; existing?: Entry; trigger: React.ReactNode;

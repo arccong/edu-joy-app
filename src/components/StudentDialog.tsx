@@ -137,7 +137,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label>Tên khóa</Label>
               <div className="flex items-center gap-2">
@@ -146,6 +146,22 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
                 <span className="text-xs text-muted-foreground">Học sinh mới = K1, khóa tiếp theo tăng dần</span>
               </div>
             </div>
+            {student && (
+              <div className="grid gap-2">
+                <Label>Trạng thái</Label>
+                <Select
+                  value={form.status === "Kết thúc" ? "Kết thúc" : "Tự động"}
+                  onValueChange={(v) => setForm((f) => ({ ...f, status: v === "Kết thúc" ? "Kết thúc" : "Đang học" }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tự động">Tự động</SelectItem>
+                    <SelectItem value="Kết thúc">Kết thúc</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">"Tự động": hệ thống tự đổi trạng thái theo buổi học/bảo lưu. "Kết thúc": học sinh không còn học tại trung tâm.</p>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-2">

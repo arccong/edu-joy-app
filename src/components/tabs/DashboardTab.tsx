@@ -241,8 +241,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       <Card className="shadow-card">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold sm:text-xl">{greeting}! 👋</h2>
-            <p className="text-sm text-muted-foreground">{DAYS[dow]}, {fmtDate(todayISO)} — {summary}</p>
+            <h2 className="text-lg font-bold sm:text-xl" suppressHydrationWarning>{greeting}! 👋</h2>
+            <p className="text-sm text-muted-foreground" suppressHydrationWarning>{DAYS[dow]}, {fmtDate(todayISO)} — {summary}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <RecordPaymentDialog

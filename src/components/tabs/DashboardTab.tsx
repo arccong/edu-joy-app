@@ -126,14 +126,14 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
   const todayItems = useMemo<TodayItem[]>(() => {
     const out: TodayItem[] = [];
-    for (const s of students) {
+    for (const s of activeStudents) {
       if (s.status === "Bảo lưu" || s.status === "Chuẩn bị") continue;
       if (reservedToday.has(s.id)) continue;
       if (!inCourse(s, todayISO)) continue;
       for (const sl of (s.schedule_slots ?? []) as ScheduleSlot[]) if (sl.day === dow) out.push({ s, slot: sl });
     }
     return out.sort((a, b) => a.slot.start.localeCompare(b.slot.start) || a.s.name.localeCompare(b.s.name, "vi"));
-  }, [students, reservedToday, todayISO, dow]);
+  }, [activeStudents, reservedToday, todayISO, dow]);
 
   const marked = todayItems.filter(({ s }) => attMap.has(s.id)).length;
   const rate = todayItems.length ? Math.round((marked / todayItems.length) * 100) : 0;
@@ -143,35 +143,35 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   };
   const donePart = todayItems.filter(({ slot }) => nowMinutes >= minutesOf(slot.end)).length;
 
-  const activeCount = students.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
-  const reserveCount = students.filter((s) => s.status === "Bảo lưu").length;
-  const prepareCount = students.filter((s) => s.status === "Chuẩn bị").length;
+  const activeCount = activeStudents.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
+  const reserveCount = activeStudents.filter((s) => s.status === "Bảo lưu").length;
+  const prepareCount = activeStudents.filter((s) => s.status === "Chuẩn bị").length;
 
   // Cảnh báo
   const expiring = useMemo(() => {
     const limit = toLocalISO(new Date(now.getTime() + 7 * 86400000));
-    return students
+    return activeStudents
       .filter((s) => s.status === "Đang học" && remainOf(s) > 0)
       .map((s) => ({ s, end: actualEndOf(s) }))
       .filter((x) => x.end && x.end >= todayISO && x.end <= limit)
       .sort((a, b) => a.end.localeCompare(b.end));
-  }, [students, attendedByStudent]);
+  }, [activeStudents, attendedByStudent]);
 
   const lowSessions = useMemo(
-    () => students
+    () => activeStudents
       .filter((s) => s.status === "Đang học")
       .map((s) => ({ s, remain: remainOf(s) }))
       .filter((x) => x.remain > 0 && x.remain <= 2)
       .sort((a, b) => a.remain - b.remain),
-    [students, attendedByStudent],
+    [activeStudents, attendedByStudent],
   );
 
   const unpaid = useMemo(() => {
     const paid = new Set(payments.map((p) => p.student_id));
-    return students
+    return activeStudents
       .filter((s) => (s.status === "Đang học" || s.status === "Hoàn thành") && !paid.has(s.id))
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
-  }, [students, payments]);
+  }, [activeStudents, payments]);
 
   const alertCount = expiring.length + lowSessions.length + unpaid.length;
 
@@ -194,6 +194,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     for (const r of attRange) {
       const s = studentById.get(r.student_id);
       if (!s || !r.created_at) continue;
+      if (r.status === "Đi học") continue;
       items.push({
         at: r.created_at,
         icon: r.status === "Bảo lưu" ? "reserve" : "att",

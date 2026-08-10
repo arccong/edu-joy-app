@@ -26,22 +26,18 @@ Ba nhóm, mỗi dòng có nút hành động tương ứng:
 - Sắp hết buổi (còn ≤ 2 buổi) → nút "Ghi nhận học phí"
 - Học phí chưa đóng (khóa đang học/đã kết thúc chưa có bản ghi thanh toán) → nút "Ghi nhận học phí"
 
-**5. Tài chính tháng này** (thẻ gọn, không biểu đồ)
-- Thu / Chi / Lợi nhuận của tháng hiện tại + so sánh phần trăm với tháng trước.
-- Bấm vào chuyển sang tab Tài chính.
-
-**6. Hoạt động gần đây**
+**5. Hoạt động gần đây**
 - Dòng thời gian gộp 15–20 sự kiện mới nhất: điểm danh, đóng học phí, đổi lịch học, thêm lịch bảo lưu, nhật ký học tập mới.
 - Mỗi dòng: icon theo loại, nội dung tiếng Việt ngắn, thời gian tương đối ("12 phút trước").
 
-**7. Thanh thao tác nhanh** (nổi ở đầu trang, dạng nút)
+**6. Thanh thao tác nhanh** (nổi ở đầu trang, dạng nút)
 - Ghi nhận học phí (mở popup của trang Học phí)
 - Học sinh mới (mở popup StudentDialog)
 - Thêm khoản thu / chi (mở popup của trang Tài chính)
 
 ## Ghi chú kỹ thuật
 
-- Không cần thay đổi cơ sở dữ liệu. Mọi dữ liệu lấy từ các server function sẵn có: `listStudents`, `listAttendance`, `listPayments`, `listFinanceEntries`, `listScheduleChanges`, `listLearningLogs`; dòng thời gian dựng từ trường `created_at` của các bảng tương ứng.
+- Không cần thay đổi cơ sở dữ liệu. Mọi dữ liệu lấy từ các server function sẵn có: `listStudents`, `listAttendance`, `listPayments`, `listScheduleChanges`, `listLearningLogs`; dòng thời gian dựng từ trường `created_at` của các bảng tương ứng.
 - File mới `src/components/tabs/DashboardTab.tsx`, tách các khối lớn thành sub-component trong cùng thư mục nếu file vượt ~300 dòng.
 - Thêm mục `{ value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard }` vào đầu mảng `TABS` trong `src/routes/index.tsx`, đổi state mặc định thành `"dashboard"`; lưới tab desktop chuyển từ 8 sang 9 cột.
 - Các KPI/khối bấm vào sẽ gọi `setTab(...)` — truyền `onNavigate` prop từ `App` xuống `DashboardTab`.

@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { TuitionTab } from "@/components/tabs/TuitionTab";
 import { NotificationsTab } from "@/components/tabs/NotificationsTab";
 import { LearningTab } from "@/components/tabs/LearningTab";
 import { FinanceTab } from "@/components/tabs/FinanceTab";
+import { DashboardTab } from "@/components/tabs/DashboardTab";
 
 import { getTelegramStatus, saveTelegramConfig, sendCustomTelegram } from "@/lib/telegram.functions";
 
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/")({
 });
 
 const TABS = [
+  { value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard },
   { value: "students", label: "Học sinh", Icon: Users },
   { value: "schedule", label: "Lịch học", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", Icon: ClipboardCheck },
@@ -48,7 +50,7 @@ const TABS = [
 ] as const;
 
 function App() {
-  const [tab, setTab] = useState<string>("students");
+  const [tab, setTab] = useState<string>("dashboard");
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <Toaster position="top-right" richColors />
@@ -83,7 +85,7 @@ function App() {
           </div>
 
           {/* Tablet/Desktop */}
-          <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-8">
+          <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-9">
             {TABS.map(({ value, label, Icon }) => (
               <TabsTrigger key={value} value={value} className="min-w-0 py-1.5">
                 <Icon className="mr-1 h-4 w-4 shrink-0" />
@@ -92,6 +94,7 @@ function App() {
             ))}
           </TabsList>
 
+          <TabsContent value="dashboard"><DashboardTab onNavigate={setTab} /></TabsContent>
           <TabsContent value="students"><StudentsTab /></TabsContent>
           <TabsContent value="schedule"><ScheduleTab /></TabsContent>
           <TabsContent value="attendance"><AttendanceTab /></TabsContent>

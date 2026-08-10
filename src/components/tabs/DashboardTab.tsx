@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { StudentDialog } from "@/components/StudentDialog";
 import { RecordPaymentDialog } from "@/components/tabs/TuitionTab";
-import { FinanceEntryDialog } from "@/components/tabs/FinanceTab";
+import { EntryDialog as FinanceEntryDialog } from "@/components/tabs/FinanceTab";
 
 import {
   DAYS,

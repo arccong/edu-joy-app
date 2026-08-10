@@ -95,7 +95,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: cats = [] } = useQuery<any[]>({ queryKey: ["expense-cats"], queryFn: () => fetchCats() as any });
 
-  const studentById = useMemo(() => new Map(students.map((s) => [s.id, s] as const)), [students]);
+  const activeStudents = useMemo(() => students.filter((s) => s.status !== "Kết thúc"), [students]);
+  const studentById = useMemo(() => new Map(activeStudents.map((s) => [s.id, s] as const)), [activeStudents]);
 
   const sessionsOnDate = (s: Student | undefined, dateISO: string) => {
     if (!s) return 1;

@@ -5,6 +5,7 @@ import { getMyAccess, type MyAccess } from "@/lib/auth.functions";
 
 type Access = {
   loading: boolean;
+  userId: string;
   email: string;
   role: "quan_ly" | "giao_vien" | null;
   isManager: boolean;
@@ -16,6 +17,7 @@ type Access = {
 
 const Ctx = createContext<Access>({
   loading: true,
+  userId: "",
   email: "",
   role: null,
   isManager: false,
@@ -34,6 +36,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   const isManager = data?.role === "quan_ly";
   const value: Access = {
     loading: isLoading,
+    userId: data?.userId ?? "",
     email: data?.email ?? "",
     role: data?.role ?? null,
     isManager,

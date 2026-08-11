@@ -1,16 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
+import { useAccess } from "@/lib/access";
+import { listUsers, createTeacher, updateTeacherClasses, deleteUser } from "@/lib/auth.functions";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";
@@ -37,20 +45,71 @@ export const Route = createFileRoute("/_authenticated/")({
   }),
 });
 
-const TABS = [
+const ALL_TABS = [
   { value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard },
   { value: "students", label: "Học sinh", Icon: Users },
   { value: "schedule", label: "Lịch học", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", Icon: BookOpen },
   { value: "tuition", label: "Học phí", Icon: Wallet },
-  { value: "finance", label: "Tài chính", Icon: Coins },
+  { value: "finance", label: "Tài chính", Icon: Coins, managerOnly: true },
   { value: "notifications", label: "Thông báo", Icon: Bell },
-  { value: "settings", label: "Cài đặt", Icon: SettingsIcon },
+  { value: "settings", label: "Cài đặt", Icon: SettingsIcon, managerOnly: true },
 ] as const;
+
+function AccountMenu() {
+  const access = useAccess();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  async function handleSignOut() {
+    await qc.cancelQueries();
+    qc.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
+  const initial = (access.email || "?").charAt(0).toUpperCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{initial}</span>
+          <span className="hidden max-w-[160px] truncate sm:inline">{access.email || "Tài khoản"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="space-y-1">
+          <div className="truncate text-sm">{access.email}</div>
+          <div className="flex flex-wrap gap-1">
+            <Badge variant={access.isManager ? "default" : "secondary"}>
+              {access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
+            </Badge>
+            {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => { void handleSignOut(); }}>
+          <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function App() {
   const [tab, setTab] = useState<string>("dashboard");
+  const access = useAccess();
+  const tabs = useMemo(
+    () => ALL_TABS.filter((t) => !("managerOnly" in t && t.managerOnly) || access.isManager),
+    [access.isManager],
+  );
+
+  useEffect(() => {
+    if (!access.loading && !tabs.some((t) => t.value === tab)) setTab("dashboard");
+  }, [access.loading, tabs, tab]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <Toaster position="top-right" richColors />
@@ -63,6 +122,7 @@ function App() {
             <h1 className="truncate text-lg font-bold sm:text-xl">Quản lý học sinh</h1>
             <p className="text-xs text-muted-foreground">Piano · Múa · Vẽ</p>
           </div>
+          <div className="ml-auto"><AccountMenu /></div>
         </div>
       </header>
 
@@ -75,7 +135,7 @@ function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TABS.map(({ value, label, Icon }) => (
+                {tabs.map(({ value, label, Icon }) => (
                   <SelectItem key={value} value={value}>
                     <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
                   </SelectItem>
@@ -86,13 +146,14 @@ function App() {
 
           {/* Tablet/Desktop */}
           <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-9">
-            {TABS.map(({ value, label, Icon }) => (
+            {tabs.map(({ value, label, Icon }) => (
               <TabsTrigger key={value} value={value} className="min-w-0 py-1.5">
                 <Icon className="mr-1 h-4 w-4 shrink-0" />
                 <span className="truncate">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
+
 
           <TabsContent value="dashboard"><DashboardTab onNavigate={setTab} /></TabsContent>
           <TabsContent value="students"><StudentsTab /></TabsContent>
@@ -102,14 +163,182 @@ function App() {
           <TabsContent value="tuition"><TuitionTab /></TabsContent>
           <TabsContent value="finance"><FinanceTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
-          <TabsContent value="settings"><SettingsTab /></TabsContent>
+          <TabsContent value="settings">
+            <div className="space-y-6">
+              <UsersCard />
+              <TelegramCard />
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
   );
 }
 
-function SettingsTab() {
+const CLASS_OPTIONS = ["Piano", "Múa", "Vẽ"] as const;
+
+type UserRow = { id: string; email: string | null; full_name: string | null; role: string | null; classes: string[] };
+
+function UsersCard() {
+  const access = useAccess();
+  const qc = useQueryClient();
+  const fetchUsers = useServerFn(listUsers);
+  const addTeacher = useServerFn(createTeacher);
+  const setClasses = useServerFn(updateTeacherClasses);
+  const removeUser = useServerFn(deleteUser);
+
+  const { data: users, isLoading } = useQuery<UserRow[]>({
+    queryKey: ["users"],
+    queryFn: () => fetchUsers() as any,
+  });
+
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [classes, setClassesState] = useState<string[]>([]);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["users"] });
+
+  const create = useMutation({
+    mutationFn: () => addTeacher({ data: { email, password, full_name: fullName || undefined, classes } as any }),
+    onSuccess: () => {
+      toast.success("Đã tạo tài khoản Giáo viên");
+      setOpen(false); setEmail(""); setPassword(""); setFullName(""); setClassesState([]);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleClass = useMutation({
+    mutationFn: (v: { user_id: string; classes: string[] }) => setClasses({ data: v as any }),
+    onSuccess: () => { toast.success("Đã cập nhật lớp phụ trách"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: (user_id: string) => removeUser({ data: { user_id } as any }),
+    onSuccess: () => { toast.success("Đã xóa tài khoản"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="shadow-card max-w-3xl">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Tài khoản người dùng</CardTitle>
+            <CardDescription>Tạo và phân lớp phụ trách cho Giáo viên</CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Thêm Giáo viên</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Thêm tài khoản Giáo viên</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="grid gap-1">
+                  <Label>Email</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="giaovien@email.com" />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Mật khẩu (tối thiểu 6 ký tự)</Label>
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Họ tên</Label>
+                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Lớp phụ trách</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {CLASS_OPTIONS.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={classes.includes(c)}
+                          onCheckedChange={(v) => setClassesState((prev) => (v ? [...prev, c] : prev.filter((x) => x !== c)))}
+                        />
+                        {c}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => create.mutate()}
+                  disabled={create.isPending || !email || password.length < 6 || classes.length === 0}
+                >
+                  {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Tạo tài khoản
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-muted-foreground">Đang tải…</p>}
+        {(users ?? []).map((u) => {
+          const isTeacher = u.role === "giao_vien";
+          return (
+            <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{u.full_name || u.email}</div>
+                <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+              </div>
+              <Badge variant={u.role === "quan_ly" ? "default" : "secondary"}>
+                {u.role === "quan_ly" ? "Quản lý" : isTeacher ? "Giáo viên" : "Chưa phân quyền"}
+              </Badge>
+              {isTeacher && (
+                <div className="flex flex-wrap gap-3">
+                  {CLASS_OPTIONS.map((c) => (
+                    <label key={c} className="flex items-center gap-1.5 text-sm">
+                      <Checkbox
+                        checked={u.classes.includes(c)}
+                        disabled={toggleClass.isPending}
+                        onCheckedChange={(v) =>
+                          toggleClass.mutate({
+                            user_id: u.id,
+                            classes: v ? [...u.classes, c] : u.classes.filter((x) => x !== c),
+                          })
+                        }
+                      />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {u.id !== access.userId && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xóa tài khoản?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tài khoản {u.email} sẽ bị xóa vĩnh viễn và không thể đăng nhập nữa.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => del.mutate(u.id)}>Xóa</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TelegramCard() {
+
   const fetchStatus = useServerFn(getTelegramStatus);
   const save = useServerFn(saveTelegramConfig);
   const sendTest = useServerFn(sendCustomTelegram);

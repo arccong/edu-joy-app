@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function admin() {
@@ -6,7 +7,15 @@ async function admin() {
   return supabaseAdmin;
 }
 
-export const getTelegramStatus = createServerFn({ method: "GET" }).handler(async () => {
+/** Chỉ Quản lý mới được xem/sửa cấu hình Telegram. */
+async function assertManager(sb: any) {
+  const { data, error } = await sb.rpc("is_manager");
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Bạn không có quyền truy cập mục này");
+}
+
+export const getTelegramStatus = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  await assertManager(context.supabase);
   const sb = await admin();
   const { data, error } = await (sb as any).from("telegram_settings").select("bot_token,chat_id").eq("id", 1).maybeSingle();
   if (error) throw new Error(error.message);
@@ -17,14 +26,15 @@ export const getTelegramStatus = createServerFn({ method: "GET" }).handler(async
   };
 });
 
-export const saveTelegramConfig = createServerFn({ method: "POST" })
+export const saveTelegramConfig = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       bot_token: z.string().trim().min(10).max(200),
       chat_id: z.string().trim().min(1).max(50),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertManager(context.supabase);
     const sb = await admin();
     const { error } = await (sb as any).from("telegram_settings").upsert({
       id: 1,
@@ -58,8 +68,8 @@ async function sendTelegram(text: string) {
 const DAYS = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 
 /** Lịch học hôm nay: nhóm theo lớp, liệt kê tên học sinh + khung giờ (dựa trên schedule_slots). */
-export const sendTodayScheduleTelegram = createServerFn({ method: "POST" }).handler(async () => {
-  const sb = await admin();
+export const sendTodayScheduleTelegram = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const today = new Date();
   const dow = today.getDay();
 
@@ -96,8 +106,8 @@ export const sendTodayScheduleTelegram = createServerFn({ method: "POST" }).hand
   return sendTelegram(text);
 });
 
-export const sendExpiringTelegram = createServerFn({ method: "POST" }).handler(async () => {
-  const sb = await admin();
+export const sendExpiringTelegram = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("students").select("*").eq("status", "Đang học");
   if (error) throw new Error(error.message);
 
@@ -123,10 +133,10 @@ export const sendExpiringTelegram = createServerFn({ method: "POST" }).handler(a
 });
 
 /** Điểm danh đúng giờ: liệt kê học sinh đã điểm danh 'Đi học' trong ngày. */
-export const sendAttendanceReportTelegram = createServerFn({ method: "POST" })
+export const sendAttendanceReportTelegram = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ date: z.string() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const [{ data: att }, { data: students }] = await Promise.all([
       (sb as any).from("attendance").select("*").eq("date", data.date),
       (sb as any).from("students").select("*"),
@@ -151,6 +161,6 @@ export const sendAttendanceReportTelegram = createServerFn({ method: "POST" })
     return sendTelegram(text);
   });
 
-export const sendCustomTelegram = createServerFn({ method: "POST" })
+export const sendCustomTelegram = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ text: z.string().trim().min(1).max(4000) }).parse(d))
-  .handler(async ({ data }) => sendTelegram(data.text));
+  .handler(async ({ data, context }) => { await assertManager(context.supabase); return sendTelegram(data.text); });

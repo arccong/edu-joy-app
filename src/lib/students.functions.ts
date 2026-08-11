@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const ClassType = z.enum(["Piano", "Múa", "Vẽ"]);
@@ -12,13 +13,8 @@ const ScheduleSlot = z.object({
   end: TimeStr,
 }).refine((s) => s.start < s.end, { message: "Giờ bắt đầu phải trước giờ kết thúc" });
 
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
-export const listStudents = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listStudents = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("students").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -64,10 +60,10 @@ function derive(slots: { day: number }[]) {
   return { schedule_days: days, sessions_per_day: Math.min(maxPerDay, 2) };
 }
 
-export const upsertStudent = createServerFn({ method: "POST" })
+export const upsertStudent = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StudentInput.parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { schedule_days, sessions_per_day } = derive(data.schedule_slots);
     // Hồ sơ học sinh: dùng person_id nếu có, nếu không thì gộp theo tên + tuổi
     let person_id = data.person_id ?? null;
@@ -103,50 +99,50 @@ export const upsertStudent = createServerFn({ method: "POST" })
     return { ok: true, id: row?.id as string };
   });
 
-export const deleteStudent = createServerFn({ method: "POST" })
+export const deleteStudent = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("students").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-export const listSchedule = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listSchedule = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("class_schedule").select("*").order("day_of_week").order("start_time");
   if (error) throw new Error(error.message);
   return data ?? [];
 });
 
-export const listAttendance = createServerFn({ method: "POST" })
+export const listAttendance = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ date: z.string() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { data: rows, error } = await (sb as any).from("attendance").select("*").eq("date", data.date);
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
 
-export const listAttendanceRange = createServerFn({ method: "POST" })
+export const listAttendanceRange = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ from: z.string(), to: z.string() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { data: rows, error } = await (sb as any).from("attendance").select("*").gte("date", data.from).lte("date", data.to);
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
 
-export const listAttendanceByStudent = createServerFn({ method: "POST" })
+export const listAttendanceByStudent = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ student_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { data: rows, error } = await (sb as any).from("attendance").select("*").eq("student_id", data.student_id);
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
 
-export const setAttendance = createServerFn({ method: "POST" })
+export const setAttendance = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       student_id: z.string().uuid(),
@@ -156,8 +152,8 @@ export const setAttendance = createServerFn({ method: "POST" })
       makeup_date: z.string().nullable().optional(),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const payload = {
       student_id: data.student_id,
       date: data.date,
@@ -170,10 +166,10 @@ export const setAttendance = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteAttendance = createServerFn({ method: "POST" })
+export const deleteAttendance = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ student_id: z.string().uuid(), date: z.string() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("attendance").delete().eq("student_id", data.student_id).eq("date", data.date);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -181,16 +177,16 @@ export const deleteAttendance = createServerFn({ method: "POST" })
 
 
 /** ===== Hồ sơ học sinh ===== */
-export const listPeople = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listPeople = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("people").select("*").order("name");
   if (error) throw new Error(error.message);
   return data ?? [];
 });
 
 /** ===== Đổi lịch học (giữ lịch sử) ===== */
-export const listScheduleChanges = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listScheduleChanges = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any)
     .from("schedule_changes")
     .select("*")
@@ -199,7 +195,7 @@ export const listScheduleChanges = createServerFn({ method: "GET" }).handler(asy
   return data ?? [];
 });
 
-export const changeSchedule = createServerFn({ method: "POST" })
+export const changeSchedule = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       student_id: z.string().uuid(),
@@ -208,9 +204,9 @@ export const changeSchedule = createServerFn({ method: "POST" })
       reason: z.string().max(300).nullable().optional(),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { computeEndDate, slotsPerDayMap } = await import("@/lib/shared");
-    const sb = await admin();
+    const sb = context.supabase;
     const { data: st, error: e1 } = await (sb as any).from("students").select("*").eq("id", data.student_id).single();
     if (e1 || !st) throw new Error(e1?.message ?? "Không tìm thấy khóa học");
 
@@ -250,22 +246,22 @@ export const changeSchedule = createServerFn({ method: "POST" })
     return { ok: true, end_date: newEnd, remain };
   });
 
-export const deleteScheduleChange = createServerFn({ method: "POST" })
+export const deleteScheduleChange = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("schedule_changes").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 /** ===== Bảo lưu: sửa / xóa ===== */
-export const deleteReserveDates = createServerFn({ method: "POST" })
+export const deleteReserveDates = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ student_id: z.string().uuid(), dates: z.array(z.string()).min(1) }).parse(d),
   )
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any)
       .from("attendance")
       .delete()
@@ -276,7 +272,7 @@ export const deleteReserveDates = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const replaceReserveDates = createServerFn({ method: "POST" })
+export const replaceReserveDates = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       student_id: z.string().uuid(),
@@ -285,8 +281,8 @@ export const replaceReserveDates = createServerFn({ method: "POST" })
       note: z.string().max(300).nullable().optional(),
     }).parse(d),
   )
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     if (data.old_dates.length > 0) {
       const { error } = await (sb as any)
         .from("attendance")

@@ -23,7 +23,7 @@ import { DashboardTab } from "@/components/tabs/DashboardTab";
 
 import { getTelegramStatus, saveTelegramConfig, sendCustomTelegram } from "@/lib/telegram.functions";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   component: App,
   head: () => ({
     meta: [

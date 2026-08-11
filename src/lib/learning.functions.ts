@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const ClassType = z.enum(["Piano", "Múa", "Vẽ"]);
@@ -8,13 +9,8 @@ const Attachment = z.object({
   label: z.string().max(200).nullable().optional(),
 });
 
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
-export const listLearningLogs = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listLearningLogs = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any)
     .from("learning_logs")
     .select("*")
@@ -35,10 +31,10 @@ const LogInput = z.object({
   is_class_wide: z.boolean().default(false),
 });
 
-export const upsertLearningLog = createServerFn({ method: "POST" })
+export const upsertLearningLog = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => LogInput.parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const payload = {
       student_id: data.is_class_wide ? null : (data.student_id ?? null),
       class_type: data.class_type,
@@ -58,10 +54,10 @@ export const upsertLearningLog = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteLearningLog = createServerFn({ method: "POST" })
+export const deleteLearningLog = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("learning_logs").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

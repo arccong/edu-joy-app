@@ -1,13 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
-export const listPayments = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listPayments = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("tuition_payments").select("*").order("month", { ascending: false }).order("paid_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -29,10 +25,10 @@ function normalizeMonth(m: string) {
   return m.slice(0, 7) + "-01";
 }
 
-export const upsertPayment = createServerFn({ method: "POST" })
+export const upsertPayment = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => PaymentInput.parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const payload = { ...data, month: normalizeMonth(data.month), note: data.note ?? null };
     if (data.id) {
       const { error } = await (sb as any).from("tuition_payments").update(payload).eq("id", data.id);
@@ -45,10 +41,10 @@ export const upsertPayment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deletePayment = createServerFn({ method: "POST" })
+export const deletePayment = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("tuition_payments").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

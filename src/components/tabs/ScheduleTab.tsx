@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
 import { CalendarDays, ChevronLeft, ChevronRight, Download, History, Loader2, PauseCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -511,6 +512,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
 
 /** ================= Sửa / xóa buổi bảo lưu ================= */
 function ReserveRowActions({ student, dates }: { student: Student; dates: string[] }) {
+  const { canDelete } = useAccess();
   const qc = useQueryClient();
   const replaceFn = useServerFn(replaceReserveDates);
   const delFn = useServerFn(deleteReserveDates);
@@ -581,7 +583,7 @@ function ReserveRowActions({ student, dates }: { student: Student; dates: string
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Button
+      {canDelete && <Button
         size="icon"
         variant="ghost"
         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -589,13 +591,14 @@ function ReserveRowActions({ student, dates }: { student: Student; dates: string
         onClick={() => { if (confirm(`Xóa ${dates.length} buổi bảo lưu của "${student.name}"?`)) remove.mutate(); }}
       >
         <Trash2 className="h-4 w-4" />
-      </Button>
+      </Button>}
     </div>
   );
 }
 
 /** ================= Đổi lịch học (giữ lịch sử) ================= */
 function ScheduleChangeCard({ students, changes }: { students: Student[]; changes: ScheduleChange[] }) {
+  const { canDelete } = useAccess();
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s] as const)), [students]);
   const qc = useQueryClient();
   const delFn = useServerFn(deleteScheduleChange);
@@ -643,10 +646,10 @@ function ScheduleChangeCard({ students, changes }: { students: Student[]; change
                       <td className="border p-2 text-xs font-medium">{describeSlots((c.new_slots ?? []) as ScheduleSlot[])}</td>
                       <td className="border p-2 text-xs text-muted-foreground">{c.reason || "—"}</td>
                       <td className="border p-2 text-center">
-                        <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        {canDelete && <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => { if (confirm("Xóa bản ghi lịch sử đổi lịch này?")) del.mutate(c.id); }}>
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </Button>}
                       </td>
                     </tr>
                   );

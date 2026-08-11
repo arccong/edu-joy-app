@@ -1,25 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
 
 function normalizeMonth(m: string) {
   if (/^\d{4}-\d{2}$/.test(m)) return m + "-01";
   return m.slice(0, 7) + "-01";
 }
 
-export const listExpenseCategories = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listExpenseCategories = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any).from("expense_categories").select("*").order("sort_order");
   if (error) throw new Error(error.message);
   return data ?? [];
 });
 
-export const listFinanceEntries = createServerFn({ method: "GET" }).handler(async () => {
-  const sb = await admin();
+export const listFinanceEntries = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const sb = context.supabase;
   const { data, error } = await (sb as any)
     .from("finance_entries")
     .select("*")
@@ -49,10 +45,10 @@ const EntryInput = z.object({
   paid_date: z.string().nullable().optional(),
 });
 
-export const upsertFinanceEntry = createServerFn({ method: "POST" })
+export const upsertFinanceEntry = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => EntryInput.parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const payload = {
       ...data,
       month: normalizeMonth(data.month),
@@ -76,10 +72,10 @@ export const upsertFinanceEntry = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteFinanceEntry = createServerFn({ method: "POST" })
+export const deleteFinanceEntry = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const sb = await admin();
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
     const { error } = await (sb as any).from("finance_entries").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };

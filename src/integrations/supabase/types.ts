@@ -14,7 +14,412 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          makeup_date: string | null
+          note: string | null
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          makeup_date?: string | null
+          note?: string | null
+          status: Database["public"]["Enums"]["attendance_status"]
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          makeup_date?: string | null
+          note?: string | null
+          status?: Database["public"]["Enums"]["attendance_status"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_schedule: {
+        Row: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          location: string | null
+          start_time: string
+        }
+        Insert: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          location?: string | null
+          start_time: string
+        }
+        Update: {
+          class_type?: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          location?: string | null
+          start_time?: string
+        }
+        Relationships: []
+      }
+      expense_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_amount: number
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_amount?: number
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_amount?: number
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_entries: {
+        Row: {
+          amount: number
+          category: string
+          class_type: string | null
+          course_label: string | null
+          created_at: string
+          id: string
+          income_type: string | null
+          is_fixed: boolean
+          kind: string
+          month: string
+          note: string | null
+          paid_date: string | null
+          quantity: number
+          student_name: string | null
+          term_end: string | null
+          term_start: string | null
+          unit_amount: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category: string
+          class_type?: string | null
+          course_label?: string | null
+          created_at?: string
+          id?: string
+          income_type?: string | null
+          is_fixed?: boolean
+          kind: string
+          month: string
+          note?: string | null
+          paid_date?: string | null
+          quantity?: number
+          student_name?: string | null
+          term_end?: string | null
+          term_start?: string | null
+          unit_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          class_type?: string | null
+          course_label?: string | null
+          created_at?: string
+          id?: string
+          income_type?: string | null
+          is_fixed?: boolean
+          kind?: string
+          month?: string
+          note?: string | null
+          paid_date?: string | null
+          quantity?: number
+          student_name?: string | null
+          term_end?: string | null
+          term_start?: string | null
+          unit_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learning_logs: {
+        Row: {
+          attachments: Json
+          class_type: Database["public"]["Enums"]["class_type"]
+          content: string | null
+          created_at: string
+          date: string
+          id: string
+          is_class_wide: boolean
+          student_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json
+          class_type: Database["public"]["Enums"]["class_type"]
+          content?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          is_class_wide?: boolean
+          student_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json
+          class_type?: Database["public"]["Enums"]["class_type"]
+          content?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          is_class_wide?: boolean
+          student_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          age: number
+          created_at: string
+          id: string
+          name: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          age?: number
+          created_at?: string
+          id?: string
+          name: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          created_at?: string
+          id?: string
+          name?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schedule_changes: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          new_slots: Json
+          old_slots: Json
+          reason: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          new_slots?: Json
+          old_slots?: Json
+          reason?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          new_slots?: Json
+          old_slots?: Json
+          reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          age: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          course_index: number
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          person_id: string | null
+          reserve_days: number
+          schedule_days: number[]
+          schedule_slots: Json
+          sessions_per_day: number
+          start_date: string
+          status: Database["public"]["Enums"]["student_status"]
+          total_sessions: number
+          tuition: number
+          updated_at: string
+        }
+        Insert: {
+          age: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          course_index?: number
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          person_id?: string | null
+          reserve_days?: number
+          schedule_days?: number[]
+          schedule_slots?: Json
+          sessions_per_day?: number
+          start_date: string
+          status?: Database["public"]["Enums"]["student_status"]
+          total_sessions?: number
+          tuition?: number
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          class_type?: Database["public"]["Enums"]["class_type"]
+          course_index?: number
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          person_id?: string | null
+          reserve_days?: number
+          schedule_days?: number[]
+          schedule_slots?: Json
+          sessions_per_day?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["student_status"]
+          total_sessions?: number
+          tuition?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_settings: {
+        Row: {
+          bot_token: string | null
+          chat_id: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          bot_token?: string | null
+          chat_id?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          bot_token?: string | null
+          chat_id?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tuition_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          ky_index: number
+          month: string
+          note: string | null
+          paid_date: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ky_index?: number
+          month: string
+          note?: string | null
+          paid_date?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ky_index?: number
+          month?: string
+          note?: string | null
+          paid_date?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tuition_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +428,19 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      attendance_status:
+        | "Đi học"
+        | "Nghỉ có phép"
+        | "Nghỉ không phép"
+        | "Bảo lưu"
+      class_type: "Piano" | "Múa" | "Vẽ"
+      student_status:
+        | "Đang học"
+        | "Nghỉ phép"
+        | "Bảo lưu"
+        | "Kết thúc"
+        | "Hoàn thành"
+        | "Chuẩn bị"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +567,22 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      attendance_status: [
+        "Đi học",
+        "Nghỉ có phép",
+        "Nghỉ không phép",
+        "Bảo lưu",
+      ],
+      class_type: ["Piano", "Múa", "Vẽ"],
+      student_status: [
+        "Đang học",
+        "Nghỉ phép",
+        "Bảo lưu",
+        "Kết thúc",
+        "Hoàn thành",
+        "Chuẩn bị",
+      ],
+    },
   },
 } as const

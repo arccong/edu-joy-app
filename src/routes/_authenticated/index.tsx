@@ -45,20 +45,71 @@ export const Route = createFileRoute("/_authenticated/")({
   }),
 });
 
-const TABS = [
+const ALL_TABS = [
   { value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard },
   { value: "students", label: "Học sinh", Icon: Users },
   { value: "schedule", label: "Lịch học", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", Icon: BookOpen },
   { value: "tuition", label: "Học phí", Icon: Wallet },
-  { value: "finance", label: "Tài chính", Icon: Coins },
+  { value: "finance", label: "Tài chính", Icon: Coins, managerOnly: true },
   { value: "notifications", label: "Thông báo", Icon: Bell },
-  { value: "settings", label: "Cài đặt", Icon: SettingsIcon },
+  { value: "settings", label: "Cài đặt", Icon: SettingsIcon, managerOnly: true },
 ] as const;
+
+function AccountMenu() {
+  const access = useAccess();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  async function handleSignOut() {
+    await qc.cancelQueries();
+    qc.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
+  const initial = (access.email || "?").charAt(0).toUpperCase();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{initial}</span>
+          <span className="hidden max-w-[160px] truncate sm:inline">{access.email || "Tài khoản"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="space-y-1">
+          <div className="truncate text-sm">{access.email}</div>
+          <div className="flex flex-wrap gap-1">
+            <Badge variant={access.isManager ? "default" : "secondary"}>
+              {access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
+            </Badge>
+            {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => { void handleSignOut(); }}>
+          <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function App() {
   const [tab, setTab] = useState<string>("dashboard");
+  const access = useAccess();
+  const tabs = useMemo(
+    () => ALL_TABS.filter((t) => !("managerOnly" in t && t.managerOnly) || access.isManager),
+    [access.isManager],
+  );
+
+  useEffect(() => {
+    if (!access.loading && !tabs.some((t) => t.value === tab)) setTab("dashboard");
+  }, [access.loading, tabs, tab]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <Toaster position="top-right" richColors />
@@ -71,6 +122,7 @@ function App() {
             <h1 className="truncate text-lg font-bold sm:text-xl">Quản lý học sinh</h1>
             <p className="text-xs text-muted-foreground">Piano · Múa · Vẽ</p>
           </div>
+          <div className="ml-auto"><AccountMenu /></div>
         </div>
       </header>
 
@@ -83,7 +135,7 @@ function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TABS.map(({ value, label, Icon }) => (
+                {tabs.map(({ value, label, Icon }) => (
                   <SelectItem key={value} value={value}>
                     <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
                   </SelectItem>
@@ -94,13 +146,14 @@ function App() {
 
           {/* Tablet/Desktop */}
           <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-9">
-            {TABS.map(({ value, label, Icon }) => (
+            {tabs.map(({ value, label, Icon }) => (
               <TabsTrigger key={value} value={value} className="min-w-0 py-1.5">
                 <Icon className="mr-1 h-4 w-4 shrink-0" />
                 <span className="truncate">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
+
 
           <TabsContent value="dashboard"><DashboardTab onNavigate={setTab} /></TabsContent>
           <TabsContent value="students"><StudentsTab /></TabsContent>

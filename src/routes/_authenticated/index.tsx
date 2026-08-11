@@ -163,14 +163,182 @@ function App() {
           <TabsContent value="tuition"><TuitionTab /></TabsContent>
           <TabsContent value="finance"><FinanceTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
-          <TabsContent value="settings"><SettingsTab /></TabsContent>
+          <TabsContent value="settings">
+            <div className="space-y-6">
+              <UsersCard />
+              <TelegramCard />
+            </div>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
   );
 }
 
-function SettingsTab() {
+const CLASS_OPTIONS = ["Piano", "Múa", "Vẽ"] as const;
+
+type UserRow = { id: string; email: string | null; full_name: string | null; role: string | null; classes: string[] };
+
+function UsersCard() {
+  const access = useAccess();
+  const qc = useQueryClient();
+  const fetchUsers = useServerFn(listUsers);
+  const addTeacher = useServerFn(createTeacher);
+  const setClasses = useServerFn(updateTeacherClasses);
+  const removeUser = useServerFn(deleteUser);
+
+  const { data: users, isLoading } = useQuery<UserRow[]>({
+    queryKey: ["users"],
+    queryFn: () => fetchUsers() as any,
+  });
+
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [classes, setClassesState] = useState<string[]>([]);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["users"] });
+
+  const create = useMutation({
+    mutationFn: () => addTeacher({ data: { email, password, full_name: fullName || undefined, classes } as any }),
+    onSuccess: () => {
+      toast.success("Đã tạo tài khoản Giáo viên");
+      setOpen(false); setEmail(""); setPassword(""); setFullName(""); setClassesState([]);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleClass = useMutation({
+    mutationFn: (v: { user_id: string; classes: string[] }) => setClasses({ data: v as any }),
+    onSuccess: () => { toast.success("Đã cập nhật lớp phụ trách"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: (user_id: string) => removeUser({ data: { user_id } as any }),
+    onSuccess: () => { toast.success("Đã xóa tài khoản"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="shadow-card max-w-3xl">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Tài khoản người dùng</CardTitle>
+            <CardDescription>Tạo và phân lớp phụ trách cho Giáo viên</CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Thêm Giáo viên</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Thêm tài khoản Giáo viên</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="grid gap-1">
+                  <Label>Email</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="giaovien@email.com" />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Mật khẩu (tối thiểu 6 ký tự)</Label>
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Họ tên</Label>
+                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Lớp phụ trách</Label>
+                  <div className="flex flex-wrap gap-4">
+                    {CLASS_OPTIONS.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={classes.includes(c)}
+                          onCheckedChange={(v) => setClassesState((prev) => (v ? [...prev, c] : prev.filter((x) => x !== c)))}
+                        />
+                        {c}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => create.mutate()}
+                  disabled={create.isPending || !email || password.length < 6 || classes.length === 0}
+                >
+                  {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Tạo tài khoản
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-muted-foreground">Đang tải…</p>}
+        {(users ?? []).map((u) => {
+          const isTeacher = u.role === "giao_vien";
+          return (
+            <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{u.full_name || u.email}</div>
+                <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+              </div>
+              <Badge variant={u.role === "quan_ly" ? "default" : "secondary"}>
+                {u.role === "quan_ly" ? "Quản lý" : isTeacher ? "Giáo viên" : "Chưa phân quyền"}
+              </Badge>
+              {isTeacher && (
+                <div className="flex flex-wrap gap-3">
+                  {CLASS_OPTIONS.map((c) => (
+                    <label key={c} className="flex items-center gap-1.5 text-sm">
+                      <Checkbox
+                        checked={u.classes.includes(c)}
+                        disabled={toggleClass.isPending}
+                        onCheckedChange={(v) =>
+                          toggleClass.mutate({
+                            user_id: u.id,
+                            classes: v ? [...u.classes, c] : u.classes.filter((x) => x !== c),
+                          })
+                        }
+                      />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {u.id !== access.userId && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xóa tài khoản?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tài khoản {u.email} sẽ bị xóa vĩnh viễn và không thể đăng nhập nữa.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => del.mutate(u.id)}>Xóa</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TelegramCard() {
+
   const fetchStatus = useServerFn(getTelegramStatus);
   const save = useServerFn(saveTelegramConfig);
   const sendTest = useServerFn(sendCustomTelegram);

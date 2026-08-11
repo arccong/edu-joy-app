@@ -249,6 +249,30 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schedule_changes: {
         Row: {
           created_at: string
@@ -355,6 +379,27 @@ export type Database = {
           },
         ]
       }
+      teacher_classes: {
+        Row: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          class_type?: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       telegram_settings: {
         Row: {
           bot_token: string | null
@@ -420,14 +465,48 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_access_student: { Args: { _student_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_manager: { Args: never; Returns: boolean }
+      teaches: {
+        Args: { _class: Database["public"]["Enums"]["class_type"] }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "quan_ly" | "giao_vien"
       attendance_status:
         | "Đi học"
         | "Nghỉ có phép"
@@ -568,6 +647,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["quan_ly", "giao_vien"],
       attendance_status: [
         "Đi học",
         "Nghỉ có phép",

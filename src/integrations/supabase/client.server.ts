@@ -29,14 +29,51 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+/**
+ * Resolve the privileged server key.
+ * Supports both the legacy SUPABASE_SERVICE_ROLE_KEY and the new API key system,
+ * where SUPABASE_SECRET_KEYS holds a JSON dictionary/array of secret keys.
+ */
+function resolveSecretKey(): string | undefined {
+  const legacy = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  if (legacy) return legacy;
+
+  const raw = process.env['SUPABASE_SECRET_KEYS'];
+  if (!raw) return undefined;
+
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('sb_secret_') || trimmed.startsWith('eyJ')) return trimmed;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    const candidates: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === 'object' && parsed !== null
+        ? Object.values(parsed as Record<string, unknown>)
+        : [];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate) return candidate;
+      if (typeof candidate === 'object' && candidate !== null) {
+        const obj = candidate as Record<string, unknown>;
+        const value = obj['api_key'] ?? obj['secret'] ?? obj['key'] ?? obj['value'];
+        if (typeof value === 'string' && value) return value;
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 function createSupabaseAdminClient() {
   const SUPABASE_URL = process.env['SUPABASE_URL'];
-  const SUPABASE_SERVICE_ROLE_KEY = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  const SUPABASE_SERVICE_ROLE_KEY = resolveSecretKey();
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
+      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY hoặc SUPABASE_SECRET_KEYS'] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
     console.error(`[Supabase] ${message}`);

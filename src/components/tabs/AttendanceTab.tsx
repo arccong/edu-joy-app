@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -541,6 +542,7 @@ function ByStudentView() {
   const fetchByStudent = useServerFn(listAttendanceByStudent);
   const setAtt = useServerFn(setAttendance);
   const delAtt = useServerFn(deleteAttendance);
+  const { canDelete } = useAccess();
   const qc = useQueryClient();
 
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
@@ -752,7 +754,7 @@ function ByStudentView() {
                             >
                               <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="__blank__">Chưa điểm danh</SelectItem>
+                                {canDelete && <SelectItem value="__blank__">Chưa điểm danh</SelectItem>}
                                 <SelectItem value="Đi học">Đi học</SelectItem>
                                 <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
                                 <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>

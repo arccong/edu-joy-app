@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { Loader2, Plus, Pencil, Trash2, Search, Wallet, Download } from "lucide-react";
 import { exportXlsx } from "@/lib/export";
 import { Button } from "@/components/ui/button";
@@ -239,6 +240,7 @@ function StatBox({ label, value, tint }: { label: string; value: number; tint?: 
 }
 
 function DeletePaymentButton({ id }: { id: string }) {
+  const { canDelete } = useAccess();
   const qc = useQueryClient();
   const del = useServerFn(deletePayment);
   const mut = useMutation({
@@ -246,6 +248,7 @@ function DeletePaymentButton({ id }: { id: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payments"] }); toast.success("Đã xóa"); },
     onError: (e: Error) => toast.error(e.message),
   });
+  if (!canDelete) return null;
   return (
     <Button size="icon" variant="ghost" className="text-destructive" onClick={() => confirm("Xóa ghi nhận này?") && mut.mutate()}>
       <Trash2 className="h-4 w-4" />

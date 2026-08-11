@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
 import { exportXlsx } from "@/lib/export";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -380,6 +381,7 @@ function NewCourseButton({ student }: { student: Student }) {
 }
 
 function DeleteStudentButton({ id, name }: { id: string; name: string }) {
+  const { canDelete } = useAccess();
   const qc = useQueryClient();
   const del = useServerFn(deleteStudent);
   const mut = useMutation({
@@ -387,6 +389,7 @@ function DeleteStudentButton({ id, name }: { id: string; name: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["students"] }); toast.success("Đã xóa học sinh"); },
     onError: (e: Error) => toast.error(e.message),
   });
+  if (!canDelete) return null;
   return (
     <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive"
       onClick={() => { if (confirm(`Xóa học sinh "${name}"?`)) mut.mutate(); }}>

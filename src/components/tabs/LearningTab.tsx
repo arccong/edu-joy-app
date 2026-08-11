@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { BookOpen, Download, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,6 +208,7 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
 }
 
 function DeleteLogButton({ id }: { id: string }) {
+  const { canDelete } = useAccess();
   const qc = useQueryClient();
   const del = useServerFn(deleteLearningLog);
   const mut = useMutation({
@@ -214,6 +216,7 @@ function DeleteLogButton({ id }: { id: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["learning-logs"] }); toast.success("Đã xóa"); },
     onError: (e: Error) => toast.error(e.message),
   });
+  if (!canDelete) return null;
   return (
     <Button size="icon" variant="ghost" className="text-destructive" onClick={() => confirm("Xóa mục nhật ký này?") && mut.mutate()}>
       <Trash2 className="h-4 w-4" />

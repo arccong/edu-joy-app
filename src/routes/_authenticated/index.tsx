@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/lib/access";
-import { listUsers, createTeacher, updateTeacherClasses, deleteUser } from "@/lib/auth.functions";
+import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership } from "@/lib/auth.functions";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";
@@ -165,10 +165,13 @@ function App() {
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
           <TabsContent value="settings">
             <div className="space-y-6">
+              {access.isOwner && <AdminAccountsCard />}
               <UsersCard />
+              {access.isOwner && <TransferOwnershipCard />}
               <TelegramCard />
             </div>
           </TabsContent>
+
         </Tabs>
       </main>
     </div>

@@ -405,6 +405,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
     end_date: "",
   });
   const [form, setForm] = useState(() => emptyForm());
+  const myClasses = useMyClasses();
   const [tuitionStr, setTuitionStr] = useState(() => formatMoney(defaultTuitionFor("Piano")));
 
   // Học sinh còn hiệu lực để chọn "Khóa tiếp theo"
@@ -435,7 +436,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
 
     if (mode === "class") {
       // Đăng ký lớp khác cho học sinh đang học: giữ hồ sơ, nhập lịch mới
-      const other = CLASSES.find((c) => c !== s.class_type) as ClassType;
+      const other = (myClasses.find((c) => c !== s.class_type) ?? s.class_type) as ClassType;
       const t = defaultTuitionFor(other);
       setForm({
         name: s.name,

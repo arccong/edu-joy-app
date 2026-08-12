@@ -302,6 +302,7 @@ export function ScheduleTab() {
 
 /** ================= Học sinh bảo lưu ================= */
 function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: Date }) {
+  const myClasses = useMyClasses();
   const fetchAtt = useServerFn(listAttendanceRange);
   const [scope, setScope] = useState<"course" | "week" | "month">("course");
 

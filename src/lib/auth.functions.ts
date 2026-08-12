@@ -19,10 +19,22 @@ async function assertManager(sb: any) {
   if (!(await isManager(sb))) throw new Error("Bạn không có quyền thực hiện thao tác này");
 }
 
+/** id của Chủ trung tâm hiện tại (luôn có đúng 1) */
+async function ownerId(sb: any): Promise<string> {
+  const { data, error } = await sb.from("center_owner").select("user_id").eq("id", 1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.user_id ?? "";
+}
+
+async function assertOwner(sb: any, userId: string) {
+  if ((await ownerId(sb)) !== userId) throw new Error("Chỉ Chủ trung tâm mới được thực hiện thao tác này");
+}
+
 export type MyAccess = {
   userId: string;
   email: string;
   role: "quan_ly" | "giao_vien" | null;
+  isOwner: boolean;
   classes: string[];
 };
 
@@ -54,14 +66,23 @@ export const getMyAccess = createServerFn({ method: "GET" })
         ? "giao_vien"
         : null;
 
+    // Hệ thống luôn phải có đúng 1 Chủ trung tâm: nếu chưa có, Quản lý đầu tiên trở thành Chủ trung tâm.
+    let owner = await ownerId(sb);
+    if (!owner && role === "quan_ly") {
+      await sb.from("center_owner").upsert({ id: 1, user_id: userId }, { onConflict: "id" });
+      owner = userId;
+    }
+
     const { data: classes } = await sb.from("teacher_classes").select("class_type").eq("user_id", userId);
     return {
       userId,
       email,
       role,
+      isOwner: owner === userId,
       classes: role === "quan_ly" ? ["Piano", "Múa", "Vẽ"] : (classes ?? []).map((c: any) => c.class_type),
     };
   });
+
 
 /** Tạo tài khoản Quản lý đầu tiên (chỉ dùng được khi hệ thống chưa có Quản lý nào). */
 export const createFirstManager = createServerFn({ method: "POST" })

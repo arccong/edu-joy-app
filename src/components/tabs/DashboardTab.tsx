@@ -183,7 +183,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     [todayItems, attMap, nowMinutes],
   );
 
-  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length;
+  const upcomingTrials = useMemo(() => {
+    const limit = toLocalISO(new Date(Date.now() + 7 * 86400000));
+    return (trials as any[])
+      .filter((t) => trialStatus(t, todayISO) === "Học thử" && t.trial_date >= todayISO && t.trial_date <= limit)
+      .sort((a, b) => a.trial_date.localeCompare(b.trial_date) || String(a.start_time).localeCompare(String(b.start_time)));
+  }, [trials, todayISO]);
+
+  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length + upcomingTrials.length;
+
 
   // Nghỉ / bảo lưu hôm nay
   const absentToday = useMemo(() => {

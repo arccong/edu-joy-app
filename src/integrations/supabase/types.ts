@@ -52,6 +52,36 @@ export type Database = {
           },
         ]
       }
+      brand_settings: {
+        Row: {
+          app_name: string | null
+          colors: Json
+          created_at: string
+          id: number
+          logo_url: string | null
+          preset_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          app_name?: string | null
+          colors?: Json
+          created_at?: string
+          id?: number
+          logo_url?: string | null
+          preset_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          app_name?: string | null
+          colors?: Json
+          created_at?: string
+          id?: number
+          logo_url?: string | null
+          preset_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       center_owner: {
         Row: {
           created_at: string
@@ -438,6 +468,36 @@ export type Database = {
           bot_token?: string | null
           chat_id?: string | null
           id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      theme_presets: {
+        Row: {
+          colors: Json
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          colors?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          colors?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []

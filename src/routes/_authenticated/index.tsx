@@ -177,20 +177,52 @@ function App() {
 
 const CLASS_OPTIONS = ["Piano", "Múa", "Vẽ"] as const;
 
-type UserRow = { id: string; email: string | null; full_name: string | null; role: string | null; classes: string[] };
+type UserRow = { id: string; email: string | null; full_name: string | null; role: string | null; is_owner: boolean; classes: string[] };
+
+function roleLabel(u: UserRow) {
+  if (u.is_owner) return "Chủ trung tâm";
+  if (u.role === "quan_ly") return "Quản lý";
+  if (u.role === "giao_vien") return "Giáo viên";
+  return "Chưa phân quyền";
+}
+
+function useUsers() {
+  const fetchUsers = useServerFn(listUsers);
+  return useQuery<UserRow[]>({ queryKey: ["users"], queryFn: () => fetchUsers() as any });
+}
+
+function DeleteUserButton({ user, onDelete, disabled }: { user: UserRow; onDelete: (id: string) => void; disabled?: boolean }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="text-destructive" disabled={disabled}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Xóa tài khoản?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tài khoản {user.email} sẽ bị xóa vĩnh viễn và không thể đăng nhập nữa.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Hủy</AlertDialogCancel>
+          <AlertDialogAction onClick={() => onDelete(user.id)}>Xóa</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 function UsersCard() {
-  const access = useAccess();
   const qc = useQueryClient();
-  const fetchUsers = useServerFn(listUsers);
   const addTeacher = useServerFn(createTeacher);
   const setClasses = useServerFn(updateTeacherClasses);
   const removeUser = useServerFn(deleteUser);
 
-  const { data: users, isLoading } = useQuery<UserRow[]>({
-    queryKey: ["users"],
-    queryFn: () => fetchUsers() as any,
-  });
+  const { data: users, isLoading } = useUsers();
+  const teachers = (users ?? []).filter((u) => u.role === "giao_vien");
 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -227,7 +259,7 @@ function UsersCard() {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Tài khoản người dùng</CardTitle>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Tài khoản Giáo viên</CardTitle>
             <CardDescription>Tạo và phân lớp phụ trách cho Giáo viên</CardDescription>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -278,64 +310,205 @@ function UsersCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && <p className="text-sm text-muted-foreground">Đang tải…</p>}
-        {(users ?? []).map((u) => {
-          const isTeacher = u.role === "giao_vien";
-          return (
-            <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{u.full_name || u.email}</div>
-                <div className="truncate text-xs text-muted-foreground">{u.email}</div>
-              </div>
-              <Badge variant={u.role === "quan_ly" ? "default" : "secondary"}>
-                {u.role === "quan_ly" ? "Quản lý" : isTeacher ? "Giáo viên" : "Chưa phân quyền"}
-              </Badge>
-              {isTeacher && (
-                <div className="flex flex-wrap gap-3">
-                  {CLASS_OPTIONS.map((c) => (
-                    <label key={c} className="flex items-center gap-1.5 text-sm">
-                      <Checkbox
-                        checked={u.classes.includes(c)}
-                        disabled={toggleClass.isPending}
-                        onCheckedChange={(v) =>
-                          toggleClass.mutate({
-                            user_id: u.id,
-                            classes: v ? [...u.classes, c] : u.classes.filter((x) => x !== c),
-                          })
-                        }
-                      />
-                      {c}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {u.id !== access.userId && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xóa tài khoản?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tài khoản {u.email} sẽ bị xóa vĩnh viễn và không thể đăng nhập nữa.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => del.mutate(u.id)}>Xóa</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+        {!isLoading && teachers.length === 0 && <p className="text-sm text-muted-foreground">Chưa có tài khoản Giáo viên nào.</p>}
+        {teachers.map((u) => (
+          <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{u.full_name || u.email}</div>
+              <div className="truncate text-xs text-muted-foreground">{u.email}</div>
             </div>
-          );
-        })}
+            <Badge variant="secondary">Giáo viên</Badge>
+            <div className="flex flex-wrap gap-3">
+              {CLASS_OPTIONS.map((c) => (
+                <label key={c} className="flex items-center gap-1.5 text-sm">
+                  <Checkbox
+                    checked={u.classes.includes(c)}
+                    disabled={toggleClass.isPending}
+                    onCheckedChange={(v) =>
+                      toggleClass.mutate({
+                        user_id: u.id,
+                        classes: v ? [...u.classes, c] : u.classes.filter((x) => x !== c),
+                      })
+                    }
+                  />
+                  {c}
+                </label>
+              ))}
+            </div>
+            <DeleteUserButton user={u} onDelete={(id) => del.mutate(id)} />
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
 }
+
+/** Chỉ Chủ trung tâm thấy: quản lý tài khoản Chủ trung tâm / Quản lý */
+function AdminAccountsCard() {
+  const access = useAccess();
+  const qc = useQueryClient();
+  const addManager = useServerFn(createManager);
+  const removeUser = useServerFn(deleteUser);
+
+  const { data: users, isLoading } = useUsers();
+  const admins = (users ?? []).filter((u) => u.role === "quan_ly");
+
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["users"] });
+
+  const create = useMutation({
+    mutationFn: () => addManager({ data: { email, password, full_name: fullName || undefined } as any }),
+    onSuccess: () => {
+      toast.success("Đã tạo tài khoản Quản lý");
+      setOpen(false); setEmail(""); setPassword(""); setFullName("");
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: (user_id: string) => removeUser({ data: { user_id } as any }),
+    onSuccess: () => { toast.success("Đã xóa tài khoản"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="shadow-card max-w-3xl">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Crown className="h-5 w-5 text-primary" />Tài khoản Chủ trung tâm & Quản lý</CardTitle>
+            <CardDescription>Chỉ Chủ trung tâm thấy và thao tác được mục này</CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><UserPlus className="mr-2 h-4 w-4" />Thêm Quản lý</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Thêm tài khoản Quản lý</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div className="grid gap-1">
+                  <Label>Email</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="quanly@email.com" />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Mật khẩu (tối thiểu 6 ký tự)</Label>
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+                <div className="grid gap-1">
+                  <Label>Họ tên</Label>
+                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => create.mutate()} disabled={create.isPending || !email || password.length < 6}>
+                  {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Tạo tài khoản
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-muted-foreground">Đang tải…</p>}
+        {admins.map((u) => (
+          <div key={u.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{u.full_name || u.email}</div>
+              <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+            </div>
+            <Badge variant={u.is_owner ? "default" : "secondary"}>{roleLabel(u)}</Badge>
+            {u.is_owner ? (
+              <span className="text-xs text-muted-foreground">Không thể xóa</span>
+            ) : (
+              <DeleteUserButton user={u} onDelete={(id) => del.mutate(id)} disabled={u.id === access.userId} />
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Chỉ Chủ trung tâm thấy: chuyển giao quyền */
+function TransferOwnershipCard() {
+  const qc = useQueryClient();
+  const transfer = useServerFn(transferOwnership);
+  const { data: users } = useUsers();
+  const candidates = (users ?? []).filter((u) => u.role === "quan_ly" && !u.is_owner);
+
+  const [target, setTarget] = useState("");
+  const [password, setPassword] = useState("");
+
+  const mut = useMutation({
+    mutationFn: () => transfer({ data: { new_owner_id: target, password } as any }),
+    onSuccess: () => {
+      toast.success("Đã chuyển giao quyền Chủ trung tâm");
+      setTarget(""); setPassword("");
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["my-access"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="shadow-card max-w-3xl border-destructive/40">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Crown className="h-5 w-5 text-destructive" />Chuyển giao quyền Chủ trung tâm</CardTitle>
+        <CardDescription>
+          Hành động này <span className="font-semibold text-destructive">không thể tự hoàn tác</span>. Sau khi chuyển giao, bạn trở thành Quản lý và chỉ Chủ trung tâm mới có thể chuyển lại quyền cho bạn.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {candidates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Chưa có tài khoản Quản lý nào để chuyển giao. Hãy tạo tài khoản Quản lý trước.</p>
+        ) : (
+          <>
+            <div className="grid gap-1">
+              <Label>Chọn tài khoản Quản lý nhận quyền</Label>
+              <Select value={target} onValueChange={setTarget}>
+                <SelectTrigger><SelectValue placeholder="Chọn tài khoản" /></SelectTrigger>
+                <SelectContent>
+                  {candidates.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.full_name ? `${u.full_name} — ${u.email}` : u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1">
+              <Label>Nhập lại mật khẩu hiện tại của bạn để xác nhận</Label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={!target || !password || mut.isPending}>
+                  {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Chuyển giao quyền
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận chuyển giao quyền Chủ trung tâm?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tài khoản được chọn sẽ trở thành Chủ trung tâm. Tài khoản của bạn tự động chuyển thành Quản lý — vẫn dùng app bình thường nhưng mất quyền quản lý tài khoản Chủ trung tâm/Quản lý. Bạn không thể tự lấy lại quyền này.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => mut.mutate()}>Tôi hiểu, chuyển giao</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function TelegramCard() {
 

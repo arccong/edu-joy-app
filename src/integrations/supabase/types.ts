@@ -512,6 +512,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_person: { Args: { _person_id: string }; Returns: boolean }
       can_access_student: { Args: { _student_id: string }; Returns: boolean }
       has_role: {
         Args: {

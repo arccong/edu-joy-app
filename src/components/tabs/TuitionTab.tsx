@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,7 +15,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
-  CLASSES,
   DAYS,
   DAYS_ORDER,
   addScheduledDays,
@@ -109,14 +109,7 @@ export function TuitionTab() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
-            <Select value={cls} onValueChange={(v) => setCls(v as any)}>
-              <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
-
-              <SelectContent>
-                <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
-                {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <ClassSelect className="w-auto min-w-[140px]" allLabel="Tất cả lớp" value={cls} onChange={(v) => setCls(v as any)} />
             <Button variant="outline" onClick={() => {
               if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
               exportXlsx(`hoc-phi-${month}`, [{
@@ -329,17 +322,15 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
                   <Label>Tuổi</Label>
                   <Input type="number" min={1} value={age} onChange={(e) => setAge(Number(e.target.value))} />
                 </div>
-                <div className="grid gap-1">
-                  <Label>Lớp học</Label>
-                  <Select value={clsType} onValueChange={(v) => {
+                <ClassSelect
+                  label="Lớp học"
+                  value={clsType}
+                  onChange={(v) => {
                     const c = v as ClassType;
                     setClsType(c);
                     setTotalSessions(defaultSessionsFor(c));
-                  }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+                  }}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
@@ -413,6 +404,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
     end_date: "",
   });
   const [form, setForm] = useState(() => emptyForm());
+  const myClasses = useMyClasses();
   const [tuitionStr, setTuitionStr] = useState(() => formatMoney(defaultTuitionFor("Piano")));
 
   // Học sinh còn hiệu lực để chọn "Khóa tiếp theo"
@@ -443,7 +435,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
 
     if (mode === "class") {
       // Đăng ký lớp khác cho học sinh đang học: giữ hồ sơ, nhập lịch mới
-      const other = CLASSES.find((c) => c !== s.class_type) as ClassType;
+      const other = (myClasses.find((c) => c !== s.class_type) ?? s.class_type) as ClassType;
       const t = defaultTuitionFor(other);
       setForm({
         name: s.name,
@@ -594,18 +586,17 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
               <Label>Tuổi</Label>
               <Input type="number" min={1} max={120} value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} />
             </div>
-            <div className="grid gap-2">
-              <Label>Lớp học</Label>
-              <Select value={form.class_type} disabled={mode === "next"} onValueChange={(v) => {
+            <ClassSelect
+              label="Lớp học"
+              disabled={mode === "next"}
+              value={form.class_type}
+              onChange={(v) => {
                 const cls = v as ClassType;
                 const t = defaultTuitionFor(cls);
                 setForm((f) => ({ ...f, class_type: cls, total_sessions: defaultSessionsFor(cls), tuition: t }));
                 setTuitionStr(formatMoney(t));
-              }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+              }}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

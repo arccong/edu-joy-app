@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
@@ -14,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
-  CLASSES,
   DAYS,
   DAYS_ORDER,
   DAYS_SHORT,
@@ -93,8 +93,12 @@ export function ScheduleTab() {
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const myClasses = useMyClasses();
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentFilter, setStudentFilter] = useState<string>("all");
+  useEffect(() => {
+    if (myClasses.length > 0 && !myClasses.includes(cls)) setCls(myClasses[0]);
+  }, [myClasses, cls]);
   const [nameSearch, setNameSearch] = useState<string>("");
 
   const weekEnd = addDays(weekStart, 6);
@@ -197,11 +201,13 @@ export function ScheduleTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
-          <TabsList className="mb-4">
-            {CLASSES.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
-          </TabsList>
-        </Tabs>
+        {myClasses.length > 1 ? (
+          <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
+            <TabsList className="mb-4">
+              {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
+            </TabsList>
+          </Tabs>
+        ) : null}
 
         <div ref={frameRef} className="rounded-lg border bg-white p-4">
           <div className="mb-3 text-center">
@@ -295,6 +301,7 @@ export function ScheduleTab() {
 
 /** ================= Học sinh bảo lưu ================= */
 function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: Date }) {
+  const myClasses = useMyClasses();
   const fetchAtt = useServerFn(listAttendanceRange);
   const [scope, setScope] = useState<"course" | "week" | "month">("course");
 
@@ -361,7 +368,7 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {CLASSES.map((c) => {
+        {myClasses.map((c) => {
           const list = students.filter((s) => s.class_type === c && (byStudent.get(s.id)?.length ?? 0) > 0);
           return (
             <div key={c}>
@@ -465,13 +472,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Thêm lịch bảo lưu</DialogTitle></DialogHeader>
         <div className="grid gap-3">
-          <div className="grid gap-1">
-            <Label>Lớp</Label>
-            <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId(""); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+          <ClassSelect label="Lớp" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId(""); }} />
           <div className="grid gap-1">
             <Label>Học sinh</Label>
             <Select value={studentId} onValueChange={setStudentId}>
@@ -709,13 +710,7 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
         <DialogHeader><DialogTitle>Đổi lịch học</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
-              <Label>Lớp</Label>
-              <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId(""); setSlots([]); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            <ClassSelect label="Lớp" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId(""); setSlots([]); }} />
             <div className="grid gap-1">
               <Label>Ngày hiệu lực</Label>
               <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />

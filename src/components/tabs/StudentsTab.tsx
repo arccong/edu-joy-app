@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
@@ -14,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { StudentDialog } from "@/components/StudentDialog";
 import {
-  CLASSES,
   DAYS_SHORT,
   addScheduledDays,
   coursePrefix,
@@ -212,12 +212,7 @@ export function StudentsTab() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Select value={filter} onValueChange={(v) => setFilter(v as ClassType)}>
-              <SelectTrigger className="w-auto min-w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <ClassSelect value={filter} onChange={(v) => setFilter(v as ClassType)} className="w-auto min-w-[140px]" />
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
               <SelectTrigger className="w-auto min-w-[175px]"><SelectValue /></SelectTrigger>
               <SelectContent>

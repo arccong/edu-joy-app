@@ -428,55 +428,30 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
         {/* Cảnh báo + hoạt động */}
         <div className="flex flex-col gap-4">
-          <Card id="dash-alerts" className="shadow-card scroll-mt-24">
+          <Card className="shadow-card">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
-              <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base"><PauseCircle className="h-5 w-5 text-muted-foreground" />Nghỉ / Bảo lưu hôm nay</CardTitle>
             </CardHeader>
-            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-2">
-              <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
-                {missingAttendance.map(({ s, slot }, i) => (
-                  <div key={`miss-${s.id}-${i}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <span className="truncate font-medium">{s.name}</span>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
-                      <span className="shrink-0">{classChip(s.class_type)}</span>
+            <CardContent>
+              {absentToday.length === 0 ? (
+                <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
+              ) : (
+                <div className="max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                  {absentToday.map(({ s, reason }, i) => (
+                    <div key={`${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{s.name}</span>
+                        <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
+                        {classChip(s.class_type)}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{reason}</span>
                     </div>
-                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">Ca {slot.start}–{slot.end}</span>
-                  </div>
-                ))}
-              </AlertGroup>
-              <AlertGroup title="Sắp hết hạn khóa (7 ngày tới)" empty={expiring.length === 0}>
-                {expiring.map(({ s, end }) => (
-                  <AlertRow key={s.id} s={s} right={`Hết hạn: ${fmtDate(end)}`} students={students} />
-                ))}
-              </AlertGroup>
-              <AlertGroup title="Sắp hết buổi (còn ≤ 2)" empty={lowSessions.length === 0}>
-                {lowSessions.map(({ s, remain }) => (
-                  <AlertRow key={s.id} s={s} right={`Còn ${remain} buổi`} students={students} />
-                ))}
-              </AlertGroup>
-              <AlertGroup title="Các buổi học thử sắp tới" empty={upcomingTrials.length === 0}>
-                {upcomingTrials.map((t: any) => (
-                  <div key={`trial-${t.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <span className="truncate font-medium">{t.name}</span>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">Học thử</Badge>
-                      <span className="shrink-0">{classChip(t.class_type)}</span>
-                    </div>
-                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                      {fmtDate(t.trial_date)} · {hhmm(t.start_time)}–{hhmm(t.end_time)}
-                    </span>
-                  </div>
-                ))}
-              </AlertGroup>
-              <AlertGroup title="Chưa ghi nhận học phí" empty={unpaid.length === 0}>
-                {unpaid.map((s) => (
-                  <AlertRow key={s.id} s={s} right={`${formatMoney(Number(s.tuition))}đ`} students={students} />
-                ))}
-              </AlertGroup>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
+
 
           <Card className="flex flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">

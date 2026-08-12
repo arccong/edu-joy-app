@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { RecordPaymentDialog } from "@/components/tabs/TuitionTab";
 import { EntryDialog as FinanceEntryDialog } from "@/components/tabs/FinanceTab";
-import { TrialStudentsCard, useTrialStudents } from "@/components/tabs/TrialStudentsCard";
+import { useTrialStudents } from "@/components/tabs/TrialStudentsCard";
 import { TrialStudentDialog } from "@/components/TrialStudentDialog";
 
 import {

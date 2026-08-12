@@ -388,16 +388,16 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
-            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-1">
+            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-2">
               <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                 {missingAttendance.map(({ s, slot }, i) => (
-                  <div key={`miss-${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span className="font-medium">{s.name}</span>
-                      <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
-                      {classChip(s.class_type)}
+                  <div key={`miss-${s.id}-${i}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="truncate font-medium">{s.name}</span>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+                      <span className="shrink-0">{classChip(s.class_type)}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">Ca {slot.start}–{slot.end} · kết thúc {slot.end}</span>
+                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">Ca {slot.start}–{slot.end}</span>
                   </div>
                 ))}
               </AlertGroup>
@@ -477,15 +477,15 @@ function AlertGroup({ title, empty, children }: { title: string; empty: boolean;
 
 function AlertRow({ s, right, students }: { s: Student; right: string; students: Student[] }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border p-2.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="truncate font-medium">{s.name}</span>
-        <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
-        {classChip(s.class_type)}
+        <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+        <span className="shrink-0">{classChip(s.class_type)}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">{right}</span>
-        <RecordPaymentDialog students={students} trigger={<Button size="sm" variant="outline">Ghi nhận</Button>} />
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="whitespace-nowrap text-xs text-muted-foreground">{right}</span>
+        <RecordPaymentDialog students={students} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
       </div>
     </div>
   );

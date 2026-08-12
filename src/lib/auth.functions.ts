@@ -195,6 +195,14 @@ export const deleteUser = createServerFn({ method: "POST" })
     await assertManager(context.supabase);
     if (data.user_id === context.userId) throw new Error("Không thể xóa chính tài khoản của bạn");
     const sb = await admin();
+    const owner = await ownerId(sb);
+    if (data.user_id === owner) throw new Error("Không thể xóa tài khoản Chủ trung tâm");
+
+    const { data: target } = await sb.from("user_roles").select("role").eq("user_id", data.user_id).maybeSingle();
+    if (target?.role === "quan_ly" && context.userId !== owner) {
+      throw new Error("Chỉ Chủ trung tâm mới được xóa tài khoản Quản lý");
+    }
+
     await sb.from("teacher_classes").delete().eq("user_id", data.user_id);
     await sb.from("user_roles").delete().eq("user_id", data.user_id);
     await sb.from("profiles").delete().eq("id", data.user_id);
@@ -202,3 +210,56 @@ export const deleteUser = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Tạo tài khoản Quản lý — chỉ Chủ trung tâm. */
+export const createManager = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      email: z.string().trim().email(),
+      password: z.string().min(6).max(72),
+      full_name: z.string().trim().max(120).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const sb = await admin();
+    await assertOwner(sb, context.userId);
+    const { data: created, error } = await sb.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    const uid = created?.user?.id as string;
+    await sb.from("profiles").upsert({ id: uid, email: data.email, full_name: data.full_name ?? null });
+    const { error: e2 } = await sb.from("user_roles").insert({ user_id: uid, role: "quan_ly" });
+    if (e2) throw new Error(e2.message);
+    return { ok: true };
+  });
+
+/** Chuyển giao quyền Chủ trung tâm cho một Quản lý (yêu cầu nhập lại mật khẩu hiện tại). */
+export const transferOwnership = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ new_owner_id: z.string().uuid(), password: z.string().min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const sb = await admin();
+    await assertOwner(sb, context.userId);
+
+    const email = (context.claims as any)?.email as string | undefined;
+    if (!email) throw new Error("Không xác định được email tài khoản hiện tại");
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"]!;
+    const verifier = createClient(process.env["SUPABASE_URL"]!, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signInError } = await verifier.auth.signInWithPassword({ email, password: data.password });
+    if (signInError) throw new Error("Mật khẩu không đúng");
+
+    const { error } = await sb.rpc("transfer_ownership", { _new_owner: data.new_owner_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+

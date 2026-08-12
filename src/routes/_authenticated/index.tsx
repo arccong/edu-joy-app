@@ -29,6 +29,9 @@ import { LearningTab } from "@/components/tabs/LearningTab";
 import { FinanceTab } from "@/components/tabs/FinanceTab";
 import { DashboardTab } from "@/components/tabs/DashboardTab";
 
+import { BrandingCard } from "@/components/BrandingCard";
+import { BrandLogo } from "@/lib/branding";
+
 import { getTelegramStatus, saveTelegramConfig, sendCustomTelegram } from "@/lib/telegram.functions";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -116,9 +119,14 @@ function App() {
       <Toaster position="top-right" richColors />
       <header className="border-b bg-card/80 backdrop-blur">
         <div className="container mx-auto flex items-center gap-3 px-4 py-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card">
-            <GraduationCap className="h-5 w-5" />
-          </div>
+          <BrandLogo
+            className="h-10 w-10 shrink-0 rounded-xl object-contain"
+            fallback={
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+            }
+          />
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold sm:text-xl">Quản lý học sinh</h1>
             <p className="text-xs text-muted-foreground">Piano · Múa · Vẽ</p>
@@ -169,6 +177,7 @@ function App() {
               {access.isOwner && <AdminAccountsCard />}
               <UsersCard />
               {access.isOwner && <TransferOwnershipCard />}
+              {access.isOwner && <BrandingCard />}
               <TelegramCard />
             </div>
           </TabsContent>

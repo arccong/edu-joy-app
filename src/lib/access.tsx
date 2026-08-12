@@ -9,6 +9,8 @@ type Access = {
   email: string;
   role: "quan_ly" | "giao_vien" | null;
   isManager: boolean;
+  /** Chủ trung tâm: Quản lý + quyền quản lý tài khoản Owner/Manager */
+  isOwner: boolean;
   /** Các lớp được phép xem/sửa */
   classes: string[];
   /** Chỉ Quản lý mới được xóa dữ liệu */
@@ -21,6 +23,7 @@ const Ctx = createContext<Access>({
   email: "",
   role: null,
   isManager: false,
+  isOwner: false,
   classes: [],
   canDelete: false,
 });
@@ -40,11 +43,13 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     email: data?.email ?? "",
     role: data?.role ?? null,
     isManager,
+    isOwner: Boolean(data?.isOwner),
     classes: data?.classes ?? [],
     canDelete: isManager,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
 
 export function useAccess() {
   return useContext(Ctx);

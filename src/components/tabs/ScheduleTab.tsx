@@ -94,8 +94,12 @@ export function ScheduleTab() {
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const myClasses = useMyClasses();
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentFilter, setStudentFilter] = useState<string>("all");
+  useEffect(() => {
+    if (myClasses.length > 0 && !myClasses.includes(cls)) setCls(myClasses[0]);
+  }, [myClasses, cls]);
   const [nameSearch, setNameSearch] = useState<string>("");
 
   const weekEnd = addDays(weekStart, 6);
@@ -198,11 +202,13 @@ export function ScheduleTab() {
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
-          <TabsList className="mb-4">
-            {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
-          </TabsList>
-        </Tabs>
+        {myClasses.length > 1 ? (
+          <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
+            <TabsList className="mb-4">
+              {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
+            </TabsList>
+          </Tabs>
+        ) : null}
 
         <div ref={frameRef} className="rounded-lg border bg-white p-4">
           <div className="mb-3 text-center">

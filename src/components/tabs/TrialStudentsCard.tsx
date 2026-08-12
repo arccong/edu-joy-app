@@ -38,17 +38,12 @@ export function TrialStudentsCard() {
 
   return (
     <Card className="shadow-card">
-      <CardHeader className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Danh sách học sinh học thử</CardTitle>
-            <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
-          </div>
-          <TrialStudentDialog
-            trigger={<Button size="sm"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
-          />
+      <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <CardTitle>Danh sách học sinh học thử</CardTitle>
+          <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
             <SelectTrigger className="w-auto min-w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -88,8 +83,12 @@ export function TrialStudentsCard() {
           >
             <Download className="mr-1 h-4 w-4" />Xuất dữ liệu
           </Button>
+          <TrialStudentDialog
+            trigger={<Button size="sm"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
+          />
         </div>
       </CardHeader>
+
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">

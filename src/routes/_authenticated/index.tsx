@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

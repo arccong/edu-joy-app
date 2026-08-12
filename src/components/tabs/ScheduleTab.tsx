@@ -34,9 +34,12 @@ import {
   type ClassType,
   type ScheduleChange,
   withDefaultSlotAdded,
+  hhmm,
   type ScheduleSlot,
   type Student,
+  type TrialStudent,
 } from "@/lib/shared";
+import { listTrialStudents } from "@/lib/trials.functions";
 import {
   changeSchedule,
   deleteReserveDates,
@@ -92,6 +95,8 @@ export function ScheduleTab() {
   const fetchChanges = useServerFn(listScheduleChanges);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchList() as any });
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
+  const fetchTrials = useServerFn(listTrialStudents);
+  const { data: trials = [] } = useQuery<TrialStudent[]>({ queryKey: ["trial-students"], queryFn: () => fetchTrials() as any });
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const myClasses = useMyClasses();
@@ -133,9 +138,20 @@ export function ScheduleTab() {
     return list;
   }, [inClass, studentFilter, nameSearch]);
 
+  const filteredTrials = useMemo(() => {
+    let list = trials.filter((t) => t.class_type === cls && t.trial_date >= fromISO && t.trial_date <= toISO);
+    if (studentFilter !== "all") return [] as TrialStudent[];
+    if (nameSearch.trim()) {
+      const q = nameSearch.trim().toLowerCase();
+      list = list.filter((t) => t.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [trials, cls, fromISO, toISO, studentFilter, nameSearch]);
+
   const TIME_ROWS = useMemo(() => {
     const slots: { start: string; end: string }[] = [];
     for (const s of inClass) for (const sl of (s.schedule_slots ?? [])) slots.push({ start: sl.start, end: sl.end });
+    for (const t of filteredTrials) slots.push({ start: hhmm(t.start_time), end: hhmm(t.end_time) });
     const rows = buildTimeRows(slots);
     if (rows.length === 0) {
       return [
@@ -144,7 +160,7 @@ export function ScheduleTab() {
       ] satisfies TimeRow[];
     }
     return rows;
-  }, [inClass]);
+  }, [inClass, filteredTrials]);
 
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -267,9 +283,23 @@ export function ScheduleTab() {
                               cellStudents.push({ s, slot: sl, dim, suffix });
                             }
                           }
+                          const cellTrials = filteredTrials.filter(
+                            (t) =>
+                              t.trial_date === dateISO &&
+                              overlaps({ start: hhmm(t.start_time), end: hhmm(t.end_time) }, row),
+                          );
                           return (
                             <td key={dow} className="border p-1 align-top">
                               <div className="space-y-1">
+                                {cellTrials.map((t) => (
+                                  <div
+                                    key={t.id}
+                                    className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                    style={{ borderLeftColor: "#4AA09E", backgroundColor: "#4AA09E1A", color: "#2F6B6A" }}
+                                  >
+                                    <div className="font-medium">{t.name} (HT)</div>
+                                  </div>
+                                ))}
                                 {cellStudents.map(({ s, dim, suffix }, idx) => (
                                   <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
                                     <div className="font-medium">{s.name}{suffix}</div>
@@ -288,6 +318,10 @@ export function ScheduleTab() {
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
             <span>• (CP) nghỉ có phép · (KP) nghỉ không phép · (BL) đang bảo lưu — tên hiển thị mờ</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "#4AA09E" }} />
+              (HT) học sinh học thử
+            </span>
             <span>• Tuần đã qua hiển thị theo lịch có hiệu lực tại thời điểm đó</span>
           </div>
         </div>

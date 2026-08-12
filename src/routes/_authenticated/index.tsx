@@ -228,6 +228,81 @@ function DeleteUserButton({ user, onDelete, disabled }: { user: UserRow; onDelet
   );
 }
 
+/** Chỉ Chủ trung tâm: đổi vai trò Quản lý ↔ Giáo viên */
+function ChangeRoleButton({ user }: { user: UserRow }) {
+  const qc = useQueryClient();
+  const change = useServerFn(changeUserRole);
+  const target: "quan_ly" | "giao_vien" = user.role === "quan_ly" ? "giao_vien" : "quan_ly";
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>(user.classes ?? []);
+
+  const mut = useMutation({
+    mutationFn: () => change({ data: { user_id: user.id, role: target, classes: target === "giao_vien" ? picked : [] } as any }),
+    onSuccess: () => {
+      toast.success(target === "giao_vien" ? "Đã chuyển thành Giáo viên" : "Đã chuyển thành Quản lý");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["my-access"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (user.is_owner) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) setPicked(user.classes ?? []); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Repeat className="mr-2 h-4 w-4" />
+          {target === "giao_vien" ? "Chuyển thành Giáo viên" : "Chuyển thành Quản lý"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Đổi vai trò tài khoản</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Tài khoản <span className="font-medium text-foreground">{user.full_name || user.email}</span> sẽ chuyển từ{" "}
+            <span className="font-medium text-foreground">{user.role === "quan_ly" ? "Quản lý" : "Giáo viên"}</span> sang{" "}
+            <span className="font-medium text-foreground">{target === "quan_ly" ? "Quản lý" : "Giáo viên"}</span>.
+          </p>
+          <div className="rounded-lg border border-[color:var(--warning)]/40 bg-muted/40 p-3 text-sm">
+            ⚠️ Quyền truy cập của tài khoản này sẽ thay đổi ngay lập tức sau khi lưu.
+            {target === "quan_ly"
+              ? " Các lớp phụ trách hiện tại sẽ bị gỡ bỏ."
+              : " Tài khoản sẽ chỉ còn xem/sửa được dữ liệu của các lớp được chọn."}
+          </div>
+          {target === "giao_vien" && (
+            <div className="grid gap-2">
+              <Label>Lớp phụ trách (bắt buộc)</Label>
+              <div className="flex flex-wrap gap-4">
+                {CLASS_OPTIONS.map((c) => (
+                  <label key={c} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={picked.includes(c)}
+                      onCheckedChange={(v) => setPicked((prev) => (v ? [...prev, c] : prev.filter((x) => x !== c)))}
+                    />
+                    {c}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || (target === "giao_vien" && picked.length === 0)}
+          >
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Xác nhận đổi vai trò
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 function UsersCard() {
   const qc = useQueryClient();
   const addTeacher = useServerFn(createTeacher);

@@ -304,6 +304,7 @@ function ChangeRoleButton({ user }: { user: UserRow }) {
 
 
 function UsersCard() {
+  const access = useAccess();
   const qc = useQueryClient();
   const addTeacher = useServerFn(createTeacher);
   const setClasses = useServerFn(updateTeacherClasses);

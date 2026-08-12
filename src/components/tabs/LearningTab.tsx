@@ -326,7 +326,9 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
           <div className="grid gap-1">
             <Label>Ngày học</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {!validation.ok && <p className="text-xs text-destructive">{validation.message}</p>}
           </div>
+
           <div className="grid gap-1">
             <Label>Tác phẩm / Bài học</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Vd: Für Elise — đoạn A" />

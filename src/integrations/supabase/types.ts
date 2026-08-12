@@ -613,6 +613,14 @@ export type Database = {
     Functions: {
       can_access_person: { Args: { _person_id: string }; Returns: boolean }
       can_access_student: { Args: { _student_id: string }; Returns: boolean }
+      change_user_role: {
+        Args: {
+          _classes?: Database["public"]["Enums"]["class_type"][]
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

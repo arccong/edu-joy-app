@@ -112,7 +112,7 @@ export function TrialStudentsCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {trials.map((t) => {
+                {rows.map((t) => {
                   const st = trialStatus(t);
                   return (
                     <TableRow key={t.id}>

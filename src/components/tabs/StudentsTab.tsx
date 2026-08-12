@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Plus, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
+import { Loader2, Pencil, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
 import { exportXlsx } from "@/lib/export";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";

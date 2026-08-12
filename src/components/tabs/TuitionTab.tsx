@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
-import { Loader2, Plus, Pencil, Trash2, Search, Wallet, Download } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Search, Wallet, Download, EyeOff } from "lucide-react";
 import { exportXlsx } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import {
   parseMoney,
   toLocalISO,
   weeklySessions,
+  withDefaultSlotAdded,
   type ClassType,
   type ScheduleSlot,
   type Student,
@@ -50,6 +51,8 @@ export function TuitionTab() {
   const [month, setMonth] = useState<string>(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [cls, setCls] = useState<"Tất cả" | ClassType>("Tất cả");
   const [search, setSearch] = useState("");
+
+  const myClasses = useMyClasses();
 
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
 
@@ -130,9 +133,9 @@ export function TuitionTab() {
         <CardContent>
           <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
             <StatBox label={`Tổng ${cls === "Tất cả" ? "" : "lớp " + cls}`} value={stats.total} />
-            <StatBox label="Piano" value={stats.byClass.Piano} tint="piano" />
-            <StatBox label="Múa" value={stats.byClass["Múa"]} tint="mua" />
-            <StatBox label="Vẽ" value={stats.byClass["Vẽ"]} tint="ve" />
+            <StatBox label="Piano" value={stats.byClass.Piano} tint="piano" hidden={!myClasses.includes("Piano")} />
+            <StatBox label="Múa" value={stats.byClass["Múa"]} tint="mua" hidden={!myClasses.includes("Múa")} />
+            <StatBox label="Vẽ" value={stats.byClass["Vẽ"]} tint="ve" hidden={!myClasses.includes("Vẽ")} />
           </div>
 
           <div className="mb-4 rounded-lg border bg-muted/30 p-3">
@@ -222,12 +225,19 @@ function SummaryBox({ label, value, suffix, tone, isMoney }: { label: string; va
 }
 
 
-function StatBox({ label, value, tint }: { label: string; value: number; tint?: "piano" | "mua" | "ve" }) {
+function StatBox({ label, value, tint, hidden }: { label: string; value: number; tint?: "piano" | "mua" | "ve"; hidden?: boolean }) {
   const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";
   return (
     <div className={`rounded-lg p-3 ${tintCls}`}>
       <p className="text-xs opacity-80">{label}</p>
-      <p className="text-lg font-bold">{value.toLocaleString("vi-VN")}đ</p>
+      {hidden ? (
+        <p className="flex items-center gap-1.5 text-lg font-bold opacity-70" title="Bạn không có quyền xem dữ liệu lớp này">
+          <EyeOff className="h-4 w-4" />
+          <span className="text-sm font-medium">Không được xem</span>
+        </p>
+      ) : (
+        <p className="text-lg font-bold">{value.toLocaleString("vi-VN")}đ</p>
+      )}
     </div>
   );
 }
@@ -497,7 +507,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
       arr[idx] = { ...arr[idx], ...patch };
       return { ...f, schedule_slots: arr };
     });
-  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: [...f.schedule_slots, { day: 1, start: "16:00", end: "17:00" }] }));
+  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));
   const removeSlot = (idx: number) => setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
 
   const mut = useMutation({

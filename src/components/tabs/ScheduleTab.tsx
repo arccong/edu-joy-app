@@ -33,6 +33,7 @@ import {
   type AttendanceRow,
   type ClassType,
   type ScheduleChange,
+  withDefaultSlotAdded,
   type ScheduleSlot,
   type Student,
 } from "@/lib/shared";
@@ -738,7 +739,7 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label>Lịch học mới</Label>
-              <Button type="button" size="sm" variant="outline" onClick={() => setSlots((a) => [...a, { day: 1, start: "16:00", end: "17:00" }])}>
+              <Button type="button" size="sm" variant="outline" onClick={() => setSlots((a) => withDefaultSlotAdded(a))}>
                 <Plus className="mr-1 h-4 w-4" />Thêm ca
               </Button>
             </div>

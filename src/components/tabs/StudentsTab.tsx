@@ -120,6 +120,16 @@ export function StudentsTab() {
   }, [attendedRows, studentById]);
 
 
+  // Học sinh đã có buổi điểm danh trong khóa hiện tại → khóa chỉnh sửa thông tin
+  const lockedForEdit = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of attendedRows) {
+      const s = studentById.get(r.student_id);
+      if (inCourse(s, r.date)) set.add(r.student_id);
+    }
+    return set;
+  }, [attendedRows, studentById]);
+
   const remainOf = (s: Student) => Math.max(0, (s.total_sessions ?? 0) - (attendedByStudent.get(s.id) ?? 0));
   const statusOf = (s: Student) => effectiveStatus(s.status, remainOf(s));
 
@@ -320,7 +330,19 @@ export function StudentsTab() {
                         {show("actions") && (
                           <TableCell className="text-right">
                             <div className="inline-flex gap-1">
-                              <StudentDialog student={s} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                              {lockedForEdit.has(s.id) ? (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="opacity-40"
+                                  title="Học sinh đã có buổi điểm danh trong khóa này nên không thể sửa thông tin"
+                                  onClick={() => toast.info("Không thể sửa: học sinh đã điểm danh trong khóa này")}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <StudentDialog student={s} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                              )}
                               <NewCourseButton student={s} />
                               <DeleteStudentButton id={s.id} name={s.name} />
                             </div>

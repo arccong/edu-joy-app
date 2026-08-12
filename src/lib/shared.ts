@@ -285,3 +285,27 @@ export function describeSlots(slots: ScheduleSlot[]): string {
     .map((s) => `${DAYS_SHORT[s.day]} ${s.start}-${s.end}`)
     .join(", ");
 }
+
+/** Giờ bắt đầu mặc định khi thêm khung giờ học */
+export const DEFAULT_SLOT_START = "09:00";
+
+/** Cộng thêm số giờ vào chuỗi "HH:MM" */
+export function shiftTime(t: string, hours: number): string {
+  const [h, m] = t.split(":").map(Number);
+  const total = Math.min(23 * 60 + 59, h * 60 + m + hours * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+const isDefaultSlot = (s: ScheduleSlot) =>
+  s.start === DEFAULT_SLOT_START && (s.end === shiftTime(DEFAULT_SLOT_START, 1) || s.end === shiftTime(DEFAULT_SLOT_START, 2));
+
+/**
+ * Thêm 1 khung giờ mặc định: bắt đầu 09:00.
+ * - Chỉ 1 khung (1 buổi/tuần) → kết thúc +2 giờ (đủ 2 buổi/tuần).
+ * - Từ 2 khung trở lên → mỗi khung mặc định +1 giờ.
+ */
+export function withDefaultSlotAdded(slots: ScheduleSlot[], day = 1): ScheduleSlot[] {
+  const adjusted = slots.length >= 1 ? slots.map((s) => (isDefaultSlot(s) ? { ...s, end: shiftTime(s.start, 1) } : s)) : slots;
+  const end = shiftTime(DEFAULT_SLOT_START, adjusted.length === 0 ? 2 : 1);
+  return [...adjusted, { day, start: DEFAULT_SLOT_START, end }];
+}

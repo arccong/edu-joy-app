@@ -21,6 +21,7 @@ import {
   parseMoney,
   toLocalISO,
   weeklySessions,
+  withDefaultSlotAdded,
   type ClassType,
   type ScheduleSlot,
   type Student,
@@ -78,7 +79,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
       return { ...f, schedule_slots: arr };
     });
   };
-  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: [...f.schedule_slots, { day: 1, start: "16:00", end: "17:00" }] }));
+  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));
   const removeSlot = (idx: number) => setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
 
   const startDow = dayOfWeekOf(form.start_date);

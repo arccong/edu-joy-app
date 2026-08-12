@@ -359,7 +359,11 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
               <ul className="space-y-1">
                 {attachments.map((a, i) => (
                   <li key={i} className="flex items-center gap-2 rounded bg-muted/50 px-2 py-1 text-xs">
-                    <span className="shrink-0">{a.kind === "image" ? "🖼" : a.kind === "video" ? "🎬" : "🔗"}</span>
+                    {a.kind === "image" ? (
+                      <Thumb src={a.url} alt="Ảnh đính kèm" className="h-14 w-14 shrink-0 rounded border object-cover" />
+                    ) : (
+                      <span className="shrink-0">{a.kind === "video" ? "🎬" : "🔗"}</span>
+                    )}
                     <span className="min-w-0 flex-1 truncate">{a.url}</span>
                     <button type="button" onClick={() => setAttachments((x) => x.filter((_, j) => j !== i))}><X className="h-3.5 w-3.5" /></button>
                   </li>
@@ -370,13 +374,15 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
-          <Button disabled={mut.isPending} onClick={() => {
+          <Button disabled={mut.isPending || !validation.ok} onClick={() => {
             if (!title.trim()) return toast.error("Nhập tên tác phẩm/bài học");
             if (!isClassWide && !studentId) return toast.error("Chọn học sinh");
+            if (!validation.ok) return toast.error(validation.message!);
             mut.mutate();
           }}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -14,7 +14,6 @@ import {
   PauseCircle,
   Plus,
   Repeat,
-  UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { StudentDialog } from "@/components/StudentDialog";
 import { RecordPaymentDialog } from "@/components/tabs/TuitionTab";
 import { EntryDialog as FinanceEntryDialog } from "@/components/tabs/FinanceTab";
 
@@ -173,7 +171,19 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [activeStudents, payments]);
 
-  const alertCount = expiring.length + lowSessions.length + unpaid.length;
+  const minutesOfSlot = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const missingAttendance = useMemo(
+    () => todayItems
+      .filter(({ s, slot }) => nowMinutes >= minutesOfSlot(slot.end) && !attMap.has(s.id))
+      .sort((a, b) => a.slot.end.localeCompare(b.slot.end)),
+    [todayItems, attMap, nowMinutes],
+  );
+
+  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length;
 
   // Nghỉ / bảo lưu hôm nay
   const absentToday = useMemo(() => {
@@ -288,7 +298,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Cần xử lý"
           value={String(alertCount)}
-          sub={`${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${unpaid.length} chưa đóng`}
+          sub={`${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${unpaid.length} chưa đóng · ${missingAttendance.length} chưa điểm danh`}
           tone={alertCount > 0 ? "warning" : undefined}
           onClick={() => document.getElementById("dash-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
@@ -379,6 +389,18 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
             <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-1">
+              <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
+                {missingAttendance.map(({ s, slot }, i) => (
+                  <div key={`miss-${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="font-medium">{s.name}</span>
+                      <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
+                      {classChip(s.class_type)}
+                    </div>
+                    <span className="text-xs text-muted-foreground">Ca {slot.start}–{slot.end} · kết thúc {slot.end}</span>
+                  </div>
+                ))}
+              </AlertGroup>
               <AlertGroup title="Sắp hết hạn khóa (7 ngày tới)" empty={expiring.length === 0}>
                 {expiring.map(({ s, end }) => (
                   <AlertRow key={s.id} s={s} right={`Hết hạn: ${fmtDate(end)}`} students={students} />

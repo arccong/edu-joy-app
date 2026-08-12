@@ -15,7 +15,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { StudentDialog } from "@/components/StudentDialog";
 import {
-  CLASSES,
   DAYS_SHORT,
   addScheduledDays,
   coursePrefix,

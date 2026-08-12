@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
-  CLASSES,
   DAYS,
   DAYS_SHORT,
   addScheduledDays,

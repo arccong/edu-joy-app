@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { CLASSES, coursePrefix, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
+import { coursePrefix, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
 import { listAttendance, listStudents } from "@/lib/students.functions";
 import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
 import { exportXlsx } from "@/lib/export";

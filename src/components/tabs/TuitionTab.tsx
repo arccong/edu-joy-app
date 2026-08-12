@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
-  CLASSES,
   DAYS,
   DAYS_ORDER,
   addScheduledDays,

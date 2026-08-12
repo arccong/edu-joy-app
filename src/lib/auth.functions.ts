@@ -263,3 +263,26 @@ export const transferOwnership = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/** Đổi vai trò tài khoản (Quản lý ↔ Giáo viên) — chỉ Chủ trung tâm; kiểm soát ở tầng database. */
+export const changeUserRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      user_id: z.string().uuid(),
+      role: z.enum(["quan_ly", "giao_vien"]),
+      classes: z.array(ClassType).default([]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.role === "giao_vien" && data.classes.length === 0) {
+      throw new Error("Vui lòng chọn ít nhất một lớp phụ trách cho Giáo viên");
+    }
+    const { error } = await context.supabase.rpc("change_user_role", {
+      _user_id: data.user_id,
+      _role: data.role,
+      _classes: data.role === "giao_vien" ? data.classes : [],
+    } as any);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

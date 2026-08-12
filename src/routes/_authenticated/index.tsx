@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/lib/access";
-import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership } from "@/lib/auth.functions";
+import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership, changeUserRole } from "@/lib/auth.functions";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";

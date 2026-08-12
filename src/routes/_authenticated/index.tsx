@@ -513,8 +513,12 @@ function AdminAccountsCard() {
             {u.is_owner ? (
               <span className="text-xs text-muted-foreground">Không thể xóa</span>
             ) : (
-              <DeleteUserButton user={u} onDelete={(id) => del.mutate(id)} disabled={u.id === access.userId} />
+              <>
+                <ChangeRoleButton user={u} />
+                <DeleteUserButton user={u} onDelete={(id) => del.mutate(id)} disabled={u.id === access.userId} />
+              </>
             )}
+
           </div>
         ))}
       </CardContent>

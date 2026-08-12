@@ -250,6 +250,41 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
   const [newUrl, setNewUrl] = useState("");
   const [newKind, setNewKind] = useState<Attachment["kind"]>("image");
 
+  const fetchChanges = useServerFn(listScheduleChanges);
+  const fetchAtt = useServerFn(listAttendance);
+  const { data: changes = [] } = useQuery<ScheduleChange[]>({
+    queryKey: ["schedule-changes"],
+    queryFn: () => fetchChanges() as any,
+    enabled: open,
+  });
+  const { data: attOfDate = [] } = useQuery<any[]>({
+    queryKey: ["attendance", date],
+    queryFn: () => fetchAtt({ data: { date } }) as any,
+    enabled: open && !!date,
+  });
+
+  const attendedIds = useMemo(
+    () => new Set(attOfDate.filter((r) => r.status === "Đi học").map((r) => r.student_id as string)),
+    [attOfDate],
+  );
+
+  const validation = useMemo<{ ok: boolean; message?: string }>(() => {
+    if (!date) return { ok: false, message: "Chọn ngày học." };
+    if (isClassWide) {
+      const any = students.some((s) => attendedIds.has(s.id));
+      return any ? { ok: true } : { ok: false, message: "Chưa có học sinh nào của lớp được điểm danh trong ngày này." };
+    }
+    const s = students.find((x) => x.id === studentId);
+    if (!s) return { ok: false, message: "Chọn học sinh." };
+    const dow = dayOfWeekOf(date);
+    const slots = slotsEffectiveOn(s, changes, date);
+    const inSchedule = dow !== null && slots.some((sl) => sl.day === dow) && date >= s.start_date && date <= s.end_date;
+    if (!inSchedule) return { ok: false, message: "Ngày này không nằm trong lịch học của học sinh." };
+    if (!attendedIds.has(s.id)) return { ok: false, message: "Buổi học ngày này chưa được điểm danh." };
+    return { ok: true };
+  }, [date, isClassWide, students, studentId, changes, attendedIds]);
+
+
   const mut = useMutation({
     mutationFn: () => save({ data: {
       id: existing?.id,

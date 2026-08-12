@@ -1,15 +1,19 @@
+import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GraduationCap, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Download, GraduationCap, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { TrialStudentDialog } from "@/components/TrialStudentDialog";
 import { useAccess } from "@/lib/access";
-import { fmtDate, hhmm, trialStatus, type TrialStudent } from "@/lib/shared";
+import { ClassSelect } from "@/lib/class-scope";
+import { exportXlsx } from "@/lib/export";
+import { fmtDate, hhmm, trialStatus, type ClassType, type TrialStudent } from "@/lib/shared";
 import { deleteTrialStudent, listTrialStudents } from "@/lib/trials.functions";
 
 export function useTrialStudents() {
@@ -19,24 +23,79 @@ export function useTrialStudents() {
 
 export function TrialStudentsCard() {
   const { data: trials = [], isLoading } = useTrialStudents();
+  const [statusFilter, setStatusFilter] = useState<"Tất cả" | "Học thử" | "Kết thúc">("Tất cả");
+  const [classFilter, setClassFilter] = useState<ClassType | "Tất cả">("Tất cả");
+
+  const rows = useMemo(
+    () =>
+      trials.filter(
+        (t) =>
+          (classFilter === "Tất cả" || t.class_type === classFilter) &&
+          (statusFilter === "Tất cả" || trialStatus(t) === statusFilter),
+      ),
+    [trials, classFilter, statusFilter],
+  );
 
   return (
     <Card className="shadow-card">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <CardTitle>Danh sách học sinh học thử</CardTitle>
-          <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
+      <CardHeader className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Danh sách học sinh học thử</CardTitle>
+            <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
+          </div>
+          <TrialStudentDialog
+            trigger={<Button size="sm"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
+          />
         </div>
-        <TrialStudentDialog
-          trigger={<Button size="sm"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <SelectTrigger className="w-auto min-w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
+              <SelectItem value="Học thử">Học thử</SelectItem>
+              <SelectItem value="Kết thúc">Kết thúc</SelectItem>
+            </SelectContent>
+          </Select>
+          <ClassSelect
+            value={classFilter}
+            onChange={(v) => setClassFilter(v as ClassType | "Tất cả")}
+            allLabel="Tất cả lớp"
+            className="w-auto min-w-[140px]"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              exportXlsx("hoc-sinh-hoc-thu", [
+                {
+                  name: "Học thử",
+                  rows: [
+                    ["Họ tên", "Tuổi", "Lớp", "Giờ bắt đầu", "Giờ kết thúc", "Ngày học thử", "Trạng thái"],
+                    ...rows.map((t) => [
+                      t.name,
+                      t.age,
+                      t.class_type,
+                      hhmm(t.start_time),
+                      hhmm(t.end_time),
+                      fmtDate(t.trial_date),
+                      trialStatus(t),
+                    ]),
+                  ],
+                },
+              ])
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />Xuất dữ liệu
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />Đang tải...
           </div>
-        ) : trials.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState text="Chưa có học sinh học thử nào." />
         ) : (
           <div className="-mx-4 overflow-x-auto sm:mx-0">
@@ -53,7 +112,7 @@ export function TrialStudentsCard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {trials.map((t) => {
+                {rows.map((t) => {
                   const st = trialStatus(t);
                   return (
                     <TableRow key={t.id}>

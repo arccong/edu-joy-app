@@ -309,3 +309,29 @@ export function withDefaultSlotAdded(slots: ScheduleSlot[], day = 1): ScheduleSl
   const end = shiftTime(DEFAULT_SLOT_START, adjusted.length === 0 ? 2 : 1);
   return [...adjusted, { day, start: DEFAULT_SLOT_START, end }];
 }
+
+// ===== Học thử =====
+export type TrialStudent = {
+  id: string;
+  name: string;
+  age: number;
+  class_type: ClassType;
+  start_time: string;
+  end_time: string;
+  trial_date: string;
+  status: string;
+  created_at?: string;
+};
+
+/** Cắt "HH:MM:SS" -> "HH:MM" */
+export const hhmm = (t: string) => (t ?? "").slice(0, 5);
+
+/**
+ * Trạng thái học thử tính tại thời điểm hiển thị:
+ * ngày học thử đã qua => "Kết thúc" (không cần cron).
+ */
+export function trialStatus(t: { trial_date: string; status: string }, todayISO?: string): "Học thử" | "Kết thúc" {
+  if (t.status === "Kết thúc") return "Kết thúc";
+  const today = todayISO ?? toLocalISO(new Date());
+  return t.trial_date < today ? "Kết thúc" : "Học thử";
+}

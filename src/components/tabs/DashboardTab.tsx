@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Coins,
+  GraduationCap,
   History,
   PauseCircle,
   Plus,
@@ -24,6 +25,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { RecordPaymentDialog } from "@/components/tabs/TuitionTab";
 import { EntryDialog as FinanceEntryDialog } from "@/components/tabs/FinanceTab";
+import { useTrialStudents } from "@/components/tabs/TrialStudentsCard";
+import { TrialStudentDialog } from "@/components/TrialStudentDialog";
 
 import {
   DAYS,
@@ -33,6 +36,8 @@ import {
   formatMoney,
   slotsPerDayMap,
   toLocalISO,
+  hhmm,
+  trialStatus,
   type AttendanceRow,
   type AttendanceStatus,
   type ScheduleChange,
@@ -92,6 +97,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: cats = [] } = useQuery<any[]>({ queryKey: ["expense-cats"], queryFn: () => fetchCats() as any });
+  const { data: trials = [] } = useTrialStudents();
+
 
   const activeStudents = useMemo(() => students.filter((s) => s.status !== "Kết thúc"), [students]);
   const studentById = useMemo(() => new Map(activeStudents.map((s) => [s.id, s] as const)), [activeStudents]);
@@ -183,7 +190,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     [todayItems, attMap, nowMinutes],
   );
 
-  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length;
+  const upcomingTrials = useMemo(() => {
+    const limit = toLocalISO(new Date(Date.now() + 7 * 86400000));
+    return (trials as any[])
+      .filter((t) => trialStatus(t, todayISO) === "Học thử" && t.trial_date >= todayISO && t.trial_date <= limit)
+      .sort((a, b) => a.trial_date.localeCompare(b.trial_date) || String(a.start_time).localeCompare(String(b.start_time)));
+  }, [trials, todayISO]);
+
+  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length + upcomingTrials.length;
+
 
   // Nghỉ / bảo lưu hôm nay
   const absentToday = useMemo(() => {
@@ -267,6 +282,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               defaultClass={null}
               trigger={<Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" />Thu / Chi</Button>}
             />
+            <TrialStudentDialog
+              trigger={<Button size="sm" variant="outline"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
+            />
           </div>
         </CardContent>
       </Card>
@@ -298,7 +316,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Cần xử lý"
           value={String(alertCount)}
-          sub={`${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${unpaid.length} chưa đóng · ${missingAttendance.length} chưa điểm danh`}
+          sub={`${upcomingTrials.length} học thử · ${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${unpaid.length} chưa đóng · ${missingAttendance.length} chưa điểm danh`}
           tone={alertCount > 0 ? "warning" : undefined}
           onClick={() => document.getElementById("dash-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
@@ -409,6 +427,20 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               <AlertGroup title="Sắp hết buổi (còn ≤ 2)" empty={lowSessions.length === 0}>
                 {lowSessions.map(({ s, remain }) => (
                   <AlertRow key={s.id} s={s} right={`Còn ${remain} buổi`} students={students} />
+                ))}
+              </AlertGroup>
+              <AlertGroup title="Các buổi học thử sắp tới" empty={upcomingTrials.length === 0}>
+                {upcomingTrials.map((t: any) => (
+                  <div key={`trial-${t.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="truncate font-medium">{t.name}</span>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">Học thử</Badge>
+                      <span className="shrink-0">{classChip(t.class_type)}</span>
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+                      {fmtDate(t.trial_date)} · {hhmm(t.start_time)}–{hhmm(t.end_time)}
+                    </span>
+                  </div>
                 ))}
               </AlertGroup>
               <AlertGroup title="Chưa ghi nhận học phí" empty={unpaid.length === 0}>

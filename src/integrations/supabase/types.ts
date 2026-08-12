@@ -502,6 +502,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trial_students: {
+        Row: {
+          age: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at: string
+          end_time: string
+          id: string
+          name: string
+          start_time: string
+          status: string
+          trial_date: string
+          updated_at: string
+        }
+        Insert: {
+          age?: number
+          class_type: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          end_time?: string
+          id?: string
+          name: string
+          start_time?: string
+          status?: string
+          trial_date: string
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          class_type?: Database["public"]["Enums"]["class_type"]
+          created_at?: string
+          end_time?: string
+          id?: string
+          name?: string
+          start_time?: string
+          status?: string
+          trial_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tuition_payments: {
         Row: {
           amount: number

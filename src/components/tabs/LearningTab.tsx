@@ -168,9 +168,27 @@ export function LearningTab() {
   );
 }
 
+function Thumb({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return <img src={src} alt={alt} loading="lazy" onError={() => setOk(false)} className={className} />;
+}
+
 function LogCard({ log, name, students, compact }: { log: LearningLog; name: string; students: Student[]; compact?: boolean }) {
+  const atts = log.attachments ?? [];
+  const images = atts.filter((a) => a.kind === "image");
+  const others = atts.filter((a) => a.kind !== "image");
   return (
     <div className="rounded-lg border bg-card p-3">
+      {images.length > 0 && (
+        <div className="-mx-1 mb-2 flex gap-2 overflow-x-auto px-1 pb-1">
+          {images.map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="shrink-0">
+              <Thumb src={a.url} alt={a.label ?? log.title} className="h-16 w-24 rounded-md border object-cover sm:h-20 sm:w-28" />
+            </a>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -180,19 +198,13 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
           </div>
           <p className="mt-1 font-semibold">{log.title}</p>
           {log.content && <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>{log.content}</p>}
-          {(log.attachments ?? []).length > 0 && (
+          {others.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
-              {log.attachments.map((a, i) =>
-                a.kind === "image" ? (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer">
-                    <img src={a.url} alt={a.label ?? log.title} loading="lazy" className="h-16 w-24 rounded border object-cover" />
-                  </a>
-                ) : (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer" className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70">
-                    {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
-                  </a>
-                ),
-              )}
+              {others.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70">
+                  {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
+                </a>
+              ))}
             </div>
           )}
         </div>
@@ -204,6 +216,7 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
     </div>
   );
 }
+
 
 function DeleteLogButton({ id }: { id: string }) {
   const { canDelete } = useAccess();

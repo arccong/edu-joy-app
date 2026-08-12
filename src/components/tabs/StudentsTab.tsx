@@ -357,7 +357,10 @@ export function StudentsTab() {
           )}
         </CardContent>
       </Card>
+
+      <TrialStudentsCard />
     </div>
+
   );
 }
 

@@ -32,6 +32,8 @@ import {
   type AttendanceRow,
 } from "@/lib/shared";
 import { deleteStudent, listAttendanceRange, listStudents, upsertStudent } from "@/lib/students.functions";
+import { TrialStudentsCard } from "@/components/tabs/TrialStudentsCard";
+
 
 const ALL_COLS = [
   { key: "name", label: "Họ tên" },

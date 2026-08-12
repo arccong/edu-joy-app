@@ -15,8 +15,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
-import { coursePrefix, fmtDate, toLocalISO, type ClassType, type Student } from "@/lib/shared";
-import { listAttendance, listStudents } from "@/lib/students.functions";
+import { coursePrefix, dayOfWeekOf, fmtDate, slotsEffectiveOn, toLocalISO, type ClassType, type ScheduleChange, type Student } from "@/lib/shared";
+import { listAttendance, listScheduleChanges, listStudents } from "@/lib/students.functions";
 import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
 import { exportXlsx } from "@/lib/export";
 
@@ -168,9 +168,27 @@ export function LearningTab() {
   );
 }
 
+function Thumb({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return <img src={src} alt={alt} loading="lazy" onError={() => setOk(false)} className={className} />;
+}
+
 function LogCard({ log, name, students, compact }: { log: LearningLog; name: string; students: Student[]; compact?: boolean }) {
+  const atts = log.attachments ?? [];
+  const images = atts.filter((a) => a.kind === "image");
+  const others = atts.filter((a) => a.kind !== "image");
   return (
     <div className="rounded-lg border bg-card p-3">
+      {images.length > 0 && (
+        <div className="-mx-1 mb-2 flex gap-2 overflow-x-auto px-1 pb-1">
+          {images.map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="shrink-0">
+              <Thumb src={a.url} alt={a.label ?? log.title} className="h-16 w-24 rounded-md border object-cover sm:h-20 sm:w-28" />
+            </a>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -180,19 +198,13 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
           </div>
           <p className="mt-1 font-semibold">{log.title}</p>
           {log.content && <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>{log.content}</p>}
-          {(log.attachments ?? []).length > 0 && (
+          {others.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
-              {log.attachments.map((a, i) =>
-                a.kind === "image" ? (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer">
-                    <img src={a.url} alt={a.label ?? log.title} loading="lazy" className="h-16 w-24 rounded border object-cover" />
-                  </a>
-                ) : (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer" className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70">
-                    {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
-                  </a>
-                ),
-              )}
+              {others.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70">
+                  {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
+                </a>
+              ))}
             </div>
           )}
         </div>
@@ -204,6 +216,7 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
     </div>
   );
 }
+
 
 function DeleteLogButton({ id }: { id: string }) {
   const { canDelete } = useAccess();
@@ -236,6 +249,41 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
   const [attachments, setAttachments] = useState<Attachment[]>(existing?.attachments ?? []);
   const [newUrl, setNewUrl] = useState("");
   const [newKind, setNewKind] = useState<Attachment["kind"]>("image");
+
+  const fetchChanges = useServerFn(listScheduleChanges);
+  const fetchAtt = useServerFn(listAttendance);
+  const { data: changes = [] } = useQuery<ScheduleChange[]>({
+    queryKey: ["schedule-changes"],
+    queryFn: () => fetchChanges() as any,
+    enabled: open,
+  });
+  const { data: attOfDate = [] } = useQuery<any[]>({
+    queryKey: ["attendance", date],
+    queryFn: () => fetchAtt({ data: { date } }) as any,
+    enabled: open && !!date,
+  });
+
+  const attendedIds = useMemo(
+    () => new Set(attOfDate.filter((r) => r.status === "Đi học").map((r) => r.student_id as string)),
+    [attOfDate],
+  );
+
+  const validation = useMemo<{ ok: boolean; message?: string }>(() => {
+    if (!date) return { ok: false, message: "Chọn ngày học." };
+    if (isClassWide) {
+      const any = students.some((s) => attendedIds.has(s.id));
+      return any ? { ok: true } : { ok: false, message: "Chưa có học sinh nào của lớp được điểm danh trong ngày này." };
+    }
+    const s = students.find((x) => x.id === studentId);
+    if (!s) return { ok: false, message: "Chọn học sinh." };
+    const dow = dayOfWeekOf(date);
+    const slots = slotsEffectiveOn(s, changes, date);
+    const inSchedule = dow !== null && slots.some((sl) => sl.day === dow) && date >= s.start_date && date <= s.end_date;
+    if (!inSchedule) return { ok: false, message: "Ngày này không nằm trong lịch học của học sinh." };
+    if (!attendedIds.has(s.id)) return { ok: false, message: "Buổi học ngày này chưa được điểm danh." };
+    return { ok: true };
+  }, [date, isClassWide, students, studentId, changes, attendedIds]);
+
 
   const mut = useMutation({
     mutationFn: () => save({ data: {
@@ -278,7 +326,9 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
           <div className="grid gap-1">
             <Label>Ngày học</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {!validation.ok && <p className="text-xs text-destructive">{validation.message}</p>}
           </div>
+
           <div className="grid gap-1">
             <Label>Tác phẩm / Bài học</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Vd: Für Elise — đoạn A" />
@@ -309,7 +359,11 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
               <ul className="space-y-1">
                 {attachments.map((a, i) => (
                   <li key={i} className="flex items-center gap-2 rounded bg-muted/50 px-2 py-1 text-xs">
-                    <span className="shrink-0">{a.kind === "image" ? "🖼" : a.kind === "video" ? "🎬" : "🔗"}</span>
+                    {a.kind === "image" ? (
+                      <Thumb src={a.url} alt="Ảnh đính kèm" className="h-14 w-14 shrink-0 rounded border object-cover" />
+                    ) : (
+                      <span className="shrink-0">{a.kind === "video" ? "🎬" : "🔗"}</span>
+                    )}
                     <span className="min-w-0 flex-1 truncate">{a.url}</span>
                     <button type="button" onClick={() => setAttachments((x) => x.filter((_, j) => j !== i))}><X className="h-3.5 w-3.5" /></button>
                   </li>
@@ -320,13 +374,15 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
-          <Button disabled={mut.isPending} onClick={() => {
+          <Button disabled={mut.isPending || !validation.ok} onClick={() => {
             if (!title.trim()) return toast.error("Nhập tên tác phẩm/bài học");
             if (!isClassWide && !studentId) return toast.error("Chọn học sinh");
+            if (!validation.ok) return toast.error(validation.message!);
             mut.mutate();
           }}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

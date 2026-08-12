@@ -423,6 +423,7 @@ function UsersCard() {
                 </label>
               ))}
             </div>
+            {access.isOwner && <ChangeRoleButton user={u} />}
             <DeleteUserButton user={u} onDelete={(id) => del.mutate(id)} />
           </div>
         ))}

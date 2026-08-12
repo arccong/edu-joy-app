@@ -244,14 +244,14 @@ export function StudentsTab() {
               }]);
               toast.success("Đã xuất danh sách học sinh");
             }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <StudentDialog trigger={<Button><Plus className="mr-1 h-4 w-4" />Học sinh mới</Button>} />
+            
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <EmptyState text="Chưa có học sinh nào. Bấm 'Học sinh mới' để bắt đầu." />
+            <EmptyState text="Chưa có học sinh nào. Thêm học sinh qua 'Ghi nhận học phí'." />
           ) : (
             <div className="-mx-4 overflow-x-auto sm:mx-0">
               <Table>

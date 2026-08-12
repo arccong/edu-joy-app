@@ -249,7 +249,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               students={students}
               trigger={<Button size="sm"><Wallet className="mr-1 h-4 w-4" />Ghi nhận học phí</Button>}
             />
-            <StudentDialog trigger={<Button size="sm" variant="outline"><UserPlus className="mr-1 h-4 w-4" />Học sinh mới</Button>} />
+            
             <FinanceEntryDialog
               cats={cats}
               students={students}

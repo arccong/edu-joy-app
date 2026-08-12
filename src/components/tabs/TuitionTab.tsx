@@ -663,7 +663,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="grid gap-2">
               <Label>Ngày bắt đầu</Label>
               <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
@@ -677,7 +677,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
                 </button>
               )}
             </div>
-            <div className="grid gap-2">
+            <div className="col-span-2 grid gap-2 sm:col-span-1">
               <Label>Ngày đóng</Label>
               <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
             </div>

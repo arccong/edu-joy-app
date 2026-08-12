@@ -84,8 +84,9 @@ function AccountMenu() {
           <div className="truncate text-sm">{access.email}</div>
           <div className="flex flex-wrap gap-1">
             <Badge variant={access.isManager ? "default" : "secondary"}>
-              {access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
+              {access.isOwner ? "Chủ trung tâm" : access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
             </Badge>
+
             {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
           </div>
         </DropdownMenuLabel>

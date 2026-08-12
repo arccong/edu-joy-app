@@ -1,15 +1,19 @@
+import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GraduationCap, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Download, GraduationCap, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { TrialStudentDialog } from "@/components/TrialStudentDialog";
 import { useAccess } from "@/lib/access";
-import { fmtDate, hhmm, trialStatus, type TrialStudent } from "@/lib/shared";
+import { ClassSelect } from "@/lib/class-scope";
+import { exportXlsx } from "@/lib/export";
+import { fmtDate, hhmm, trialStatus, type ClassType, type TrialStudent } from "@/lib/shared";
 import { deleteTrialStudent, listTrialStudents } from "@/lib/trials.functions";
 
 export function useTrialStudents() {

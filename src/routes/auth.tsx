@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { GraduationCap, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { BrandLogo } from "@/lib/branding";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -80,9 +81,14 @@ function AuthPage() {
       <Toaster position="top-right" richColors />
       <Card className="w-full max-w-md shadow-card">
         <CardHeader className="space-y-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </div>
+          <BrandLogo
+            className="h-11 w-11 rounded-xl object-contain"
+            fallback={
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+            }
+          />
           <CardTitle>{setupMode ? "Tạo tài khoản Quản lý đầu tiên" : "Đăng nhập"}</CardTitle>
           <CardDescription>
             {setupMode

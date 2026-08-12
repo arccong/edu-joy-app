@@ -123,19 +123,26 @@ export const listUsers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertManager(context.supabase);
     const sb = await admin();
+    const owner = await ownerId(sb);
+    const viewerIsOwner = owner === context.userId;
     const [{ data: profiles }, { data: roles }, { data: classes }] = await Promise.all([
       sb.from("profiles").select("*").order("created_at"),
       sb.from("user_roles").select("*"),
       sb.from("teacher_classes").select("*"),
     ]);
-    return (profiles ?? []).map((p: any) => ({
-      id: p.id,
-      email: p.email,
-      full_name: p.full_name,
-      role: (roles ?? []).find((r: any) => r.user_id === p.id)?.role ?? null,
-      classes: (classes ?? []).filter((c: any) => c.user_id === p.id).map((c: any) => c.class_type),
-    }));
+    return (profiles ?? [])
+      .map((p: any) => ({
+        id: p.id,
+        email: p.email,
+        full_name: p.full_name,
+        role: (roles ?? []).find((r: any) => r.user_id === p.id)?.role ?? null,
+        is_owner: p.id === owner,
+        classes: (classes ?? []).filter((c: any) => c.user_id === p.id).map((c: any) => c.class_type),
+      }))
+      // Quản lý chỉ thấy danh sách Giáo viên; danh sách Chủ trung tâm/Quản lý chỉ Chủ trung tâm thấy.
+      .filter((u: any) => viewerIsOwner || u.role === "giao_vien");
   });
+
 
 export const createTeacher = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

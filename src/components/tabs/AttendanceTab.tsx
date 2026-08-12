@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -152,13 +153,7 @@ function ByDateView() {
             <span className="font-medium">Tự động điểm danh</span>
           </label>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
-          <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
-            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
-              {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ClassSelect className="w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
         </div>
 
       </CardHeader>
@@ -418,16 +413,7 @@ function BackfillButton({ students }: { students: Student[] }) {
             <Label className="text-xs">Đến ngày</Label>
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Lớp</Label>
-            <Select value={scope} onValueChange={(v) => setScope(v as typeof scope)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
-                {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          <ClassSelect label="Lớp" allLabel="Tất cả lớp" value={scope} onChange={(v) => setScope(v as typeof scope)} />
           <div className="grid gap-1">
             <Label className="text-xs">Học sinh</Label>
             <Select value={studentId} onValueChange={setStudentId}>
@@ -659,13 +645,7 @@ function ByStudentView() {
           <CardDescription>Toàn bộ buổi trong khóa — sửa trạng thái/ghi chú trực tiếp.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={classFilter} onValueChange={(v) => setClassFilter(v as typeof classFilter)}>
-            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
-              {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ClassSelect className="w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
           <Input placeholder="Tìm học sinh..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-[180px]" />
           <Select value={studentId} onValueChange={setStudentId}>
             <SelectTrigger className="w-[220px]"><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>

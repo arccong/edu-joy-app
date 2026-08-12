@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
@@ -199,7 +200,7 @@ export function ScheduleTab() {
       <CardContent>
         <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
           <TabsList className="mb-4">
-            {CLASSES.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
+            {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
           </TabsList>
         </Tabs>
 
@@ -361,7 +362,7 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {CLASSES.map((c) => {
+        {myClasses.map((c) => {
           const list = students.filter((s) => s.class_type === c && (byStudent.get(s.id)?.length ?? 0) > 0);
           return (
             <div key={c}>
@@ -465,13 +466,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Thêm lịch bảo lưu</DialogTitle></DialogHeader>
         <div className="grid gap-3">
-          <div className="grid gap-1">
-            <Label>Lớp</Label>
-            <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId(""); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+          <ClassSelect label="Lớp" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId(""); }} />
           <div className="grid gap-1">
             <Label>Học sinh</Label>
             <Select value={studentId} onValueChange={setStudentId}>
@@ -709,13 +704,7 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
         <DialogHeader><DialogTitle>Đổi lịch học</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
-              <Label>Lớp</Label>
-              <Select value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentId(""); setSlots([]); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            <ClassSelect label="Lớp" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId(""); setSlots([]); }} />
             <div className="grid gap-1">
               <Label>Ngày hiệu lực</Label>
               <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />

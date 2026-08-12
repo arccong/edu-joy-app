@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -104,18 +105,16 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
               <Label>Tuổi</Label>
               <Input type="number" min={1} max={120} value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} />
             </div>
-            <div className="grid gap-2">
-              <Label>Lớp học</Label>
-              <Select value={form.class_type} onValueChange={(v) => {
+            <ClassSelect
+              label="Lớp học"
+              value={form.class_type}
+              onChange={(v) => {
                 const cls = v as ClassType;
                 const newTuition = defaultTuitionFor(cls);
                 setForm((f) => ({ ...f, class_type: cls, total_sessions: defaultSessionsFor(cls), tuition: newTuition }));
                 setTuitionStr(formatMoney(newTuition));
-              }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+              }}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">

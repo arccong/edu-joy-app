@@ -52,6 +52,27 @@ export type Database = {
           },
         ]
       }
+      center_owner: {
+        Row: {
+          created_at: string
+          id: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       class_schedule: {
         Row: {
           class_type: Database["public"]["Enums"]["class_type"]
@@ -500,10 +521,12 @@ export type Database = {
         Returns: boolean
       }
       is_manager: { Args: never; Returns: boolean }
+      is_owner: { Args: never; Returns: boolean }
       teaches: {
         Args: { _class: Database["public"]["Enums"]["class_type"] }
         Returns: boolean
       }
+      transfer_ownership: { Args: { _new_owner: string }; Returns: undefined }
     }
     Enums: {
       app_role: "quan_ly" | "giao_vien"

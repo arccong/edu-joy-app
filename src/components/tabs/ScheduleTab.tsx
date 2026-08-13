@@ -295,7 +295,7 @@ export function ScheduleTab() {
                                   <div
                                     key={t.id}
                                     className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
-                                    style={{ borderLeftColor: "#4AA09E", backgroundColor: "#4AA09E1A", color: "#2F6B6A" }}
+                                    style={{ borderLeftColor: "var(--trial, #4AA09E)", backgroundColor: "color-mix(in srgb, var(--trial, #4AA09E) 12%, transparent)", color: "var(--trial, #4AA09E)" }}
                                   >
                                     <div className="font-medium">{t.name} (HT)</div>
                                   </div>
@@ -319,7 +319,7 @@ export function ScheduleTab() {
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
             <span>• (CP) nghỉ có phép · (KP) nghỉ không phép · (BL) đang bảo lưu — tên hiển thị mờ</span>
             <span className="inline-flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "#4AA09E" }} />
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "var(--trial, #4AA09E)" }} />
               (HT) học sinh học thử
             </span>
             <span>• Tuần đã qua hiển thị theo lịch có hiệu lực tại thời điểm đó</span>

@@ -123,13 +123,14 @@ function App() {
       <header className="border-b bg-card/80 backdrop-blur">
         <div className="container mx-auto flex items-center gap-3 px-4 py-4">
           <BrandLogo
-            className="h-10 w-10 shrink-0 rounded-xl object-contain"
+            className="h-9 w-auto max-w-[132px] shrink-0 object-contain sm:h-11 sm:max-w-[164px]"
             fallback={
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card">
+              <div className="flex h-9 w-[108px] shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card sm:h-11 sm:w-[132px]">
                 <GraduationCap className="h-5 w-5" />
               </div>
             }
           />
+
           <div className="min-w-0">
             <h1
               className="truncate text-lg font-bold sm:text-xl"

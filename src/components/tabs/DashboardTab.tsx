@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLabel } from "@/lib/labels";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -72,6 +73,7 @@ function courseLabel(s: Student) {
 }
 
 export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
+  const t = useLabel();
   const qc = useQueryClient();
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);

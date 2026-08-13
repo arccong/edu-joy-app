@@ -20,6 +20,8 @@ export default defineConfig({
       // The guarded wrapper in src/lib/pwa.ts is the only registrar.
       injectRegister: null,
       filename: "sw.js",
+      // Client build output is what gets served; keep SW + precache manifest there.
+      outDir: "dist/client",
       devOptions: { enabled: false },
       includeAssets: ["favicon.png", "apple-touch-icon.png"],
       manifest: {

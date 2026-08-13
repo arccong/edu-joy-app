@@ -45,7 +45,10 @@ export function TuitionTab() {
   const fetchList = useServerFn(listStudents);
   const fetchPay = useServerFn(listPayments);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchList() as any });
-  const { data: payments = [] } = useQuery<TuitionPayment[]>({ queryKey: ["payments"], queryFn: () => fetchPay() as any });
+  const { data: payments = [] } = useQuery<TuitionPayment[]>({
+    queryKey: ["payments"],
+    queryFn: () => fetchPay() as any,
+  });
 
   const now = new Date();
   const [month, setMonth] = useState<string>(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
@@ -70,9 +73,10 @@ export function TuitionTab() {
   }, [inMonth, stuMap, cls, search]);
 
   const stats = useMemo(() => {
-    const inClassScope = cls === "Tất cả" ? inMonth : inMonth.filter((p) => stuMap.get(p.student_id)?.class_type === cls);
+    const inClassScope =
+      cls === "Tất cả" ? inMonth : inMonth.filter((p) => stuMap.get(p.student_id)?.class_type === cls);
     const total = inClassScope.reduce((a, b) => a + Number(b.amount), 0);
-    const byClass: Record<ClassType, number> = { Piano: 0, "Múa": 0, "Vẽ": 0 };
+    const byClass: Record<ClassType, number> = { Piano: 0, Múa: 0, Vẽ: 0 };
     for (const p of inMonth) {
       const s = stuMap.get(p.student_id);
       if (!s) continue;
@@ -107,27 +111,64 @@ export function TuitionTab() {
       <Card className="shadow-card">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" />Học phí {fmtMonth(monthISO)}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              Học phí {fmtMonth(monthISO)}
+            </CardTitle>
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
-            <ClassSelect className="w-auto min-w-[140px]" allLabel="Tất cả lớp" value={cls} onChange={(v) => setCls(v as any)} />
-            <Button variant="outline" onClick={() => {
-              if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
-              exportXlsx(`hoc-phi-${month}`, [{
-                name: "Học phí",
-                rows: [
-                  ["Học sinh", "Lớp", "Tháng", "Kỳ", "Số tiền", "Ngày đóng", "Ghi chú"],
-                  ...filtered.map((p) => {
-                    const s = stuMap.get(p.student_id)!;
-                    return [s.name, s.class_type, p.month.slice(0, 7), p.ky_index, Number(p.amount), fmtDate(p.paid_date), p.note ?? ""];
-                  }),
-                ],
-              }]);
-              toast.success("Đã xuất dữ liệu học phí");
-            }}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <RecordPaymentDialog students={students} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhận</Button>} />
+            <Input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="w-[190px] min-w-[190px]"
+            />
+            <ClassSelect
+              className="w-auto min-w-[140px]"
+              allLabel="Tất cả lớp"
+              value={cls}
+              onChange={(v) => setCls(v as any)}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
+                exportXlsx(`hoc-phi-${month}`, [
+                  {
+                    name: "Học phí",
+                    rows: [
+                      ["Học sinh", "Lớp", "Tháng", "Kỳ", "Số tiền", "Ngày đóng", "Ghi chú"],
+                      ...filtered.map((p) => {
+                        const s = stuMap.get(p.student_id)!;
+                        return [
+                          s.name,
+                          s.class_type,
+                          p.month.slice(0, 7),
+                          p.ky_index,
+                          Number(p.amount),
+                          fmtDate(p.paid_date),
+                          p.note ?? "",
+                        ];
+                      }),
+                    ],
+                  },
+                ]);
+                toast.success("Đã xuất dữ liệu học phí");
+              }}
+            >
+              <Download className="mr-1 h-4 w-4" />
+              Xuất dữ liệu
+            </Button>
+            <RecordPaymentDialog
+              students={students}
+              trigger={
+                <Button>
+                  <Plus className="mr-1 h-4 w-4" />
+                  Ghi nhận
+                </Button>
+              }
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -141,16 +182,36 @@ export function TuitionTab() {
           <div className="mb-4 rounded-lg border bg-muted/30 p-3">
             <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
               <SummaryBox label="Đến kỳ đóng" value={collection.scope.length} suffix="" />
-              <SummaryBox label="Đã đóng" value={collection.paid.length} suffix={`/${collection.scope.length}`} tone="success" />
-              <SummaryBox label="Chưa đóng" value={collection.unpaid.length} suffix={`/${collection.scope.length}`} tone="warning" />
-              <SummaryBox label="Thu / Dự kiến" value={collection.collected} suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`} isMoney />
+              <SummaryBox
+                label="Đã đóng"
+                value={collection.paid.length}
+                suffix={`/${collection.scope.length}`}
+                tone="success"
+              />
+              <SummaryBox
+                label="Chưa đóng"
+                value={collection.unpaid.length}
+                suffix={`/${collection.scope.length}`}
+                tone="warning"
+              />
+              <SummaryBox
+                label="Thu / Dự kiến"
+                value={collection.collected}
+                suffix={` / ${collection.expected.toLocaleString("vi-VN")}đ`}
+                isMoney
+              />
             </div>
             {collection.unpaid.length > 0 && (
               <div>
-                <p className="mb-1 text-xs font-semibold text-muted-foreground">Học sinh chưa đóng học phí tháng này:</p>
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                  Học sinh chưa đóng học phí tháng này:
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {collection.unpaid.map((s) => (
-                    <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-[color:var(--warning)]">
+                    <span
+                      key={s.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-[color:var(--warning)]"
+                    >
                       {s.name} · {s.class_type}
                     </span>
                   ))}
@@ -161,7 +222,12 @@ export function TuitionTab() {
 
           <div className="mb-3 flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Tìm học sinh trong tháng..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+            <Input
+              placeholder="Tìm học sinh trong tháng..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="max-w-xs"
+            />
           </div>
 
           {filtered.length === 0 ? (
@@ -190,12 +256,22 @@ export function TuitionTab() {
                         <TableCell>{classChip(s.class_type)}</TableCell>
                         <TableCell>{fmtMonth(p.month)}</TableCell>
                         <TableCell className="text-center">{p.ky_index}</TableCell>
-                        <TableCell className="text-right font-semibold">{Number(p.amount).toLocaleString("vi-VN")}đ</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {Number(p.amount).toLocaleString("vi-VN")}đ
+                        </TableCell>
                         <TableCell>{fmtDate(p.paid_date)}</TableCell>
                         <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">{p.note}</TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex gap-1">
-                            <EditPaymentDialog existing={p} student={stuMap.get(p.student_id)} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+                            <EditPaymentDialog
+                              existing={p}
+                              student={stuMap.get(p.student_id)}
+                              trigger={
+                                <Button size="icon" variant="ghost">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
                             <DeletePaymentButton id={p.id} />
                           </div>
                         </TableCell>
@@ -214,26 +290,65 @@ export function TuitionTab() {
   );
 }
 
-function SummaryBox({ label, value, suffix, tone, isMoney }: { label: string; value: number; suffix?: string; tone?: "success" | "warning"; isMoney?: boolean }) {
-  const toneCls = tone === "success" ? "text-[color:var(--success)]" : tone === "warning" ? "text-[color:var(--warning)]" : "text-foreground";
+function SummaryBox({
+  label,
+  value,
+  suffix,
+  tone,
+  isMoney,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  tone?: "success" | "warning";
+  isMoney?: boolean;
+}) {
+  const toneCls =
+    tone === "success"
+      ? "text-[color:var(--success)]"
+      : tone === "warning"
+        ? "text-[color:var(--warning)]"
+        : "text-foreground";
   return (
     <div className="rounded-md bg-background p-2">
       <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className={`text-base font-bold ${toneCls}`}>{isMoney ? value.toLocaleString("vi-VN") + "đ" : value}{suffix ? <span className="text-xs font-normal text-muted-foreground">{suffix}</span> : null}</p>
+      <p className={`text-base font-bold ${toneCls}`}>
+        {isMoney ? value.toLocaleString("vi-VN") + "đ" : value}
+        {suffix ? <span className="text-xs font-normal text-muted-foreground">{suffix}</span> : null}
+      </p>
     </div>
   );
 }
 
-
-function StatBox({ label, value, tint, hidden }: { label: string; value: number; tint?: "piano" | "mua" | "ve"; hidden?: boolean }) {
-  const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";
+function StatBox({
+  label,
+  value,
+  tint,
+  hidden,
+}: {
+  label: string;
+  value: number;
+  tint?: "piano" | "mua" | "ve";
+  hidden?: boolean;
+}) {
+  const tintCls =
+    tint === "piano"
+      ? "bg-piano/10 text-piano"
+      : tint === "mua"
+        ? "bg-mua/10 text-mua"
+        : tint === "ve"
+          ? "bg-ve/20 text-[color:var(--ve-foreground)]"
+          : "bg-primary/10 text-primary";
   return (
     <div className={`rounded-lg p-3 ${tintCls}`}>
       <p className="text-xs opacity-80">{label}</p>
       {hidden ? (
-        <p className="flex items-center gap-1.5 text-lg font-bold opacity-70" title="Bạn không có quyền xem dữ liệu lớp này">
+        <p
+          className="flex items-center gap-1.5 text-lg font-bold opacity-70"
+          title="Bạn không có quyền xem dữ liệu lớp này"
+        >
           <EyeOff className="h-4 w-4" />
-          <span className="text-sm font-medium">Không được xem</span>
+          <span className="text-sm font-medium">Dữ liệu ẩn</span>
         </p>
       ) : (
         <p className="text-lg font-bold">{value.toLocaleString("vi-VN")}đ</p>
@@ -248,19 +363,35 @@ function DeletePaymentButton({ id }: { id: string }) {
   const del = useServerFn(deletePayment);
   const mut = useMutation({
     mutationFn: () => del({ data: { id } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payments"] }); toast.success("Đã xóa"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      toast.success("Đã xóa");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   if (!canDelete) return null;
   return (
-    <Button size="icon" variant="ghost" className="text-destructive" onClick={() => confirm("Xóa ghi nhận này?") && mut.mutate()}>
+    <Button
+      size="icon"
+      variant="ghost"
+      className="text-destructive"
+      onClick={() => confirm("Xóa ghi nhận này?") && mut.mutate()}
+    >
       <Trash2 className="h-4 w-4" />
     </Button>
   );
 }
 
 /** Sửa ghi nhận học phí: sửa được cả thông tin khóa học đã nhập khi ghi nhận */
-function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPayment; student?: Student; trigger: React.ReactNode }) {
+function EditPaymentDialog({
+  existing,
+  student,
+  trigger,
+}: {
+  existing: TuitionPayment;
+  student?: Student;
+  trigger: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertPayment);
@@ -280,31 +411,35 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
   const mut = useMutation({
     mutationFn: async () => {
       if (student) {
-        await saveStudent({ data: {
-          id: student.id,
-          name: name.trim(),
-          age: Number(age),
-          class_type: clsType,
-          tuition: Number(amount),
-          start_date: startDate,
-          end_date: endDate,
-          status: student.status,
-          reserve_days: student.reserve_days ?? 0,
-          total_sessions: Number(totalSessions),
-          course_index: Number(courseIndex),
-          schedule_slots: student.schedule_slots ?? [],
-          person_id: student.person_id ?? null,
-        } as any });
+        await saveStudent({
+          data: {
+            id: student.id,
+            name: name.trim(),
+            age: Number(age),
+            class_type: clsType,
+            tuition: Number(amount),
+            start_date: startDate,
+            end_date: endDate,
+            status: student.status,
+            reserve_days: student.reserve_days ?? 0,
+            total_sessions: Number(totalSessions),
+            course_index: Number(courseIndex),
+            schedule_slots: student.schedule_slots ?? [],
+            person_id: student.person_id ?? null,
+          } as any,
+        });
       }
-      await save({ data: {
-        id: existing.id,
-        student_id: existing.student_id,
-        month: existing.month,
-        amount: Number(amount),
-        paid_date: paidDate,
-        ky_index: Number(courseIndex),
-        note: note || null,
-      } as any });
+      await save({
+        data: {
+          id: existing.id,
+          student_id: existing.student_id,
+          month: existing.month,
+          amount: Number(amount),
+          paid_date: paidDate,
+          ky_index: Number(courseIndex),
+          note: note || null,
+        } as any,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payments"] });
@@ -319,7 +454,9 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
-        <DialogHeader><DialogTitle>Sửa ghi nhận học phí</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Sửa ghi nhận học phí</DialogTitle>
+        </DialogHeader>
         <div className="grid gap-3">
           {student && (
             <>
@@ -345,13 +482,23 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label>Tổng số buổi/khóa</Label>
-                  <Input type="number" min={1} value={totalSessions} onChange={(e) => setTotalSessions(Number(e.target.value))} />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={totalSessions}
+                    onChange={(e) => setTotalSessions(Number(e.target.value))}
+                  />
                 </div>
                 <div className="grid gap-1">
                   <Label>Tên khóa</Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-primary">{coursePrefix(clsType)}</span>
-                    <Input type="number" min={1} value={courseIndex} onChange={(e) => setCourseIndex(Math.max(1, Number(e.target.value) || 1))} />
+                    <Input
+                      type="number"
+                      min={1}
+                      value={courseIndex}
+                      onChange={(e) => setCourseIndex(Math.max(1, Number(e.target.value) || 1))}
+                    />
                   </div>
                 </div>
               </div>
@@ -369,7 +516,11 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
           )}
           <div className="grid gap-1">
             <Label>Số tiền (VNĐ)</Label>
-            <Input inputMode="numeric" value={formatMoney(amount)} onChange={(e) => setAmount(parseMoney(e.target.value))} />
+            <Input
+              inputMode="numeric"
+              value={formatMoney(amount)}
+              onChange={(e) => setAmount(parseMoney(e.target.value))}
+            />
           </div>
           <div className="grid gap-1">
             <Label>Ngày đóng</Label>
@@ -381,7 +532,9 @@ function EditPaymentDialog({ existing, student, trigger }: { existing: TuitionPa
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Hủy
+          </Button>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Lưu
           </Button>
@@ -432,7 +585,9 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
     return students.filter(
       (s) =>
         s.id !== base.id &&
-        (base.person_id ? s.person_id === base.person_id : s.name.trim().toLowerCase() === base.name.trim().toLowerCase() && s.age === base.age) &&
+        (base.person_id
+          ? s.person_id === base.person_id
+          : s.name.trim().toLowerCase() === base.name.trim().toLowerCase() && s.age === base.age) &&
         (s.status === "Đang học" || s.status === "Chuẩn bị" || s.status === "Bảo lưu"),
     );
   }, [students, base]);
@@ -508,37 +663,42 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
       return { ...f, schedule_slots: arr };
     });
   const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));
-  const removeSlot = (idx: number) => setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
+  const removeSlot = (idx: number) =>
+    setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
 
   const mut = useMutation({
     mutationFn: async () => {
       const endDate = form.end_date || autoEnd || "";
       // Khóa tiếp theo mà khóa hiện tại vẫn đang học → "Chuẩn bị"
       const status = mode === "next" && base && base.status === "Đang học" ? "Chuẩn bị" : "Đang học";
-      const res: any = await saveStudent({ data: {
-        name: form.name.trim(),
-        age: Number(form.age),
-        class_type: form.class_type,
-        tuition: Number(form.tuition),
-        start_date: form.start_date,
-        end_date: endDate,
-        status,
-        reserve_days: 0,
-        total_sessions: Number(form.total_sessions),
-        course_index: Number(form.course_index),
-        schedule_slots: form.schedule_slots,
-        person_id: mode === "new" ? null : (base?.person_id ?? null),
-      } as any });
+      const res: any = await saveStudent({
+        data: {
+          name: form.name.trim(),
+          age: Number(form.age),
+          class_type: form.class_type,
+          tuition: Number(form.tuition),
+          start_date: form.start_date,
+          end_date: endDate,
+          status,
+          reserve_days: 0,
+          total_sessions: Number(form.total_sessions),
+          course_index: Number(form.course_index),
+          schedule_slots: form.schedule_slots,
+          person_id: mode === "new" ? null : (base?.person_id ?? null),
+        } as any,
+      });
       const newId = res?.id as string;
       if (!newId) throw new Error("Không lấy được mã học sinh vừa tạo");
-      await savePayment({ data: {
-        student_id: newId,
-        month: monthKey(form.start_date),
-        amount: Number(form.tuition),
-        paid_date: paidDate,
-        ky_index: Number(form.course_index),
-        note: null,
-      } as any });
+      await savePayment({
+        data: {
+          student_id: newId,
+          month: monthKey(form.start_date),
+          amount: Number(form.tuition),
+          paid_date: paidDate,
+          ky_index: Number(form.course_index),
+          note: null,
+        } as any,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payments"] });
@@ -553,17 +713,47 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
-        <DialogHeader><DialogTitle>Ghi nhận đóng học phí</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Ghi nhận đóng học phí</DialogTitle>
+        </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label>Chế độ</Label>
             <div className="inline-flex flex-wrap rounded-md border bg-muted/40 p-0.5">
-              <Button size="sm" variant={mode === "next" ? "default" : "ghost"}
-                onClick={() => { setMode("next"); setForm(emptyForm()); setBaseId(""); }}>Khóa tiếp theo</Button>
-              <Button size="sm" variant={mode === "class" ? "default" : "ghost"}
-                onClick={() => { setMode("class"); setForm(emptyForm()); setBaseId(""); }}>Học lớp mới</Button>
-              <Button size="sm" variant={mode === "new" ? "default" : "ghost"}
-                onClick={() => { setMode("new"); setBaseId(""); setForm(emptyForm()); setTuitionStr(formatMoney(defaultTuitionFor("Piano"))); }}>Học sinh mới</Button>
+              <Button
+                size="sm"
+                variant={mode === "next" ? "default" : "ghost"}
+                onClick={() => {
+                  setMode("next");
+                  setForm(emptyForm());
+                  setBaseId("");
+                }}
+              >
+                Khóa tiếp theo
+              </Button>
+              <Button
+                size="sm"
+                variant={mode === "class" ? "default" : "ghost"}
+                onClick={() => {
+                  setMode("class");
+                  setForm(emptyForm());
+                  setBaseId("");
+                }}
+              >
+                Học lớp mới
+              </Button>
+              <Button
+                size="sm"
+                variant={mode === "new" ? "default" : "ghost"}
+                onClick={() => {
+                  setMode("new");
+                  setBaseId("");
+                  setForm(emptyForm());
+                  setTuitionStr(formatMoney(defaultTuitionFor("Piano")));
+                }}
+              >
+                Học sinh mới
+              </Button>
             </div>
           </div>
 
@@ -571,30 +761,45 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
             <div className="grid gap-2">
               <Label>{mode === "class" ? "Học sinh đang học (đăng ký thêm lớp)" : "Học sinh đang học"}</Label>
               <Select value={baseId} onValueChange={pickBase}>
-                <SelectTrigger><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn học sinh..." />
+                </SelectTrigger>
                 <SelectContent>
                   {(mode === "class" ? studyingStudents : activeStudents).map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1} · {s.class_type}
+                      {s.name} · {coursePrefix(s.class_type)}
+                      {s.course_index ?? 1} · {s.class_type}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {mode === "class" && (
-                <p className="text-xs text-muted-foreground">Lịch học lớp mới không được trùng với lịch các lớp đang học của học sinh này.</p>
+                <p className="text-xs text-muted-foreground">
+                  Lịch học lớp mới không được trùng với lịch các lớp đang học của học sinh này.
+                </p>
               )}
             </div>
           )}
 
           <div className="grid gap-2">
             <Label>Tên học sinh</Label>
-            <Input value={form.name} disabled={mode !== "new"} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input
+              value={form.name}
+              disabled={mode !== "new"}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Tuổi</Label>
-              <Input type="number" min={1} max={120} value={form.age} onChange={(e) => setForm({ ...form, age: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={form.age}
+                onChange={(e) => setForm({ ...form, age: Number(e.target.value) })}
+              />
             </div>
             <ClassSelect
               label="Lớp học"
@@ -612,15 +817,24 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Học phí/khóa (VNĐ)</Label>
-              <Input inputMode="numeric" value={tuitionStr} onChange={(e) => {
-                const n = parseMoney(e.target.value);
-                setTuitionStr(formatMoney(n));
-                setForm((f) => ({ ...f, tuition: n }));
-              }} />
+              <Input
+                inputMode="numeric"
+                value={tuitionStr}
+                onChange={(e) => {
+                  const n = parseMoney(e.target.value);
+                  setTuitionStr(formatMoney(n));
+                  setForm((f) => ({ ...f, tuition: n }));
+                }}
+              />
             </div>
             <div className="grid gap-2">
               <Label>Tổng số buổi/khóa</Label>
-              <Input type="number" min={1} value={form.total_sessions} onChange={(e) => setForm({ ...form, total_sessions: Number(e.target.value) })} />
+              <Input
+                type="number"
+                min={1}
+                value={form.total_sessions}
+                onChange={(e) => setForm({ ...form, total_sessions: Number(e.target.value) })}
+              />
             </div>
           </div>
 
@@ -628,35 +842,72 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
             <Label>Tên khóa</Label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-primary">{coursePrefix(form.class_type)}</span>
-              <Input type="number" min={1} value={form.course_index} className="w-24"
-                onChange={(e) => setForm({ ...form, course_index: Math.max(1, Number(e.target.value) || 1) })} />
+              <Input
+                type="number"
+                min={1}
+                value={form.course_index}
+                className="w-24"
+                onChange={(e) => setForm({ ...form, course_index: Math.max(1, Number(e.target.value) || 1) })}
+              />
             </div>
           </div>
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label>Khung giờ học ({perWeek} buổi/tuần)</Label>
-              <Button type="button" size="sm" variant="outline" onClick={addSlot}><Plus className="mr-1 h-4 w-4" />Thêm khung giờ</Button>
+              <Button type="button" size="sm" variant="outline" onClick={addSlot}>
+                <Plus className="mr-1 h-4 w-4" />
+                Thêm khung giờ
+              </Button>
             </div>
             <div className="space-y-2">
               {form.schedule_slots.map((sl, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2">
+                <div
+                  key={idx}
+                  className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2"
+                >
                   <div className="grid gap-1">
                     <Label className="text-xs">Thứ</Label>
                     <Select value={String(sl.day)} onValueChange={(v) => setSlotField(idx, { day: Number(v) })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{DAYS_ORDER.map((d) => <SelectItem key={d} value={String(d)}>{DAYS[d]}</SelectItem>)}</SelectContent>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAYS_ORDER.map((d) => (
+                          <SelectItem key={d} value={String(d)}>
+                            {DAYS[d]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Bắt đầu</Label>
-                    <Input type="time" step={900} value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} className="w-[110px]" />
+                    <Input
+                      type="time"
+                      step={900}
+                      value={sl.start}
+                      onChange={(e) => setSlotField(idx, { start: e.target.value })}
+                      className="w-[110px]"
+                    />
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Kết thúc</Label>
-                    <Input type="time" step={900} value={sl.end} onChange={(e) => setSlotField(idx, { end: e.target.value })} className="w-[110px]" />
+                    <Input
+                      type="time"
+                      step={900}
+                      value={sl.end}
+                      onChange={(e) => setSlotField(idx, { end: e.target.value })}
+                      className="w-[110px]"
+                    />
                   </div>
-                  <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => removeSlot(idx)}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => removeSlot(idx)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -667,13 +918,25 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="grid gap-2">
               <Label>Ngày bắt đầu</Label>
-              <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              <Input
+                type="date"
+                value={form.start_date}
+                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+              />
             </div>
             <div className="grid gap-2">
               <Label>Ngày kết thúc</Label>
-              <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+              <Input
+                type="date"
+                value={form.end_date}
+                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+              />
               {autoEnd && autoEnd !== form.end_date && (
-                <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => setForm((f) => ({ ...f, end_date: autoEnd }))}>
+                <button
+                  type="button"
+                  className="text-left text-xs text-primary hover:underline"
+                  onClick={() => setForm((f) => ({ ...f, end_date: autoEnd }))}
+                >
                   Dùng ngày tự động: {fmtDate(autoEnd)}
                 </button>
               )}
@@ -688,14 +951,17 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
           {mode === "class" && scheduleConflict && (
             <p className="mr-auto text-xs font-medium text-destructive">{scheduleConflict}</p>
           )}
-          <Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Hủy
+          </Button>
           <Button
             disabled={mut.isPending || (mode === "class" && !!scheduleConflict)}
             onClick={() => {
               if (!form.name.trim()) return toast.error("Vui lòng nhập tên học sinh");
               if (mode !== "new" && !base) return toast.error("Vui lòng chọn học sinh");
               if (mode === "class") {
-                if (base && form.class_type === base.class_type) return toast.error("Vui lòng chọn lớp khác với lớp đang học");
+                if (base && form.class_type === base.class_type)
+                  return toast.error("Vui lòng chọn lớp khác với lớp đang học");
                 if (scheduleConflict) return toast.error(scheduleConflict);
               }
               if (perWeek < 2) return toast.error("Học sinh phải học tối thiểu 2 buổi/tuần");
@@ -723,9 +989,7 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
     const list = students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()));
     return groupByPerson(list).map((g) => {
       const ids = new Set(g.courses.map((c) => c.id));
-      const paid = payments
-        .filter((p) => ids.has(p.student_id))
-        .sort((a, b) => a.paid_date.localeCompare(b.paid_date));
+      const paid = payments.filter((p) => ids.has(p.student_id)).sort((a, b) => a.paid_date.localeCompare(b.paid_date));
       const total = paid.reduce((a, b) => a + Number(b.amount), 0);
       const byId = new Map(g.courses.map((c) => [c.id, c] as const));
       return { g, paid, total, byId };
@@ -735,7 +999,10 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-primary" />Tra cứu học phí theo học sinh</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Search className="h-5 w-5 text-primary" />
+          Tra cứu học phí theo học sinh
+        </CardTitle>
         <CardDescription>Mỗi học sinh một hồ sơ, gộp tất cả khóa đã học.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -746,12 +1013,16 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
             <div key={g.key} className="rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{g.name} <span className="text-xs font-normal text-muted-foreground">({g.age} tuổi)</span></p>
+                  <p className="font-semibold">
+                    {g.name} <span className="text-xs font-normal text-muted-foreground">({g.age} tuổi)</span>
+                  </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {Array.from(new Set(g.courses.map((c) => c.class_type))).map((c) => (
                       <span key={c}>{classChip(c)}</span>
                     ))}
-                    <span>{g.courses.length} khóa · {paid.length} kỳ · Tổng {total.toLocaleString("vi-VN")}đ</span>
+                    <span>
+                      {g.courses.length} khóa · {paid.length} kỳ · Tổng {total.toLocaleString("vi-VN")}đ
+                    </span>
                   </div>
                 </div>
               </div>
@@ -760,7 +1031,10 @@ function StudentTuitionLookup({ students, payments }: { students: Student[]; pay
                   {paid.map((p) => {
                     const c = byId.get(p.student_id);
                     return (
-                      <li key={p.id} className="flex items-center justify-between rounded border-l-2 border-primary bg-muted/40 px-2 py-1">
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between rounded border-l-2 border-primary bg-muted/40 px-2 py-1"
+                      >
                         <span>
                           {c ? `${coursePrefix(c.class_type)}${c.course_index ?? 1} · ` : ""}
                           {fmtMonth(p.month)} · Kỳ {p.ky_index} · {fmtDate(p.paid_date)}

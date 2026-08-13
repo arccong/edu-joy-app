@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BrandingProvider } from "../lib/branding";
+import { PwaManager } from "../components/PwaManager";
 
 function NotFoundComponent() {
   return (
@@ -84,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Điểm danh, thời khóa biểu, học phí, nhắc nhở Telegram." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#9C5F35" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Lespace Art" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

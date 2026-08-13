@@ -30,6 +30,8 @@ import { FinanceTab } from "@/components/tabs/FinanceTab";
 import { DashboardTab } from "@/components/tabs/DashboardTab";
 
 import { BrandingCard } from "@/components/BrandingCard";
+import { LabelsCard } from "@/components/LabelsCard";
+import { useLabel } from "@/lib/labels";
 import { BrandLogo } from "@/lib/branding";
 
 import { getTelegramStatus, saveTelegramConfig, sendCustomTelegram } from "@/lib/telegram.functions";
@@ -49,15 +51,15 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 const ALL_TABS = [
-  { value: "dashboard", label: "Tổng quan", Icon: LayoutDashboard },
-  { value: "students", label: "Học sinh", Icon: Users },
-  { value: "schedule", label: "Lịch học", Icon: CalendarDays },
-  { value: "attendance", label: "Điểm danh", Icon: ClipboardCheck },
-  { value: "learning", label: "Nhật ký học tập", Icon: BookOpen },
-  { value: "tuition", label: "Học phí", Icon: Wallet },
-  { value: "finance", label: "Tài chính", Icon: Coins, managerOnly: true },
-  { value: "notifications", label: "Thông báo", Icon: Bell },
-  { value: "settings", label: "Cài đặt", Icon: SettingsIcon, managerOnly: true },
+  { value: "dashboard", label: "Tổng quan", labelKey: "tab.dashboard", Icon: LayoutDashboard },
+  { value: "students", label: "Học sinh", labelKey: "tab.students", Icon: Users },
+  { value: "schedule", label: "Lịch học", labelKey: "tab.schedule", Icon: CalendarDays },
+  { value: "attendance", label: "Điểm danh", labelKey: "tab.attendance", Icon: ClipboardCheck },
+  { value: "learning", label: "Nhật ký học tập", labelKey: "tab.learning", Icon: BookOpen },
+  { value: "tuition", label: "Học phí", labelKey: "tab.tuition", Icon: Wallet },
+  { value: "finance", label: "Tài chính", labelKey: null, Icon: Coins, managerOnly: true },
+  { value: "notifications", label: "Thông báo", labelKey: "tab.notifications", Icon: Bell },
+  { value: "settings", label: "Cài đặt", labelKey: null, Icon: SettingsIcon, managerOnly: true },
 ] as const;
 
 function AccountMenu() {
@@ -105,6 +107,7 @@ function AccountMenu() {
 function App() {
   const [tab, setTab] = useState<string>("dashboard");
   const access = useAccess();
+  const t = useLabel();
   const tabs = useMemo(
     () => ALL_TABS.filter((t) => !("managerOnly" in t && t.managerOnly) || access.isManager),
     [access.isManager],
@@ -128,8 +131,13 @@ function App() {
             }
           />
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-bold sm:text-xl">Quản lý học sinh</h1>
-            <p className="text-xs text-muted-foreground">Piano · Múa · Vẽ</p>
+            <h1
+              className="truncate text-lg font-bold sm:text-xl"
+              style={{ fontFamily: `"${t("app.font")}", var(--font-sans)` }}
+            >
+              {t("app.name")}
+            </h1>
+            <p className="text-xs text-muted-foreground">{t("app.tagline")}</p>
           </div>
           <div className="ml-auto"><AccountMenu /></div>
         </div>
@@ -144,9 +152,9 @@ function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {tabs.map(({ value, label, Icon }) => (
+                {tabs.map(({ value, label, labelKey, Icon }) => (
                   <SelectItem key={value} value={value}>
-                    <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
+                    <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{labelKey ? t(labelKey) : label}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -155,7 +163,7 @@ function App() {
 
           {/* Tablet/Desktop */}
           <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-9">
-            {tabs.map(({ value, label, Icon }) => (
+            {tabs.map(({ value, label, labelKey, Icon }) => (
               <TabsTrigger key={value} value={value} className="min-w-0 py-1.5">
                 <Icon className="mr-1 h-4 w-4 shrink-0" />
                 <span className="truncate">{label}</span>

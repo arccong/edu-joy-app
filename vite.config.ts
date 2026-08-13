@@ -23,7 +23,7 @@ export default defineConfig({
       // Client build output is what gets served; keep SW + precache manifest there.
       outDir: "dist/client",
       devOptions: { enabled: false },
-      includeAssets: ["favicon.png", "apple-touch-icon.png"],
+      includeAssets: ["favicon.svg", "favicon.png", "apple-touch-icon.png", "logo-full.svg"],
       manifest: {
         name: "Quản lý học sinh - Lespace Art",
         short_name: "Lespace Art",
@@ -37,8 +37,14 @@ export default defineConfig({
         background_color: "#FDF8F2",
         theme_color: "#9C5F35",
         icons: [
-          { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
-          { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },
+          { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          {
+            src: "/pwa-maskable-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
           {
             src: "/pwa-maskable-512x512.png",
             sizes: "512x512",

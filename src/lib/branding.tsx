@@ -85,10 +85,11 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export function BrandLogo({ className, fallback }: { className?: string; fallback: React.ReactNode }) {
+export function BrandLogo({ className, fallback }: { className?: string; fallback?: React.ReactNode }) {
   const { data } = useBrand();
-  if (data?.logo_url) {
-    return <img src={data.logo_url} alt={data.app_name || "Logo"} className={className} />;
+  const src = data?.logo_url || "/logo-full.svg";
+  if (src) {
+    return <img src={src} alt={data?.app_name || "Logo"} className={className} />;
   }
   return <>{fallback}</>;
 }

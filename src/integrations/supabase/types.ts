@@ -585,6 +585,42 @@ export type Database = {
           },
         ]
       }
+      ui_labels: {
+        Row: {
+          category: string
+          created_at: string
+          default_value: string
+          key: string
+          label: string
+          max_len: number
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          default_value?: string
+          key: string
+          label?: string
+          max_len?: number
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          default_value?: string
+          key?: string
+          label?: string
+          max_len?: number
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

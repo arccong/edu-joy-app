@@ -20,6 +20,7 @@ export const COLOR_TOKENS = [
   { key: "border", label: "Đường viền" },
   { key: "input", label: "Viền ô nhập" },
   { key: "ring", label: "Viền chọn" },
+  { key: "trial", label: "Tên học sinh học thử (Thời khóa biểu)" },
 ] as const;
 
 export type BrandSettings = {

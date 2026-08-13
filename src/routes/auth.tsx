@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { GraduationCap, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/lib/branding";
+import { useLabel } from "@/lib/labels";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const t = useLabel();
   const checkManager = useServerFn(managerExists);
   const setupManager = useServerFn(createFirstManager);
 
@@ -89,11 +91,11 @@ function AuthPage() {
               </div>
             }
           />
-          <CardTitle>{setupMode ? "Tạo tài khoản Quản lý đầu tiên" : "Đăng nhập"}</CardTitle>
+          <CardTitle>{setupMode ? "Tạo tài khoản Quản lý đầu tiên" : t("auth.title")}</CardTitle>
           <CardDescription>
             {setupMode
               ? "Hệ thống chưa có tài khoản Quản lý. Hãy tạo tài khoản chủ trung tâm."
-              : "Quản lý học sinh · Piano · Múa · Vẽ"}
+              : t("auth.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

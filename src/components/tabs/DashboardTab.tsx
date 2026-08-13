@@ -272,7 +272,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           <div className="flex flex-wrap gap-2">
             <RecordPaymentDialog
               students={students}
-              trigger={<Button size="sm"><Wallet className="mr-1 h-4 w-4" />Ghi nhận học phí</Button>}
+              trigger={<Button size="sm"><Wallet className="mr-1 h-4 w-4" />{t("btn.payment")}</Button>}
             />
             
             <FinanceEntryDialog
@@ -280,10 +280,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               students={students}
               defaultMonth={todayISO.slice(0, 7)}
               defaultClass={null}
-              trigger={<Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" />Thu / Chi</Button>}
+              trigger={<Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" />{t("btn.finance")}</Button>}
             />
             <TrialStudentDialog
-              trigger={<Button size="sm" variant="outline"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
+              trigger={<Button size="sm" variant="outline"><GraduationCap className="mr-1 h-4 w-4" />{t("btn.new_student")}</Button>}
             />
           </div>
         </CardContent>

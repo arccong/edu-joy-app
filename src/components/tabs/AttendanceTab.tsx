@@ -139,7 +139,9 @@ function ByDateView() {
   }, [autoMark, date, scheduled, attMap, setAtt, qc, dow]);
 
   return (
+    <div className="space-y-3">
     <Card className="shadow-card">
+
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Sổ điểm danh</CardTitle>

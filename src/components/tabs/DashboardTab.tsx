@@ -519,7 +519,7 @@ function AlertRow({ s, right, students }: { s: Student; right: string; students:
         <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
         <span className="shrink-0">{classChip(s.class_type)}</span>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
+      <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:shrink-0 sm:items-center sm:justify-end sm:gap-2">
         <span className="whitespace-nowrap text-xs text-muted-foreground">{right}</span>
         <RecordPaymentDialog students={students} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
       </div>

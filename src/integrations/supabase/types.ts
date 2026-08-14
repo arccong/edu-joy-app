@@ -57,6 +57,7 @@ export type Database = {
           app_name: string | null
           colors: Json
           created_at: string
+          hide_login_title: boolean
           id: number
           logo_url: string | null
           preset_id: string | null
@@ -66,6 +67,7 @@ export type Database = {
           app_name?: string | null
           colors?: Json
           created_at?: string
+          hide_login_title?: boolean
           id?: number
           logo_url?: string | null
           preset_id?: string | null
@@ -75,6 +77,7 @@ export type Database = {
           app_name?: string | null
           colors?: Json
           created_at?: string
+          hide_login_title?: boolean
           id?: number
           logo_url?: string | null
           preset_id?: string | null

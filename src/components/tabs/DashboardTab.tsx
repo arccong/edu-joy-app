@@ -384,7 +384,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-2">
               <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                 {missingAttendance.map(({ s, slot }, i) => (
-                  <div key={`miss-${s.id}-${i}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
+                  <div key={`miss-${s.id}-${i}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="truncate font-medium">{s.name}</span>
                       <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
@@ -406,7 +406,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               </AlertGroup>
               <AlertGroup title="Các buổi học thử sắp tới" empty={upcomingTrials.length === 0}>
                 {upcomingTrials.map((t: any) => (
-                  <div key={`trial-${t.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-muted/30 p-2.5">
+                  <div key={`trial-${t.id}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="truncate font-medium">{t.name}</span>
                       <Badge variant="outline" className="shrink-0 text-[10px]">Học thử</Badge>
@@ -513,13 +513,13 @@ function AlertGroup({ title, empty, children }: { title: string; empty: boolean;
 
 function AlertRow({ s, right, students }: { s: Student; right: string; students: Student[] }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border p-2.5">
+    <div className="flex flex-col gap-2 rounded-lg border p-2.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="truncate font-medium">{s.name}</span>
         <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
         <span className="shrink-0">{classChip(s.class_type)}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0 sm:justify-end">
         <span className="whitespace-nowrap text-xs text-muted-foreground">{right}</span>
         <RecordPaymentDialog students={students} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
       </div>

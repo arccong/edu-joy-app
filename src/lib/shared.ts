@@ -320,6 +320,10 @@ export type TrialStudent = {
   end_time: string;
   trial_date: string;
   status: string;
+  attendance_status?: string | null;
+  attendance_note?: string | null;
+  attendance_marked_at?: string | null;
+  reschedule_history?: { from_date: string; to_date: string; reason: string | null; at?: string }[];
   created_at?: string;
 };
 
@@ -334,4 +338,14 @@ export function trialStatus(t: { trial_date: string; status: string }, todayISO?
   if (t.status === "Kết thúc") return "Kết thúc";
   const today = todayISO ?? toLocalISO(new Date());
   return t.trial_date < today ? "Kết thúc" : "Học thử";
+}
+
+/** Kết quả điểm danh buổi học thử */
+export type TrialAttendanceStatus = "Đi học" | "Nghỉ có phép" | "Nghỉ không phép";
+
+export interface TrialReschedule {
+  from_date: string;
+  to_date: string;
+  reason: string | null;
+  at?: string;
 }

@@ -505,11 +505,15 @@ export type Database = {
       trial_students: {
         Row: {
           age: number
+          attendance_marked_at: string | null
+          attendance_note: string | null
+          attendance_status: string | null
           class_type: Database["public"]["Enums"]["class_type"]
           created_at: string
           end_time: string
           id: string
           name: string
+          reschedule_history: Json
           start_time: string
           status: string
           trial_date: string
@@ -517,11 +521,15 @@ export type Database = {
         }
         Insert: {
           age?: number
+          attendance_marked_at?: string | null
+          attendance_note?: string | null
+          attendance_status?: string | null
           class_type: Database["public"]["Enums"]["class_type"]
           created_at?: string
           end_time?: string
           id?: string
           name: string
+          reschedule_history?: Json
           start_time?: string
           status?: string
           trial_date: string
@@ -529,11 +537,15 @@ export type Database = {
         }
         Update: {
           age?: number
+          attendance_marked_at?: string | null
+          attendance_note?: string | null
+          attendance_status?: string | null
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
           end_time?: string
           id?: string
           name?: string
+          reschedule_history?: Json
           start_time?: string
           status?: string
           trial_date?: string

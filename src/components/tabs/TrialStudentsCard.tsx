@@ -66,7 +66,7 @@ export function TrialStudentsCard() {
                 {
                   name: "Học thử",
                   rows: [
-                    ["Họ tên", "Tuổi", "Lớp", "Giờ bắt đầu", "Giờ kết thúc", "Ngày học thử", "Trạng thái"],
+                    ["Họ tên", "Tuổi", "Lớp", "Giờ bắt đầu", "Giờ kết thúc", "Ngày học thử", "Trạng thái", "Điểm danh", "Số lần dời buổi"],
                     ...rows.map((t) => [
                       t.name,
                       t.age,
@@ -75,6 +75,8 @@ export function TrialStudentsCard() {
                       hhmm(t.end_time),
                       fmtDate(t.trial_date),
                       trialStatus(t),
+                      t.attendance_status ?? "Chưa điểm danh",
+                      (t.reschedule_history ?? []).length,
                     ]),
                   ],
                 },
@@ -107,6 +109,7 @@ export function TrialStudentsCard() {
                   <TableHead>Lịch học (giờ)</TableHead>
                   <TableHead>Ngày học thử</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead>Điểm danh</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
@@ -131,6 +134,25 @@ export function TrialStudentsCard() {
                         >
                           {st}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {t.attendance_status ? (
+                          <Badge
+                            variant="outline"
+                            className={
+                              t.attendance_status === "Đi học"
+                                ? "border-success/40 bg-success/10 text-[color:var(--success)]"
+                                : "border-destructive/40 bg-destructive/10 text-destructive"
+                            }
+                          >
+                            {t.attendance_status}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Chưa điểm danh</span>
+                        )}
+                        {(t.reschedule_history ?? []).length > 0 && (
+                          <span className="ml-1 text-[11px] text-muted-foreground">· đã dời {(t.reschedule_history ?? []).length} lần</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex gap-1">

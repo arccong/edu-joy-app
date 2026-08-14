@@ -11,8 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createFirstManager, managerExists } from "@/lib/auth.functions";
+import { useBrand } from "@/lib/branding";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -31,6 +31,8 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const t = useLabel();
+  const { data: brand } = useBrand();
+  const hideTitle = !!brand?.hide_login_title;
   const checkManager = useServerFn(managerExists);
   const setupManager = useServerFn(createFirstManager);
 
@@ -81,25 +83,29 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 px-4">
       <Toaster position="top-right" richColors />
-      <Card className="w-full max-w-md shadow-card">
-        <CardHeader className="space-y-2">
+      <div className="w-full max-w-md space-y-10">
+        <div className="flex flex-col items-center space-y-2 text-center">
           <BrandLogo
-            className="h-14 w-auto max-w-[210px] object-contain"
+            className="h-16 w-auto max-w-[240px] object-contain"
             fallback={
-              <div className="flex h-14 w-[168px] items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <div className="flex h-16 w-[180px] items-center justify-center rounded-xl bg-primary text-primary-foreground">
                 <GraduationCap className="h-5 w-5" />
               </div>
             }
           />
-
-          <CardTitle>{setupMode ? "Tạo tài khoản Quản lý đầu tiên" : t("auth.title")}</CardTitle>
-          <CardDescription>
+          {(!hideTitle || setupMode) && (
+            <h1 className="text-lg font-semibold text-foreground">
+              {setupMode ? "Tạo tài khoản Quản lý đầu tiên" : t("auth.title")}
+            </h1>
+          )}
+          <p className="text-sm text-muted-foreground">
             {setupMode
               ? "Hệ thống chưa có tài khoản Quản lý. Hãy tạo tài khoản chủ trung tâm."
               : t("auth.subtitle")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+
+        <div className="space-y-4">
           {setupMode && (
             <div className="grid gap-1">
               <Label>Họ tên</Label>
@@ -130,7 +136,7 @@ function AuthPage() {
             />
           </div>
           <Button
-            className="w-full"
+            className="w-full rounded-full"
             disabled={pending || !email || password.length < 6}
             onClick={() => (setupMode ? setup : login).mutate()}
           >
@@ -143,13 +149,8 @@ function AuthPage() {
             )}
             {setupMode ? "Tạo tài khoản Quản lý" : "Đăng nhập"}
           </Button>
-          {!setupMode && (
-            <p className="text-center text-xs text-muted-foreground">
-              Tài khoản Giáo viên do Quản lý tạo trong mục Cài đặt → Tài khoản.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

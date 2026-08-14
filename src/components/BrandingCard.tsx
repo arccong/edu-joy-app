@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -39,6 +40,7 @@ export function BrandingCard() {
   const [presetId, setPresetId] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [hideLoginTitle, setHideLoginTitle] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const loaded = useRef(false);
 
@@ -47,6 +49,7 @@ export function BrandingCard() {
       loaded.current = true;
       setColors(brand.colors ?? {});
       setPresetId(brand.preset_id ?? null);
+      setHideLoginTitle(!!brand.hide_login_title);
     }
   }, [brand]);
 
@@ -64,7 +67,7 @@ export function BrandingCard() {
     mutationFn: async () => {
       const { error } = await supabase
         .from("brand_settings")
-        .update({ colors: colors as never, preset_id: presetId })
+        .update({ colors: colors as never, preset_id: presetId, hide_login_title: hideLoginTitle as never })
         .eq("id", 1);
       if (error) throw new Error(error.message);
     },
@@ -219,6 +222,17 @@ export function BrandingCard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Trang đăng nhập */}
+        <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div className="min-w-0">
+            <Label>Ẩn chữ "Đăng nhập" trên trang đăng nhập</Label>
+            <p className="text-xs text-muted-foreground">
+              Chỉ ẩn dòng tiêu đề, vẫn giữ logo và các ô nhập email/mật khẩu.
+            </p>
+          </div>
+          <Switch checked={hideLoginTitle} onCheckedChange={setHideLoginTitle} />
         </div>
 
         {/* Save preset */}

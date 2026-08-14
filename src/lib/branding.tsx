@@ -29,6 +29,7 @@ export type BrandSettings = {
   app_name: string | null;
   colors: BrandColors;
   preset_id: string | null;
+  hide_login_title: boolean;
 };
 
 export type ThemePreset = {

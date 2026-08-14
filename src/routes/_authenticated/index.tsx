@@ -144,7 +144,7 @@ function App() {
         </div>
       </header>
 
-      <main className="container mx-auto px-2 py-6 sm:px-4">
+      <main className="container mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           {/* Mobile: dropdown gọn */}
           <div className="sm:hidden">

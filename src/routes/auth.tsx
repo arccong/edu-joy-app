@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/lib/branding";
 import { useLabel } from "@/lib/labels";
 
@@ -39,6 +39,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: mgr, refetch } = useQuery<{ exists: boolean }>({
     queryKey: ["manager-exists"],
@@ -120,20 +121,33 @@ function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@vidu.com"
+              className="bg-card"
             />
           </div>
           <div className="grid gap-1">
             <Label>Mật khẩu</Label>
-            <Input
-              type="password"
-              autoComplete={setupMode ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !pending) (setupMode ? setup : login).mutate();
-              }}
-              placeholder="••••••"
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                autoComplete={setupMode ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !pending) (setupMode ? setup : login).mutate();
+                }}
+                placeholder="••••••"
+                className="bg-card pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <Button
             className="w-full rounded-full"

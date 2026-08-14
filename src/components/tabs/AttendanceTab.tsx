@@ -27,9 +27,11 @@ import {
   type ClassType,
   type ScheduleSlot,
   type Student,
+  type TrialStudent,
 } from "@/lib/shared";
 import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
 import { Badge } from "@/components/ui/badge";
+import { listTrialStudents, setTrialAttendance } from "@/lib/trials.functions";
 
 export function AttendanceTab() {
   const [mode, setMode] = useState<"date" | "student">("date");

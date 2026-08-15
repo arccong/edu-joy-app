@@ -183,12 +183,25 @@ function App() {
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
           <TabsContent value="settings">
             <div className="space-y-6">
-              {access.isOwner && <AdminAccountsCard />}
-              <UsersCard />
-              {access.isOwner && <TransferOwnershipCard />}
+              {access.isOwner ? (
+                <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <AdminAccountsCard />
+                    <TransferOwnershipCard />
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <UsersCard />
+                    <TelegramCard />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <UsersCard />
+                  <TelegramCard />
+                </div>
+              )}
               {access.isOwner && <BrandingCard />}
               {access.isOwner && <LabelsCard />}
-              <TelegramCard />
             </div>
           </TabsContent>
 

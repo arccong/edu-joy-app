@@ -50,13 +50,17 @@ export function LearningTab() {
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
   const fetchAtt = useServerFn(listAttendance);
+  const fetchArtworks = useServerFn(listArtworks);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: logs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
+  const { data: artworks = [] } = useQuery<Artwork[]>({ queryKey: ["artworks"], queryFn: () => fetchArtworks() as any });
 
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentId, setStudentId] = useState<string>("all");
+  const [view, setView] = useState<"date" | "artwork">("date");
   const [date, setDate] = useState<string>(toLocalISO(new Date()));
   const todayISO = date;
+
 
   const { data: attRows = [] } = useQuery<any[]>({
     queryKey: ["attendance", date],

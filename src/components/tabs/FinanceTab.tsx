@@ -393,13 +393,13 @@ export function EntryDialog({
   const qc = useQueryClient();
   const save = useServerFn(upsertFinanceEntry);
 
-  const initKind: FormKind = existing ? (existing.kind === "chi" ? "chi" : existing.income_type === "hoc_phi" ? "hoc_phi" : "thu_khac") : "hoc_phi";
+  const initKind: FormKind = existing ? (existing.kind === "chi" ? "chi" : existing.income_type === "hoc_phi" ? "hoc_phi" : "thu_khac") : "thu_khac";
   const [formKind, setFormKind] = useState<FormKind>(initKind);
   const [mode, setMode] = useState<"tiep_theo" | "moi">("tiep_theo");
   const [month, setMonth] = useState(existing?.month.slice(0, 7) ?? defaultMonth);
   const [category, setCategory] = useState(existing?.category ?? "");
   const [amountStr, setAmountStr] = useState(existing ? formatMoney(Number(existing.unit_amount || existing.amount)) : "");
-  const [qty, setQty] = useState<number>(existing?.quantity ?? 1);
+  const [qty, setQty] = useState<number | "">(existing?.quantity ?? 1);
 
   const [note, setNote] = useState(existing?.note ?? "");
   const [isFixed, setIsFixed] = useState(existing?.is_fixed ?? false);
@@ -440,9 +440,9 @@ export function EntryDialog({
         month: isTuition && paidDate ? paidDate.slice(0, 7) : month,
         kind: formKind === "chi" ? "chi" : "thu",
         category: isTuition ? `Học phí · ${studentName}${courseLabel ? ` (${courseLabel})` : ""}` : category,
-        amount: parseMoney(amountStr) * (isTuition ? 1 : Math.max(1, qty)),
+        amount: parseMoney(amountStr) * (isTuition ? 1 : Math.max(1, Number(qty) || 0)),
         unit_amount: parseMoney(amountStr),
-        quantity: isTuition ? 1 : Math.max(1, qty),
+        quantity: isTuition ? 1 : Math.max(1, Number(qty) || 0),
 
         note: note || null,
         is_fixed: formKind === "chi" ? isFixed : false,
@@ -489,11 +489,14 @@ export function EntryDialog({
             <Select value={formKind} onValueChange={(v) => setFormKind(v as FormKind)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="hoc_phi">Thu học phí</SelectItem>
+                {existing?.income_type === "hoc_phi" && <SelectItem value="hoc_phi">Thu học phí</SelectItem>}
                 <SelectItem value="thu_khac">Thu khác</SelectItem>
                 <SelectItem value="chi">Chi</SelectItem>
               </SelectContent>
             </Select>
+            {existing?.income_type !== "hoc_phi" && (
+              <p className="text-xs text-muted-foreground">Ghi nhận học phí, dùng nút "Ghi nhận" ở trang Học phí.</p>
+            )}
           </div>
 
           {formKind === "hoc_phi" ? (
@@ -604,9 +607,19 @@ export function EntryDialog({
               </div>
               <div className="grid gap-1">
                 <Label>Số lượng</Label>
-                <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} />
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={qty}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setQty(raw === "" ? "" : Number(raw));
+                  }}
+                  onBlur={() => setQty((q) => (q === "" || q < 1 ? 1 : q))}
+                />
               </div>
-              <p className="col-span-2 text-xs text-muted-foreground">Thành tiền: <span className="font-semibold">{formatMoney(parseMoney(amountStr) * Math.max(1, qty))}đ</span></p>
+              <p className="col-span-2 text-xs text-muted-foreground">Thành tiền: <span className="font-semibold">{formatMoney(parseMoney(amountStr) * Math.max(1, Number(qty) || 0))}đ</span></p>
             </div>
           )}
 

@@ -173,15 +173,15 @@ function App() {
           </TabsList>
 
 
-          <TabsContent value="dashboard" forceMount className={tab === "dashboard" ? "" : "hidden"}><DashboardTab onNavigate={setTab} /></TabsContent>
+          <TabsContent value="dashboard"><DashboardTab onNavigate={setTab} /></TabsContent>
           <TabsContent value="students" forceMount className={tab === "students" ? "" : "hidden"}><StudentsTab /></TabsContent>
           <TabsContent value="schedule" forceMount className={tab === "schedule" ? "" : "hidden"}><ScheduleTab /></TabsContent>
           <TabsContent value="attendance" forceMount className={tab === "attendance" ? "" : "hidden"}><AttendanceTab /></TabsContent>
           <TabsContent value="learning" forceMount className={tab === "learning" ? "" : "hidden"}><LearningTab /></TabsContent>
           <TabsContent value="tuition" forceMount className={tab === "tuition" ? "" : "hidden"}><TuitionTab /></TabsContent>
-          <TabsContent value="finance" forceMount className={tab === "finance" ? "" : "hidden"}><FinanceTab /></TabsContent>
-          <TabsContent value="notifications" forceMount className={tab === "notifications" ? "" : "hidden"}><NotificationsTab /></TabsContent>
-          <TabsContent value="settings" forceMount className={tab === "settings" ? "" : "hidden"}>
+          <TabsContent value="finance"><FinanceTab /></TabsContent>
+          <TabsContent value="notifications"><NotificationsTab /></TabsContent>
+          <TabsContent value="settings">
             <div className="space-y-6">
               {access.isOwner ? (
                 <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">

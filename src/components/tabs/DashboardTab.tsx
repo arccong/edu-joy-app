@@ -324,15 +324,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         />
       </div>
 
-      <div className="grid items-stretch gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
-        <div className="flex flex-col gap-4">
-          <Card className="shadow-card">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card className="min-w-0 shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-5 w-5 text-primary" />Lịch học hôm nay</CardTitle>
               <CardDescription>Điểm danh nhanh ngay tại đây</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0">
               {todayItems.length === 0 ? (
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
@@ -376,12 +376,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-          <Card id="dash-alerts" className="flex flex-1 flex-col shadow-card scroll-mt-24">
+          <Card id="dash-alerts" className="flex min-w-0 flex-1 flex-col shadow-card scroll-mt-24">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
-            <CardContent className="max-h-[22rem] space-y-4 overflow-y-auto pr-2">
+            <CardContent className="min-w-0 max-h-[22rem] space-y-4 overflow-y-auto pr-2">
               <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                 {missingAttendance.map(({ s, slot }, i) => (
                   <div key={`miss-${s.id}-${i}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -429,12 +429,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         </div>
 
         {/* Cảnh báo + hoạt động */}
-        <div className="flex flex-col gap-4">
-          <Card className="shadow-card">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card className="min-w-0 shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><PauseCircle className="h-5 w-5 text-muted-foreground" />Nghỉ / Bảo lưu hôm nay</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0">
               {absentToday.length === 0 ? (
                 <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
               ) : (
@@ -455,11 +455,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           </Card>
 
 
-          <Card className="flex flex-1 flex-col shadow-card">
+          <Card className="flex min-w-0 flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0">
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (

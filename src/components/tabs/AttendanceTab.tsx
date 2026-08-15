@@ -229,13 +229,12 @@ function TrialAttendanceCard({ date, classFilter }: { date: string; classFilter:
       <CardHeader>
         <CardTitle className="text-base">Điểm danh học sinh học thử</CardTitle>
         <CardDescription>
-          Buổi học thử duy nhất trong ngày. Nghỉ có phép: ghi lý do và chọn ngày học thử bù (buổi sẽ được dời sang ngày mới).
-          Nghỉ không phép: không xếp lại lịch.
+          Buổi học thử duy nhất trong ngày. Đi học: xác nhận đã tham gia buổi học thử. Vắng: không đến, buổi học thử khép lại.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {rows.map((t) => (
-          <TrialAttendanceRow key={t.id} trial={t} onChange={(status, extra) => mut.mutate({ id: t.id, status, ...extra })} />
+          <TrialAttendanceRow key={t.id} trial={t} onChange={(status) => mut.mutate({ id: t.id, status, note: null, makeup_date: null })} />
         ))}
       </CardContent>
     </Card>
@@ -247,16 +246,12 @@ function TrialAttendanceRow({
   onChange,
 }: {
   trial: TrialStudent;
-  onChange: (status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép", extra: { note?: string | null; makeup_date?: string | null }) => void;
+  onChange: (status: "Đi học" | "Nghỉ không phép") => void;
 }) {
-  const [pending, setPending] = useState(false);
-  const [note, setNote] = useState("");
-  const [makeup, setMakeup] = useState("");
   const current = trial.attendance_status ?? null;
-  const opts: { v: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép"; cls: string }[] = [
-    { v: "Đi học", cls: "bg-success text-white" },
-    { v: "Nghỉ có phép", cls: "bg-warning text-white" },
-    { v: "Nghỉ không phép", cls: "bg-danger text-white" },
+  const opts: { v: "Đi học" | "Nghỉ không phép"; label: string; cls: string }[] = [
+    { v: "Đi học", label: "Đi học", cls: "bg-success text-white" },
+    { v: "Nghỉ không phép", label: "Vắng", cls: "bg-danger text-white" },
   ];
   const history = trial.reschedule_history ?? [];
 
@@ -283,37 +278,15 @@ function TrialAttendanceRow({
             <Button
               key={o.v}
               size="sm"
-              variant={current === o.v || (o.v === "Nghỉ có phép" && pending) ? "default" : "outline"}
+              variant={current === o.v ? "default" : "outline"}
               className={current === o.v ? o.cls : ""}
-              onClick={() => {
-                if (o.v === "Nghỉ có phép") { setPending(true); return; }
-                setPending(false);
-                onChange(o.v, { note: null, makeup_date: null });
-              }}
+              onClick={() => onChange(o.v)}
             >
-              {o.v}
+              {o.label}
             </Button>
           ))}
         </div>
       </div>
-      {pending && (
-        <div className="mt-3 grid gap-3 rounded-md border border-warning/40 bg-warning/5 p-3 sm:grid-cols-[1fr_180px]">
-          <div className="grid gap-1">
-            <Label className="text-xs">Lý do nghỉ phép *</Label>
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Vd: Ốm, bận việc gia đình..." />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Ngày học thử bù *</Label>
-            <Input type="date" value={makeup} onChange={(e) => setMakeup(e.target.value)} />
-          </div>
-          <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setPending(false)}>Hủy</Button>
-            <Button size="sm" onClick={() => onChange("Nghỉ có phép", { note, makeup_date: makeup || null })}>
-              Lưu & dời buổi học thử
-            </Button>
-          </div>
-        </div>
-      )}
       {history.length > 0 && (
         <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
           {history.map((h, i) => (

@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
  * Input ngày/tháng dùng icon TỰ VẼ thay vì icon lịch mặc định của trình duyệt.
  * Lý do: icon mặc định (::-webkit-calendar-picker-indicator) trên Android Chrome do hệ điều hành
  * tự vẽ, không tuân theo CSS margin/padding thông thường — gây lệch, sát mép so với các icon khác
- * trong app (như mũi tên của Select). Icon gốc được ẩn đi (opacity 0) nhưng vẫn phủ kín ô để bấm
- * vào đâu cũng mở được lịch chọn, còn icon hiển thị là do chính app vẽ, luôn đúng vị trí trên mọi
- * thiết bị/trình duyệt.
+ * trong app (như mũi tên của Select). Dùng opacity/absolute để "ẩn" icon gốc KHÔNG đủ trên Android
+ * (icon gốc vẫn hiện ra cạnh icon tự vẽ) — phải loại bỏ hẳn bằng display:none. Việc bấm mở lịch vẫn
+ * hoạt động bình thường vì trình duyệt luôn cho phép bấm vào bất kỳ đâu trong ô ngày để mở lịch,
+ * không chỉ riêng vào icon.
  */
 export type DateInputProps = Omit<React.ComponentProps<typeof Input>, "type"> & {
   variant?: "date" | "month";
@@ -24,10 +25,9 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           type={variant}
           ref={ref}
           className={cn(
-            "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0",
-            "[&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full",
-            "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0",
+            "[&::-webkit-calendar-picker-indicator]:hidden",
             "[&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:p-0",
+            "[&::-webkit-inner-spin-button]:hidden [&::-webkit-clear-button]:hidden",
             className,
             "pr-9",
           )}

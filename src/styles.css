@@ -113,6 +113,16 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+  /* Đẩy icon lịch/đồng hồ của input date/time/month ra xa mép phải, khớp khoảng cách với
+     mũi tên (chevron) của Select — trên Android Chrome icon này mặc định dính sát mép. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    margin-inline-start: 0.5rem;
+    padding: 0.15rem;
+    cursor: pointer;
+    opacity: 0.6;
+  }
 }
 
 @utility gradient-hero {

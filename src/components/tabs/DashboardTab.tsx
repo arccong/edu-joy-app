@@ -446,7 +446,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
               <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
             </CardHeader>
-            <CardContent className="min-w-0 max-h-[22rem] space-y-4 overflow-y-auto pr-2">
+            <CardContent className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                 {missingAttendance.map(({ s, slot }, i) => (
                   <div key={`miss-${s.id}-${i}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">

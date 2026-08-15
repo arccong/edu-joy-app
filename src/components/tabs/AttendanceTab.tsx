@@ -873,9 +873,9 @@ function ByStudentView() {
                           <td className="p-2">
                             <DateInput
                               className="h-8 w-[150px]"
-                              defaultValue={rec?.makeup_date ?? ""}
+                              value={rec?.makeup_date ?? ""}
                               disabled={status !== "Nghỉ có phép"}
-                              onBlur={(e) => {
+                              onChange={(e) => {
                                 const v = e.target.value;
                                 if (status !== "Nghỉ có phép") return;
                                 if ((rec?.makeup_date ?? "") === v) return;

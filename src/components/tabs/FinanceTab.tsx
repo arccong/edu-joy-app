@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Coins, Download, Loader2, Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -183,7 +184,7 @@ export function FinanceTab() {
               </SelectContent>
             </Select>
             {view === "month" ? (
-              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-[170px]" />
+              <DateInput variant="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-[170px]" />
             ) : (
               <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-full sm:w-[120px]" />
             )}
@@ -543,16 +544,16 @@ export function EntryDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label>Kỳ học từ</Label>
-                  <Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
+                  <DateInput value={termStart} onChange={(e) => setTermStart(e.target.value)} />
                 </div>
                 <div className="grid gap-1">
                   <Label>Đến ngày</Label>
-                  <Input type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
+                  <DateInput value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
                 </div>
               </div>
               <div className="grid gap-1">
                 <Label>Ngày đóng</Label>
-                <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+                <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
               </div>
             </>
           ) : (
@@ -560,7 +561,7 @@ export function EntryDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label>Tháng</Label>
-                  <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="pr-2" />
+                  <DateInput variant="month" value={month} onChange={(e) => setMonth(e.target.value)} className="pr-2" />
                 </div>
                 <div className="grid gap-1">
                   <Label>Lớp</Label>

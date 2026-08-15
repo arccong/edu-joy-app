@@ -8,6 +8,7 @@ import { Loader2, Plus, Pencil, Trash2, Search, Wallet, Download, EyeOff } from 
 import { exportXlsx } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -118,8 +119,8 @@ export function TuitionTab() {
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <Input
-              type="month"
+            <DateInput
+              variant="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
               className="w-full sm:w-[170px]"
@@ -506,11 +507,11 @@ function EditPaymentDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label>Ngày bắt đầu</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div className="grid gap-1">
                   <Label>Ngày kết thúc</Label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <DateInput value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
             </>
@@ -525,7 +526,7 @@ function EditPaymentDialog({
           </div>
           <div className="grid gap-1">
             <Label>Ngày đóng</Label>
-            <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+            <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
           </div>
           <div className="grid gap-1">
             <Label>Ghi chú</Label>
@@ -919,16 +920,14 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="grid gap-2">
               <Label>Ngày bắt đầu</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={form.start_date}
                 onChange={(e) => setForm({ ...form, start_date: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
               <Label>Ngày kết thúc</Label>
-              <Input
-                type="date"
+              <DateInput
                 value={form.end_date}
                 onChange={(e) => setForm({ ...form, end_date: e.target.value })}
               />
@@ -944,7 +943,7 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
             </div>
             <div className="col-span-2 grid gap-2 sm:col-span-1">
               <Label>Ngày đóng</Label>
-              <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+              <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
             </div>
           </div>
         </div>

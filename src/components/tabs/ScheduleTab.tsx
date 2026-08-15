@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -529,7 +530,7 @@ function ReserveDialog({ students }: { students: Student[] }) {
             </div>
             <div className="grid gap-1">
               <Label>Ngày bắt đầu</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
           </div>
           {dates.length > 0 && (
@@ -607,7 +608,7 @@ function ReserveRowActions({ student, dates }: { student: Student; dates: string
             </div>
             <div className="grid gap-1">
               <Label>Ngày bắt đầu</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
           </div>
           {newDates.length > 0 && (
@@ -752,7 +753,7 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
             <ClassSelect label="Lớp" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId(""); setSlots([]); }} />
             <div className="grid gap-1">
               <Label>Ngày hiệu lực</Label>
-              <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
+              <DateInput value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
             </div>
           </div>
           <div className="grid gap-1">

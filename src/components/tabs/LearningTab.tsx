@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 
 import { Textarea } from "@/components/ui/textarea";
@@ -180,8 +181,7 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             {view === "date" && (
-              <Input
-                type="date"
+              <DateInput
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full sm:w-[150px]"
@@ -718,7 +718,7 @@ function LogDialog({
           )}
           <div className="grid gap-1">
             <Label>Ngày học</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
             {!validation.ok && <p className="text-xs text-destructive">{validation.message}</p>}
           </div>
 

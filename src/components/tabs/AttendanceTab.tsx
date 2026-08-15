@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -155,7 +156,7 @@ function ByDateView() {
             <Switch checked={autoMark} onCheckedChange={setAutoMark} />
             <span className="font-medium">Tự động điểm danh</span>
           </label>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
+          <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
           <ClassSelect className="w-full sm:w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
         </div>
 
@@ -361,7 +362,7 @@ function AttendanceRow({
           </div>
           <div className="grid gap-1">
             <Label className="text-xs">Ngày học bù</Label>
-            <Input type="date" value={makeup} onChange={(e) => setMakeup(e.target.value)} />
+            <DateInput value={makeup} onChange={(e) => setMakeup(e.target.value)} />
           </div>
           <div className="sm:col-span-2 flex justify-end">
             <Button size="sm" onClick={() => onChange("Nghỉ có phép", { note, makeup_date: makeup || null })}>
@@ -516,11 +517,11 @@ function BackfillButton({ students }: { students: Student[] }) {
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
           <div className="grid gap-1">
             <Label className="text-xs">Từ ngày</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateInput value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div className="grid gap-1">
             <Label className="text-xs">Đến ngày</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DateInput value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <ClassSelect label="Lớp" allLabel="Tất cả lớp" value={scope} onChange={(v) => setScope(v as typeof scope)} />
           <div className="grid gap-1">
@@ -870,8 +871,7 @@ function ByStudentView() {
                             />
                           </td>
                           <td className="p-2">
-                            <Input
-                              type="date"
+                            <DateInput
                               className="h-8 w-[150px]"
                               defaultValue={rec?.makeup_date ?? ""}
                               disabled={status !== "Nghỉ có phép"}

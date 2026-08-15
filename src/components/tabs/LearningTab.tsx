@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
-import { BookOpen, Download, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, Download, Eye, EyeOff, Image as ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,10 +18,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { coursePrefix, dayOfWeekOf, fmtDate, slotsEffectiveOn, toLocalISO, type ClassType, type ScheduleChange, type Student } from "@/lib/shared";
 import { listAttendance, listScheduleChanges, listStudents } from "@/lib/students.functions";
-import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
+import { deleteLearningLog, listLearningLogs, setLogPublished, upsertLearningLog } from "@/lib/learning.functions";
+import { createArtwork, listArtworks } from "@/lib/artworks.functions";
+import { uploadLearningImage } from "@/lib/image-upload";
 import { exportXlsx } from "@/lib/export";
 
 export type Attachment = { kind: "image" | "video" | "link"; url: string; label?: string | null };
+export type Artwork = {
+  id: string;
+  student_id: string;
+  class_type: ClassType;
+  title: string;
+  cover_image_url: string | null;
+  created_at: string;
+};
 export type LearningLog = {
   id: string;
   student_id: string | null;
@@ -30,7 +41,10 @@ export type LearningLog = {
   content: string | null;
   attachments: Attachment[];
   is_class_wide: boolean;
+  artwork_id: string | null;
+  is_published: boolean;
 };
+
 
 export function LearningTab() {
   const fetchStudents = useServerFn(listStudents);

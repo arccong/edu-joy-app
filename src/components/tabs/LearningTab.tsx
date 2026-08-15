@@ -451,6 +451,9 @@ function LogDialog({ students, cls, artworks, existing, trigger, defaultStudentI
       content: content || null,
       attachments,
       is_class_wide: isClassWide,
+      artwork_id: artworkId === "none" ? null : artworkId,
+      is_published: isPublished,
+
     } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["learning-logs"] });

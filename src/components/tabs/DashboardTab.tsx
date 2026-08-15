@@ -520,7 +520,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           </Card>
 
 
-          <Card className="flex min-w-0 flex-1 flex-col shadow-card">
+          <Card className="min-w-0 shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
             </CardHeader>

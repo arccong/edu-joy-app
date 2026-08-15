@@ -149,14 +149,14 @@ function ByDateView() {
           <CardTitle>Sổ điểm danh</CardTitle>
           <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <BackfillButton students={students as Student[]} />
-          <label className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
+          <label className="flex items-center justify-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
             <Switch checked={autoMark} onCheckedChange={setAutoMark} />
             <span className="font-medium">Tự động điểm danh</span>
           </label>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
-          <ClassSelect className="w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
+          <ClassSelect className="w-full sm:w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
         </div>
 
       </CardHeader>
@@ -505,7 +505,7 @@ function BackfillButton({ students }: { students: Student[] }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary" size="sm">Điểm danh bù</Button>
+        <Button variant="secondary" size="sm" className="w-full sm:w-auto">Điểm danh bù</Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
@@ -753,11 +753,11 @@ function ByStudentView() {
           <CardTitle>Điểm danh theo học sinh</CardTitle>
           <CardDescription>Toàn bộ buổi trong khóa — sửa trạng thái/ghi chú trực tiếp.</CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ClassSelect className="w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
-          <Input placeholder="Tìm học sinh..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-[180px]" />
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <ClassSelect className="w-full sm:w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
+          <Input placeholder="Tìm học sinh..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[180px]" />
           <Select value={studentId} onValueChange={setStudentId}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
+            <SelectTrigger className="col-span-2 w-full sm:w-[220px]"><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
             <SelectContent>
               {filteredStudents.map((s) => (
                 <SelectItem key={s.id} value={s.id}>

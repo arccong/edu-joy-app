@@ -166,34 +166,34 @@ export function FinanceTab() {
             <CardTitle className="flex items-center gap-2"><Coins className="h-5 w-5 shrink-0 text-primary" />Tài chính</CardTitle>
             <CardDescription>Thu · Chi · Lợi nhuận theo tháng và theo năm.</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
 
             <Select value={view} onValueChange={(v) => setView(v as "month" | "year")}>
-              <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="month">Theo tháng</SelectItem>
                 <SelectItem value="year">Theo năm</SelectItem>
               </SelectContent>
             </Select>
             <Select value={cls} onValueChange={(v) => setCls(v as any)}>
-              <SelectTrigger className="w-auto min-w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả lớp</SelectItem>
                 {CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             {view === "month" ? (
-              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-[190px] min-w-[190px]" />
+              <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-[170px]" />
             ) : (
-              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-[120px]" />
+              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-full sm:w-[120px]" />
             )}
-            <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
             <EntryDialog
               cats={cats}
               students={students}
               defaultMonth={view === "month" ? month : `${year}-01`}
               defaultClass={cls === "Tất cả" ? null : cls}
-              trigger={<Button><Plus className="mr-1 h-4 w-4" />Thêm khoản</Button>}
+              trigger={<Button className="col-span-2 w-full sm:col-auto sm:w-auto"><Plus className="mr-1 h-4 w-4" />Thêm khoản</Button>}
             />
           </div>
         </CardHeader>

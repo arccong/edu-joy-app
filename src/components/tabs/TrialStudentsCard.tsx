@@ -43,9 +43,9 @@ export function TrialStudentsCard() {
           <CardTitle>Danh sách học sinh học thử</CardTitle>
           <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <SelectTrigger className="w-auto min-w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
               <SelectItem value="Học thử">Học thử</SelectItem>
@@ -56,11 +56,12 @@ export function TrialStudentsCard() {
             value={classFilter}
             onChange={(v) => setClassFilter(v as ClassType | "Tất cả")}
             allLabel="Tất cả lớp"
-            className="w-auto min-w-[140px]"
+            className="w-full sm:w-auto sm:min-w-[140px]"
           />
           <Button
             size="sm"
             variant="outline"
+            className="w-full sm:w-auto"
             onClick={() =>
               exportXlsx("hoc-sinh-hoc-thu", [
                 {
@@ -86,7 +87,7 @@ export function TrialStudentsCard() {
             <Download className="mr-1 h-4 w-4" />Xuất dữ liệu
           </Button>
           <TrialStudentDialog
-            trigger={<Button size="sm"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
+            trigger={<Button size="sm" className="w-full sm:w-auto"><GraduationCap className="mr-1 h-4 w-4" />Học thử</Button>}
           />
         </div>
       </CardHeader>

@@ -194,27 +194,31 @@ export function ScheduleTab() {
           </CardDescription>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, -7))}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
-          <Input
-            placeholder="Tìm theo tên học sinh..."
-            value={nameSearch}
-            onChange={(e) => setNameSearch(e.target.value)}
-            className="w-[200px]"
-          />
-          <Select value={studentFilter} onValueChange={setStudentFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả học sinh</SelectItem>
-              {people.map((p) => <SelectItem key={p.key} value={p.key}>{p.name}{p.courses.length > 1 ? ` (${p.courses.length} khóa)` : ""}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button onClick={exportImg} disabled={exporting}>
-            {exporting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
-            Xuất ảnh
-          </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex items-center justify-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, -7))}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
+            <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Input
+              placeholder="Tìm theo tên học sinh..."
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+              className="w-full sm:w-[200px]"
+            />
+            <Select value={studentFilter} onValueChange={setStudentFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Chọn học sinh..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả học sinh</SelectItem>
+                {people.map((p) => <SelectItem key={p.key} value={p.key}>{p.name}{p.courses.length > 1 ? ` (${p.courses.length} khóa)` : ""}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button className="col-span-2 w-full sm:w-auto" onClick={exportImg} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+              Xuất ảnh
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

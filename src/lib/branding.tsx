@@ -15,6 +15,7 @@ export const COLOR_TOKENS = [
   { key: "foreground", label: "Màu chữ" },
   { key: "card", label: "Nền thẻ" },
   { key: "card-foreground", label: "Chữ trên thẻ" },
+  { key: "form-background", label: "Nền bảng nhập liệu" },
   { key: "muted", label: "Nền mờ" },
   { key: "muted-foreground", label: "Chữ mờ" },
   { key: "border", label: "Đường viền" },

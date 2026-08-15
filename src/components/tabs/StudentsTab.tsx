@@ -201,10 +201,10 @@ export function StudentsTab() {
             <CardTitle>Danh sách học sinh</CardTitle>
             <CardDescription>Thêm, sửa, xóa và theo dõi trạng thái học sinh.</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm"><Columns3 className="mr-1 h-4 w-4" />Cột</Button>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto"><Columns3 className="mr-1 h-4 w-4" />Cột</Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56">
                 <p className="mb-2 text-xs font-semibold text-muted-foreground">Hiện/ẩn cột</p>
@@ -224,15 +224,15 @@ export function StudentsTab() {
                 </div>
               </PopoverContent>
             </Popover>
-            <ClassSelect value={filter} onChange={(v) => setFilter(v as ClassType)} className="w-auto min-w-[140px]" />
+            <ClassSelect value={filter} onChange={(v) => setFilter(v as ClassType)} className="w-full sm:w-auto sm:min-w-[140px]" />
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <SelectTrigger className="w-auto min-w-[175px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-[175px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
                 {STATUS_OPTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => {
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => {
               if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
               exportXlsx("danh-sach-hoc-sinh", [{
                 name: "Học sinh",

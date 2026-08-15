@@ -117,21 +117,22 @@ export function TuitionTab() {
             </CardTitle>
             <CardDescription>Danh sách đóng học phí theo tháng và thống kê.</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="w-[190px] min-w-[190px]"
+              className="w-full sm:w-[170px]"
             />
             <ClassSelect
-              className="w-auto min-w-[140px]"
+              className="w-full sm:w-auto sm:min-w-[140px]"
               allLabel="Tất cả lớp"
               value={cls}
               onChange={(v) => setCls(v as any)}
             />
             <Button
               variant="outline"
+              className="col-span-2 w-full sm:col-auto sm:w-auto"
               onClick={() => {
                 if (filtered.length === 0) return toast.info("Không có dữ liệu để xuất");
                 exportXlsx(`hoc-phi-${month}`, [
@@ -163,7 +164,7 @@ export function TuitionTab() {
             <RecordPaymentDialog
               students={students}
               trigger={
-                <Button>
+                <Button className="col-span-2 w-full sm:col-auto sm:w-auto">
                   <Plus className="mr-1 h-4 w-4" />
                   Ghi nhận
                 </Button>

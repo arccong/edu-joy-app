@@ -169,9 +169,9 @@ export function LearningTab() {
             </CardTitle>
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Select value={view} onValueChange={(v) => setView(v as "date" | "artwork")}>
-              <SelectTrigger className="w-[170px]">
+              <SelectTrigger className="w-full sm:w-[170px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -184,11 +184,11 @@ export function LearningTab() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-[165px] min-w-[165px]"
+                className="w-full sm:w-[150px]"
               />
             )}
             <ClassSelect
-              className="w-[120px]"
+              className="w-full sm:w-[120px]"
               value={cls}
               onChange={(v) => {
                 setCls(v as ClassType);
@@ -196,7 +196,7 @@ export function LearningTab() {
               }}
             />
             <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -209,13 +209,14 @@ export function LearningTab() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={doExport}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={doExport}>
               <Download className="mr-1 h-4 w-4" />
               Xuất dữ liệu
             </Button>
             {isOwner && (
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 disabled={cleanupMut.isPending}
                 onClick={() => cleanupMut.mutate()}
                 title="Xóa các ảnh trong kho lưu trữ không còn được nhật ký nào tham chiếu tới"
@@ -234,7 +235,7 @@ export function LearningTab() {
               defaultDate={date}
               artworks={artworks}
               trigger={
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="mr-1 h-4 w-4" />
                   Ghi nhật ký
                 </Button>

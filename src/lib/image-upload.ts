@@ -45,7 +45,6 @@ export async function optimizeImage(file: File): Promise<Blob> {
     done();
     return source;
   }
-  ctx.drawImage as unknown;
   draw(ctx, tw, th);
   done();
 

@@ -55,7 +55,55 @@ export async function optimizeImage(file: File): Promise<Blob> {
   return blob ?? source;
 }
 
-/** Upload 1 ảnh đã tối ưu lên bucket learning-media, trả về URL có chữ ký dùng lâu dài */
+/** Chuyển file ảnh (kể cả HEIC) thành URL hiển thị được trên trình duyệt, dùng cho công cụ cắt ảnh. */
+export async function fileToRenderableUrl(file: File): Promise<string> {
+  let source: Blob = file;
+  if (isHeic(file)) {
+    const heic2any = (await import("heic2any")).default as any;
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: QUALITY });
+    source = Array.isArray(out) ? out[0] : out;
+  }
+  return URL.createObjectURL(source);
+}
+
+/** Cắt ảnh theo vùng pixelCrop (từ react-easy-crop) và xuất ra blob vuông kích thước cố định. */
+export async function cropImageToBlob(
+  imageUrl: string,
+  pixelCrop: { x: number; y: number; width: number; height: number },
+  outSize = 320,
+): Promise<Blob> {
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const el = new Image();
+    el.crossOrigin = "anonymous";
+    el.onload = () => res(el);
+    el.onerror = () => rej(new Error("Không đọc được ảnh"));
+    el.src = imageUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = outSize;
+  canvas.height = outSize;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Không tạo được canvas");
+  ctx.drawImage(img, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, outSize, outSize);
+  const type = canvas.toDataURL("image/webp").startsWith("data:image/webp") ? "image/webp" : "image/jpeg";
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, type, QUALITY));
+  if (!blob) throw new Error("Không xử lý được ảnh");
+  return blob;
+}
+
+/** Nén 1 vùng ảnh đã cắt (dataURL/blob vuông) về đúng kích thước avatar, upload lên bucket avatars. */
+export async function uploadAvatarImage(userId: string, blob: Blob): Promise<string> {
+  const ext = blob.type === "image/webp" ? "webp" : "jpg";
+  const path = `${userId}/avatar.${ext}`;
+  const { error } = await supabase.storage.from("avatars").upload(path, blob, {
+    contentType: blob.type || "image/jpeg",
+    upsert: true,
+  });
+  if (error) throw new Error(error.message);
+  const { data, error: signErr } = await supabase.storage.from("avatars").createSignedUrl(path, SIGNED_URL_TTL);
+  if (signErr || !data?.signedUrl) throw new Error(signErr?.message ?? "Không tạo được liên kết ảnh");
+  return data.signedUrl;
+}
 export async function uploadLearningImage(file: File): Promise<string> {
   const blob = await optimizeImage(file);
   const ext = blob.type === "image/webp" ? "webp" : "jpg";

@@ -15,6 +15,7 @@ type Access = {
   classes: string[];
   /** Chỉ Quản lý mới được xóa dữ liệu */
   canDelete: boolean;
+  avatarUrl: string | null;
 };
 
 const Ctx = createContext<Access>({
@@ -26,6 +27,7 @@ const Ctx = createContext<Access>({
   isOwner: false,
   classes: [],
   canDelete: false,
+  avatarUrl: null,
 });
 
 export function AccessProvider({ children }: { children: ReactNode }) {
@@ -46,6 +48,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     isOwner: Boolean(data?.isOwner),
     classes: data?.classes ?? [],
     canDelete: isManager,
+    avatarUrl: data?.avatarUrl ?? null,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

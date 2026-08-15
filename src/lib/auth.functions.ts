@@ -36,6 +36,7 @@ export type MyAccess = {
   role: "quan_ly" | "giao_vien" | null;
   isOwner: boolean;
   classes: string[];
+  avatarUrl: string | null;
 };
 
 /** Quyền của tài khoản đang đăng nhập. Người đầu tiên đăng nhập khi hệ thống chưa có Quản lý sẽ được cấp quyền Quản lý. */
@@ -47,6 +48,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
     const email = (context.claims as any)?.email ?? "";
 
     await sb.from("profiles").upsert({ id: userId, email }, { onConflict: "id" });
+    const { data: profileRow } = await sb.from("profiles").select("avatar_url").eq("id", userId).maybeSingle();
 
     let { data: roles } = await sb.from("user_roles").select("role").eq("user_id", userId);
     if (!roles || roles.length === 0) {
@@ -80,7 +82,21 @@ export const getMyAccess = createServerFn({ method: "GET" })
       role,
       isOwner: owner === userId,
       classes: role === "quan_ly" ? ["Piano", "Múa", "Vẽ"] : (classes ?? []).map((c: any) => c.class_type),
+      avatarUrl: (profileRow as any)?.avatar_url ?? null,
     };
+  });
+
+/** Người dùng tự đổi ảnh đại diện của chính mình (RLS: chỉ sửa được hàng của auth.uid()). */
+export const updateOwnAvatar = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ avatar_url: z.string().url() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any)
+      .from("profiles")
+      .update({ avatar_url: data.avatar_url })
+      .eq("id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 

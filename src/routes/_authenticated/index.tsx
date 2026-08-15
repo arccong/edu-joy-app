@@ -18,7 +18,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/lib/access";
-import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership, changeUserRole } from "@/lib/auth.functions";
+import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership, changeUserRole, updateOwnAvatar } from "@/lib/auth.functions";
+import { fileToRenderableUrl, cropImageToBlob, uploadAvatarImage } from "@/lib/image-upload";
+import Cropper from "react-easy-crop";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";
@@ -137,11 +139,131 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   );
 }
 
+function AvatarDialog({ open, onOpenChange, currentUrl }: { open: boolean; onOpenChange: (v: boolean) => void; currentUrl: string | null }) {
+  const qc = useQueryClient();
+  const access = useAccess();
+  const updateAvatar = useServerFn(updateOwnAvatar);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [pixelCrop, setPixelCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const reset = () => {
+    if (imgUrl) URL.revokeObjectURL(imgUrl);
+    setImgUrl(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setPixelCrop(null);
+  };
+
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (!f.type.startsWith("image/") && !/\.(heic|heif)$/i.test(f.name)) {
+      toast.error("Vui lòng chọn 1 file ảnh.");
+      return;
+    }
+    setLoadingFile(true);
+    try {
+      const url = await fileToRenderableUrl(f);
+      setImgUrl(url);
+    } catch {
+      toast.error("Không đọc được ảnh này, thử ảnh khác.");
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!imgUrl || !pixelCrop) throw new Error("Vui lòng chọn và cắt ảnh trước.");
+      const blob = await cropImageToBlob(imgUrl, pixelCrop, 320);
+      const url = await uploadAvatarImage(access.userId, blob);
+      await updateAvatar({ data: { avatar_url: url } } as any);
+    },
+    onSuccess: () => {
+      toast.success("Đã cập nhật ảnh đại diện.");
+      qc.invalidateQueries({ queryKey: ["my-access"] });
+      reset();
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Cập nhật ảnh đại diện thất bại."),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary" />Đổi ảnh đại diện</DialogTitle>
+        </DialogHeader>
+
+        {!imgUrl ? (
+          <div className="grid gap-3">
+            {currentUrl && (
+              <div className="flex justify-center">
+                <img src={currentUrl} alt="Ảnh đại diện hiện tại" className="h-24 w-24 rounded-full object-cover" />
+              </div>
+            )}
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed p-6 text-sm text-muted-foreground hover:bg-muted/40">
+              {loadingFile ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+              <span>Chọn ảnh từ điện thoại/máy tính</span>
+              <input
+                type="file"
+                accept="image/*,.heic,.heif"
+                className="hidden"
+                onChange={(e) => onFile(e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <div className="relative h-64 w-full overflow-hidden rounded-md bg-muted">
+              <Cropper
+                image={imgUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={(_area, areaPixels) => setPixelCrop(areaPixels)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Thu phóng</Label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.05}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <Button variant="ghost" size="sm" className="w-fit" onClick={reset}>Chọn ảnh khác</Button>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
+          <Button onClick={() => mut.mutate()} disabled={!imgUrl || !pixelCrop || mut.isPending}>
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Lưu ảnh đại diện
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AccountMenu() {
   const access = useAccess();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   async function handleSignOut() {
     await qc.cancelQueries();
@@ -157,11 +279,15 @@ function AccountMenu() {
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => toast.info("Tính năng đổi ảnh đại diện sẽ sớm ra mắt.")}
+          onClick={() => setAvatarOpen(true)}
           title="Đổi ảnh đại diện"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition hover:opacity-80"
+          className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-primary-foreground transition hover:opacity-80"
         >
-          {initial}
+          {access.avatarUrl ? (
+            <img src={access.avatarUrl} alt="Ảnh đại diện" className="h-full w-full object-cover" />
+          ) : (
+            initial
+          )}
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -192,6 +318,7 @@ function AccountMenu() {
         </DropdownMenu>
       </div>
       <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
+      <AvatarDialog open={avatarOpen} onOpenChange={setAvatarOpen} currentUrl={access.avatarUrl} />
     </>
   );
 }

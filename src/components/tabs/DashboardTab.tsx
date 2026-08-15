@@ -206,12 +206,20 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [activeStudents, payments]);
 
-  const completedNeedRenewal = useMemo(
-    () => activeStudents
-      .filter((s) => s.status === "Đang học" && remainOf(s) <= 0)
-      .sort((a, b) => (a.end_date || "").localeCompare(b.end_date || "")),
-    [activeStudents],
-  );
+  const completedNeedRenewal = useMemo(() => {
+    const bySameOwner = (s: Student, o: Student) =>
+      s.person_id ? s.person_id === o.person_id : (s.name.trim().toLowerCase() === o.name.trim().toLowerCase() && s.age === o.age);
+    return activeStudents
+      .filter((s) => (s.status === "Đang học" && remainOf(s) <= 0) || s.status === "Hoàn thành")
+      // Bỏ qua nếu đã có khóa mới hơn (Chuẩn bị/Đang học/Bảo lưu) đăng ký sau khóa này — coi như đã gia hạn
+      .filter((s) => !activeStudents.some((o) =>
+        o.id !== s.id &&
+        bySameOwner(s, o) &&
+        (o.course_index ?? 1) > (s.course_index ?? 1) &&
+        (o.status === "Đang học" || o.status === "Chuẩn bị" || o.status === "Bảo lưu"),
+      ))
+      .sort((a, b) => (a.end_date || "").localeCompare(b.end_date || ""));
+  }, [activeStudents]);
 
   const minutesOfSlot = (hhmm: string) => {
     const [h, m] = hhmm.split(":").map(Number);

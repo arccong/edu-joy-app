@@ -332,7 +332,7 @@ export function StudentsTab() {
                         {show("actions") && (
                           <TableCell className="text-right">
                             <div className="inline-flex gap-1">
-                              {lockedForEdit.has(s.id) ? (
+                              {lockedForEdit.has(s.id) && s.status !== "Kết thúc" ? (
                                 <Button
                                   size="icon"
                                   variant="ghost"

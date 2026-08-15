@@ -520,15 +520,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           </Card>
 
 
-          <Card className="min-w-0 shadow-card">
+          <Card className="flex min-w-0 flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
             </CardHeader>
-            <CardContent className="min-w-0">
+            <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (
-                <ol className="max-h-[18rem] space-y-2.5 overflow-y-auto pr-1">
+                <ol className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

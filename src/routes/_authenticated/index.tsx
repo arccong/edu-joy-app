@@ -185,17 +185,13 @@ function App() {
             <div className="space-y-6">
               {access.isOwner ? (
                 <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
-                  <div className="flex min-w-0 flex-col gap-4">
-                    <AdminAccountsCard />
-                    <TransferOwnershipCard />
-                  </div>
-                  <div className="flex min-w-0 flex-col gap-4">
-                    <UsersCard />
-                    <TelegramCard />
-                  </div>
+                  <AdminAccountsCard />
+                  <UsersCard />
+                  <TransferOwnershipCard />
+                  <TelegramCard />
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
                   <UsersCard />
                   <TelegramCard />
                 </div>
@@ -367,7 +363,7 @@ function UsersCard() {
   });
 
   return (
-    <Card className="shadow-card max-w-3xl">
+    <Card className="shadow-card">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -490,7 +486,7 @@ function AdminAccountsCard() {
   });
 
   return (
-    <Card className="shadow-card max-w-3xl">
+    <Card className="shadow-card">
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -573,7 +569,7 @@ function TransferOwnershipCard() {
   });
 
   return (
-    <Card className="shadow-card max-w-3xl border-destructive/40">
+    <Card className="shadow-card border-destructive/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Crown className="h-5 w-5 text-destructive" />Chuyển giao quyền Chủ trung tâm</CardTitle>
         <CardDescription>
@@ -651,7 +647,7 @@ function TelegramCard() {
   });
 
   return (
-    <Card className="shadow-card max-w-2xl">
+    <Card className="shadow-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><SettingsIcon className="h-5 w-5 text-primary" />Cấu hình Telegram</CardTitle>
         <CardDescription>

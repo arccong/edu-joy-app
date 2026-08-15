@@ -114,7 +114,16 @@ export function LearningTab() {
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
+            <Select value={view} onValueChange={(v) => setView(v as "date" | "artwork")}>
+              <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Xem theo ngày</SelectItem>
+                <SelectItem value="artwork">Xem theo tác phẩm</SelectItem>
+              </SelectContent>
+            </Select>
+            {view === "date" && (
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
+            )}
             <ClassSelect className="w-[120px]" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId("all"); }} />
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -124,10 +133,19 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <LogDialog students={inClass} cls={cls} defaultDate={date} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
+            <LogDialog students={inClass} cls={cls} defaultDate={date} artworks={artworks} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {view === "artwork" ? (
+            <ArtworkView
+              artworks={artworks.filter((a) => a.class_type === cls && (studentId === "all" || a.student_id === studentId))}
+              logs={scoped}
+              students={inClass}
+              stuMap={stuMap}
+            />
+          ) : (
+            <>
           <section>
             <h3 className="mb-2 text-sm font-semibold">Học sinh đã điểm danh · {fmtDate(todayISO)}</h3>
             {attendedToday.length === 0 ? (
@@ -145,6 +163,7 @@ export function LearningTab() {
                       <LogDialog
                         students={inClass}
                         cls={cls}
+                        artworks={artworks}
                         existing={log && log.student_id === s.id ? log : undefined}
                         defaultStudentId={s.id}
                         defaultDate={todayISO}
@@ -165,7 +184,7 @@ export function LearningTab() {
               <EmptyState text="Chưa có bài học nào cho ngày này." />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
-                {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} />)}
+                {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} artworks={artworks} />)}
               </div>
             )}
           </section>
@@ -176,10 +195,13 @@ export function LearningTab() {
               <EmptyState text="Chưa có lịch sử." />
             ) : (
               <div className="space-y-2">
-                {history.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} compact />)}
+                {history.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} artworks={artworks} compact />)}
               </div>
             )}
           </section>
+            </>
+          )}
+
         </CardContent>
       </Card>
     </div>

@@ -78,7 +78,6 @@ export function LearningTab() {
   const { isOwner } = useAccess();
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
-  const fetchAtt = useServerFn(listAttendance);
   const fetchArtworks = useServerFn(listArtworks);
   const runCleanup = useServerFn(cleanupOrphanedLearningMedia);
   const { data: students = [] } = useQuery<Student[]>({
@@ -109,20 +108,10 @@ export function LearningTab() {
   const [view, setView] = useState<"date" | "artwork">("date");
   const [date, setDate] = useState<string>(toLocalISO(new Date()));
   const todayISO = date;
-
-  const { data: attRows = [] } = useQuery<any[]>({
-    queryKey: ["attendance", date],
-    queryFn: () => fetchAtt({ data: { date } }) as any,
-  });
+  const [yClsFilter, setYClsFilter] = useState<ClassType | "Tất cả">("Tất cả");
 
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const inClass = useMemo(() => students.filter((s) => s.class_type === cls), [students, cls]);
-
-  // Học sinh đã được điểm danh "Đi học" trong ngày
-  const attendedToday = useMemo(() => {
-    const ids = new Set(attRows.filter((r) => r.status === "Đi học").map((r) => r.student_id as string));
-    return inClass.filter((s) => ids.has(s.id) && (studentId === "all" || s.id === studentId));
-  }, [attRows, inClass, studentId]);
 
   const scoped = useMemo(() => {
     return logs.filter((l) => {
@@ -133,7 +122,15 @@ export function LearningTab() {
   }, [logs, cls, studentId]);
 
   const todayLogs = useMemo(() => scoped.filter((l) => l.date === todayISO), [scoped, todayISO]);
-  const history = useMemo(() => scoped.filter((l) => l.date !== todayISO), [scoped, todayISO]);
+  const yesterdayISO = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toLocalISO(d);
+  }, []);
+  const yesterdayLogs = useMemo(
+    () => logs.filter((l) => l.date === yesterdayISO && (yClsFilter === "Tất cả" || l.class_type === yClsFilter)),
+    [logs, yesterdayISO, yClsFilter],
+  );
 
   const nameOf = (l: LearningLog) =>
     l.is_class_wide ? `Cả lớp ${l.class_type}` : (stuMap.get(l.student_id ?? "")?.name ?? "—");
@@ -256,50 +253,6 @@ export function LearningTab() {
           ) : (
             <>
               <section>
-                <h3 className="mb-2 text-sm font-semibold">Học sinh đã điểm danh · {fmtDate(todayISO)}</h3>
-                {attendedToday.length === 0 ? (
-                  <EmptyState text="Chưa có học sinh nào được điểm danh trong ngày này." />
-                ) : (
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {attendedToday.map((s) => {
-                      const log =
-                        todayLogs.find((l) => l.student_id === s.id) ?? todayLogs.find((l) => l.is_class_wide);
-                      return (
-                        <div
-                          key={s.id}
-                          className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">
-                              {s.name} · {coursePrefix(s.class_type)}
-                              {s.course_index ?? 1}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {log ? log.title : "Chưa ghi nhật ký"}
-                            </p>
-                          </div>
-                          <LogDialog
-                            students={inClass}
-                            cls={cls}
-                            artworks={artworks}
-                            existing={log && log.student_id === s.id ? log : undefined}
-                            defaultStudentId={s.id}
-                            defaultDate={todayISO}
-                            trigger={
-                              <Button size="sm" variant={log && log.student_id === s.id ? "outline" : "default"}>
-                                <Pencil className="mr-1 h-4 w-4" />
-                                {log && log.student_id === s.id ? "Sửa" : "Thêm"}
-                              </Button>
-                            }
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              <section>
                 <h3 className="mb-2 text-sm font-semibold">Nhật ký ngày {fmtDate(todayISO)}</h3>
                 {todayLogs.length === 0 ? (
                   <EmptyState text="Chưa có bài học nào cho ngày này." />
@@ -311,20 +264,38 @@ export function LearningTab() {
                   </div>
                 )}
               </section>
-
-              <section>
-                <h3 className="mb-2 text-sm font-semibold">Lịch sử các buổi đã học</h3>
-                {history.length === 0 ? (
-                  <EmptyState text="Chưa có lịch sử." />
-                ) : (
-                  <div className="space-y-2">
-                    {history.map((l) => (
-                      <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} artworks={artworks} compact />
-                    ))}
-                  </div>
-                )}
-              </section>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-primary" />Nhật ký hôm qua</CardTitle>
+            <CardDescription>Các học sinh đã được ghi nhật ký ngày {fmtDate(yesterdayISO)}</CardDescription>
+          </div>
+          <ClassSelect value={yClsFilter} onChange={(v) => setYClsFilter(v as ClassType | "Tất cả")} allLabel="Tất cả lớp" className="w-full sm:w-auto sm:min-w-[140px]" />
+        </CardHeader>
+        <CardContent>
+          {yesterdayLogs.length === 0 ? (
+            <EmptyState text="Hôm qua chưa có học sinh nào được ghi nhật ký." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {yesterdayLogs.map((l) => {
+                const owner = stuMap.get(l.student_id ?? "");
+                const name = l.is_class_wide ? `Cả lớp ${l.class_type}` : (owner?.name ?? "—");
+                return (
+                  <LogCard
+                    key={l.id}
+                    log={l}
+                    name={name}
+                    students={l.is_class_wide ? students.filter((s) => s.class_type === l.class_type) : (owner ? [owner] : [])}
+                    artworks={artworks}
+                  />
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -381,49 +352,51 @@ function LogCard({
   const artwork = artworks.find((a) => a.id === log.artwork_id);
   return (
     <div className="rounded-lg border bg-card p-3">
-      {images.length > 0 && (
-        <div className="-mx-1 mb-2 flex gap-2 overflow-x-auto px-1 pb-1">
-          {images.map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="shrink-0">
-              <Thumb
-                src={a.url}
-                alt={a.label ?? log.title}
-                className="h-16 w-24 rounded-md border object-cover sm:h-20 sm:w-28"
-              />
-            </a>
-          ))}
-        </div>
-      )}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{fmtDate(log.date)}</span>
-            {classChip(log.class_type)}
-            <Badge variant="outline">{name}</Badge>
-            <PublishBadge log={log} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        {images.length > 0 && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:w-28 sm:shrink-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+            {images.map((a, i) => (
+              <a key={i} href={a.url} target="_blank" rel="noreferrer" className="shrink-0">
+                <Thumb
+                  src={a.url}
+                  alt={a.label ?? log.title}
+                  className="h-16 w-24 rounded-md border object-cover sm:h-20 sm:w-28"
+                />
+              </a>
+            ))}
           </div>
-          <p className="mt-1 font-semibold">{log.title}</p>
-          {artwork && <p className="text-xs text-muted-foreground">Tác phẩm: {artwork.title}</p>}
-          {log.content && (
-            <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>
-              {log.content}
-            </p>
-          )}
-          {others.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {others.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70"
-                >
-                  {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
-                </a>
-              ))}
-            </div>
-          )}
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{fmtDate(log.date)}</span>
+                {classChip(log.class_type)}
+                <Badge variant="outline">{name}</Badge>
+                <PublishBadge log={log} />
+              </div>
+              <p className="mt-1 font-semibold">{log.title}</p>
+              {artwork && <p className="text-xs text-muted-foreground">Tác phẩm: {artwork.title}</p>}
+              {log.content && (
+                <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>
+                  {log.content}
+                </p>
+              )}
+              {others.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {others.map((a, i) => (
+                    <a
+                      key={i}
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full bg-muted px-2 py-1 text-[11px] hover:bg-muted/70"
+                    >
+                      {a.kind === "video" ? "🎬" : "🔗"} {a.label || a.url.slice(0, 40)}
+                    </a>
+                  ))}
+                </div>
+              )}
         </div>
         <div className="flex shrink-0 gap-1">
           <LogDialog
@@ -438,6 +411,8 @@ function LogCard({
             }
           />
           <DeleteLogButton id={log.id} />
+        </div>
+      </div>
         </div>
       </div>
     </div>

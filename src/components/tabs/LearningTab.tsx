@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
-import { BookOpen, Download, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, Download, Eye, EyeOff, Image as ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,10 +18,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { coursePrefix, dayOfWeekOf, fmtDate, slotsEffectiveOn, toLocalISO, type ClassType, type ScheduleChange, type Student } from "@/lib/shared";
 import { listAttendance, listScheduleChanges, listStudents } from "@/lib/students.functions";
-import { deleteLearningLog, listLearningLogs, upsertLearningLog } from "@/lib/learning.functions";
+import { deleteLearningLog, listLearningLogs, setLogPublished, upsertLearningLog } from "@/lib/learning.functions";
+import { createArtwork, listArtworks } from "@/lib/artworks.functions";
+import { uploadLearningImage } from "@/lib/image-upload";
 import { exportXlsx } from "@/lib/export";
 
 export type Attachment = { kind: "image" | "video" | "link"; url: string; label?: string | null };
+export type Artwork = {
+  id: string;
+  student_id: string;
+  class_type: ClassType;
+  title: string;
+  cover_image_url: string | null;
+  created_at: string;
+};
 export type LearningLog = {
   id: string;
   student_id: string | null;
@@ -30,19 +41,26 @@ export type LearningLog = {
   content: string | null;
   attachments: Attachment[];
   is_class_wide: boolean;
+  artwork_id: string | null;
+  is_published: boolean;
 };
+
 
 export function LearningTab() {
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
   const fetchAtt = useServerFn(listAttendance);
+  const fetchArtworks = useServerFn(listArtworks);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: logs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
+  const { data: artworks = [] } = useQuery<Artwork[]>({ queryKey: ["artworks"], queryFn: () => fetchArtworks() as any });
 
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentId, setStudentId] = useState<string>("all");
+  const [view, setView] = useState<"date" | "artwork">("date");
   const [date, setDate] = useState<string>(toLocalISO(new Date()));
   const todayISO = date;
+
 
   const { data: attRows = [] } = useQuery<any[]>({
     queryKey: ["attendance", date],
@@ -96,7 +114,16 @@ export function LearningTab() {
             <CardDescription>Tác phẩm/bài học hôm nay và lịch sử cả khóa.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
+            <Select value={view} onValueChange={(v) => setView(v as "date" | "artwork")}>
+              <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Xem theo ngày</SelectItem>
+                <SelectItem value="artwork">Xem theo tác phẩm</SelectItem>
+              </SelectContent>
+            </Select>
+            {view === "date" && (
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[165px] min-w-[165px]" />
+            )}
             <ClassSelect className="w-[120px]" value={cls} onChange={(v) => { setCls(v as ClassType); setStudentId("all"); }} />
             <Select value={studentId} onValueChange={setStudentId}>
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -106,10 +133,19 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
-            <LogDialog students={inClass} cls={cls} defaultDate={date} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
+            <LogDialog students={inClass} cls={cls} defaultDate={date} artworks={artworks} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {view === "artwork" ? (
+            <ArtworkView
+              artworks={artworks.filter((a) => a.class_type === cls && (studentId === "all" || a.student_id === studentId))}
+              logs={scoped}
+              students={inClass}
+              stuMap={stuMap}
+            />
+          ) : (
+            <>
           <section>
             <h3 className="mb-2 text-sm font-semibold">Học sinh đã điểm danh · {fmtDate(todayISO)}</h3>
             {attendedToday.length === 0 ? (
@@ -127,6 +163,7 @@ export function LearningTab() {
                       <LogDialog
                         students={inClass}
                         cls={cls}
+                        artworks={artworks}
                         existing={log && log.student_id === s.id ? log : undefined}
                         defaultStudentId={s.id}
                         defaultDate={todayISO}
@@ -147,7 +184,7 @@ export function LearningTab() {
               <EmptyState text="Chưa có bài học nào cho ngày này." />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
-                {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} />)}
+                {todayLogs.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} artworks={artworks} />)}
               </div>
             )}
           </section>
@@ -158,10 +195,13 @@ export function LearningTab() {
               <EmptyState text="Chưa có lịch sử." />
             ) : (
               <div className="space-y-2">
-                {history.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} compact />)}
+                {history.map((l) => <LogCard key={l.id} log={l} name={nameOf(l)} students={inClass} artworks={artworks} compact />)}
               </div>
             )}
           </section>
+            </>
+          )}
+
         </CardContent>
       </Card>
     </div>
@@ -174,10 +214,33 @@ function Thumb({ src, alt, className }: { src: string; alt: string; className?: 
   return <img src={src} alt={alt} loading="lazy" onError={() => setOk(false)} className={className} />;
 }
 
-function LogCard({ log, name, students, compact }: { log: LearningLog; name: string; students: Student[]; compact?: boolean }) {
+function PublishBadge({ log }: { log: LearningLog }) {
+  const qc = useQueryClient();
+  const setPub = useServerFn(setLogPublished);
+  const mut = useMutation({
+    mutationFn: (v: boolean) => setPub({ data: { id: log.id, is_published: v } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["learning-logs"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <button
+      type="button"
+      disabled={mut.isPending}
+      onClick={() => mut.mutate(!log.is_published)}
+      title="Bật/tắt công khai cho phụ huynh"
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${log.is_published ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+    >
+      {log.is_published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+      {log.is_published ? "Đã công khai" : "Riêng tư"}
+    </button>
+  );
+}
+
+function LogCard({ log, name, students, artworks, compact }: { log: LearningLog; name: string; students: Student[]; artworks: Artwork[]; compact?: boolean }) {
   const atts = log.attachments ?? [];
   const images = atts.filter((a) => a.kind === "image");
   const others = atts.filter((a) => a.kind !== "image");
+  const artwork = artworks.find((a) => a.id === log.artwork_id);
   return (
     <div className="rounded-lg border bg-card p-3">
       {images.length > 0 && (
@@ -195,8 +258,10 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
             <span className="font-medium text-foreground">{fmtDate(log.date)}</span>
             {classChip(log.class_type)}
             <Badge variant="outline">{name}</Badge>
+            <PublishBadge log={log} />
           </div>
           <p className="mt-1 font-semibold">{log.title}</p>
+          {artwork && <p className="text-xs text-muted-foreground">Tác phẩm: {artwork.title}</p>}
           {log.content && <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>{log.content}</p>}
           {others.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -209,13 +274,56 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
           )}
         </div>
         <div className="flex shrink-0 gap-1">
-          <LogDialog students={students} cls={log.class_type} existing={log} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+          <LogDialog students={students} cls={log.class_type} artworks={artworks} existing={log} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
           <DeleteLogButton id={log.id} />
         </div>
       </div>
     </div>
   );
 }
+
+function ArtworkView({ artworks, logs, students, stuMap }: { artworks: Artwork[]; logs: LearningLog[]; students: Student[]; stuMap: Map<string, Student> }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (artworks.length === 0) return <EmptyState text="Chưa có tác phẩm nào. Tạo tác phẩm khi ghi nhật ký." />;
+  const open = artworks.find((a) => a.id === openId) ?? null;
+  const openLogs = open ? logs.filter((l) => l.artwork_id === open.id).slice().sort((a, b) => a.date.localeCompare(b.date)) : [];
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {artworks.map((a) => {
+          const related = logs.filter((l) => l.artwork_id === a.id);
+          const cover = a.cover_image_url ?? related.flatMap((l) => l.attachments ?? []).find((x) => x.kind === "image")?.url ?? null;
+          return (
+            <button key={a.id} type="button" onClick={() => setOpenId(a.id)} className={`overflow-hidden rounded-lg border bg-card text-left transition hover:shadow-card ${openId === a.id ? "ring-2 ring-primary" : ""}`}>
+              <div className="flex h-28 items-center justify-center bg-muted">
+                {cover ? <Thumb src={cover} alt={a.title} className="h-28 w-full object-cover" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+              </div>
+              <div className="p-3">
+                <p className="truncate font-semibold">{a.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{stuMap.get(a.student_id)?.name ?? "—"} · {related.length} buổi đã ghi</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {open && (
+        <section>
+          <h3 className="mb-2 text-sm font-semibold">Các buổi thuộc tác phẩm “{open.title}”</h3>
+          {openLogs.length === 0 ? (
+            <EmptyState text="Chưa có bản ghi nào cho tác phẩm này." />
+          ) : (
+            <div className="space-y-2">
+              {openLogs.map((l) => (
+                <LogCard key={l.id} log={l} name={stuMap.get(l.student_id ?? "")?.name ?? "—"} students={students} artworks={artworks} compact />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
 
 
 function DeleteLogButton({ id }: { id: string }) {
@@ -235,10 +343,11 @@ function DeleteLogButton({ id }: { id: string }) {
   );
 }
 
-function LogDialog({ students, cls, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
+function LogDialog({ students, cls, artworks, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; artworks: Artwork[]; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertLearningLog);
+  const addArtwork = useServerFn(createArtwork);
 
   const classWideDefault = existing?.is_class_wide ?? cls === "Múa";
   const [isClassWide, setIsClassWide] = useState(classWideDefault);
@@ -248,7 +357,54 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
   const [content, setContent] = useState(existing?.content ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>(existing?.attachments ?? []);
   const [newUrl, setNewUrl] = useState("");
-  const [newKind, setNewKind] = useState<Attachment["kind"]>("image");
+  const [newKind, setNewKind] = useState<Attachment["kind"]>("video");
+  const [artworkId, setArtworkId] = useState<string>(existing?.artwork_id ?? "none");
+  const [isPublished, setIsPublished] = useState<boolean>(existing?.is_published ?? false);
+  const [newArtworkTitle, setNewArtworkTitle] = useState("");
+  const [uploadState, setUploadState] = useState<"" | "optimizing" | "uploading">("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const myArtworks = useMemo(
+    () => artworks.filter((a) => a.class_type === cls && (isClassWide || a.student_id === studentId)),
+    [artworks, cls, studentId, isClassWide],
+  );
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    try {
+      setUploadState("optimizing");
+      for (const f of list) {
+        setUploadState("optimizing");
+        const url = await uploadLearningImage(f);
+        setUploadState("uploading");
+        setAttachments((a) => [...a, { kind: "image", url, label: f.name }]);
+      }
+      toast.success(`Đã tải lên ${list.length} ảnh`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Tải ảnh thất bại");
+    } finally {
+      setUploadState("");
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const createArtworkMut = useMutation({
+    mutationFn: () => addArtwork({ data: {
+      student_id: studentId,
+      class_type: cls,
+      title: newArtworkTitle.trim(),
+      cover_image_url: attachments.find((a) => a.kind === "image")?.url ?? null,
+    } }) as any,
+    onSuccess: (row: any) => {
+      qc.invalidateQueries({ queryKey: ["artworks"] });
+      setArtworkId(row?.id ?? "none");
+      setNewArtworkTitle("");
+      toast.success("Đã tạo tác phẩm");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const fetchChanges = useServerFn(listScheduleChanges);
   const fetchAtt = useServerFn(listAttendance);
@@ -295,6 +451,9 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
       content: content || null,
       attachments,
       is_class_wide: isClassWide,
+      artwork_id: artworkId === "none" ? null : artworkId,
+      is_published: isPublished,
+
     } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["learning-logs"] });
@@ -337,8 +496,41 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
             <Label>Nội dung / Nhận xét</Label>
             <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Tiến độ, lưu ý, bài tập về nhà..." />
           </div>
+          {!isClassWide && (
+            <div className="grid gap-2">
+              <Label>Tác phẩm</Label>
+              <Select value={artworkId} onValueChange={setArtworkId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Không gắn tác phẩm —</SelectItem>
+                  {myArtworks.map((a) => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Input value={newArtworkTitle} onChange={(e) => setNewArtworkTitle(e.target.value)} placeholder="Tên tác phẩm mới..." />
+                <Button type="button" variant="outline" disabled={!newArtworkTitle.trim() || !studentId || createArtworkMut.isPending} onClick={() => createArtworkMut.mutate()}>
+                  {createArtworkMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tạo mới"}
+                </Button>
+              </div>
+            </div>
+          )}
+          <label className="flex items-center gap-2 rounded-lg border p-2 text-sm">
+            <Checkbox checked={isPublished} onCheckedChange={(v) => setIsPublished(!!v)} />
+            Công khai cho phụ huynh xem
+          </label>
           <div className="grid gap-2">
-            <Label>File đính kèm (link ảnh / video / tài liệu)</Label>
+            <Label>Ảnh buổi học</Label>
+            <input ref={fileRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" disabled={!!uploadState} onClick={() => fileRef.current?.click()}>
+                {uploadState ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
+                {uploadState === "optimizing" ? "Đang tối ưu ảnh..." : uploadState === "uploading" ? "Đang tải lên..." : "Tải ảnh lên"}
+              </Button>
+              <span className="text-xs text-muted-foreground">Chọn nhiều ảnh · tự nén & chuyển HEIC</span>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Link video / tài liệu ngoài</Label>
             <div className="flex gap-2">
               <Select value={newKind} onValueChange={(v) => setNewKind(v as Attachment["kind"])}>
                 <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
@@ -349,6 +541,7 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
                 </SelectContent>
               </Select>
               <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://..." />
+
               <Button type="button" variant="outline" onClick={() => {
                 if (!newUrl.trim()) return;
                 setAttachments((a) => [...a, { kind: newKind, url: newUrl.trim(), label: null }]);

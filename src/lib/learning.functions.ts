@@ -29,6 +29,8 @@ const LogInput = z.object({
   content: z.string().max(5000).nullable().optional(),
   attachments: z.array(Attachment).default([]),
   is_class_wide: z.boolean().default(false),
+  artwork_id: z.string().uuid().nullable().optional(),
+  is_published: z.boolean().default(false),
 });
 
 export const upsertLearningLog = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -43,6 +45,8 @@ export const upsertLearningLog = createServerFn({ method: "POST" }).middleware([
       content: data.content ?? null,
       attachments: data.attachments,
       is_class_wide: data.is_class_wide,
+      artwork_id: data.artwork_id ?? null,
+      is_published: data.is_published,
     };
     if (data.id) {
       const { error } = await (sb as any).from("learning_logs").update(payload).eq("id", data.id);
@@ -53,6 +57,18 @@ export const upsertLearningLog = createServerFn({ method: "POST" }).middleware([
     }
     return { ok: true };
   });
+
+export const setLogPublished = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), is_published: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any)
+      .from("learning_logs")
+      .update({ is_published: data.is_published })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const deleteLearningLog = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -547,7 +547,7 @@ function EditPaymentDialog({
 }
 
 /** Ghi nhận học phí: nhập đầy đủ thông tin khóa học → tự tạo/cập nhật học sinh */
-export function RecordPaymentDialog({ students, trigger }: { students: Student[]; trigger: React.ReactNode }) {
+export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { students: Student[]; trigger: React.ReactNode; defaultStudentId?: string }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const savePayment = useServerFn(upsertPayment);
@@ -635,6 +635,14 @@ export function RecordPaymentDialog({ students, trigger }: { students: Student[]
     });
     setTuitionStr(formatMoney(Number(s.tuition)));
   };
+
+  useEffect(() => {
+    if (open && defaultStudentId) {
+      setMode("next");
+      pickBase(defaultStudentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultStudentId]);
 
   // Lịch mới không được trùng bất kỳ lịch nào của các lớp đang học
   const scheduleConflict = useMemo(() => {

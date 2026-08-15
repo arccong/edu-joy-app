@@ -47,7 +47,7 @@ import {
   type TrialStudent,
   type TuitionPayment,
 } from "@/lib/shared";
-import { listAttendance, listAttendanceRange, listScheduleChanges, listStudents, setAttendance } from "@/lib/students.functions";
+import { listAttendance, listAttendanceRange, listScheduleChanges, listStudents, setAttendance, upsertStudent } from "@/lib/students.functions";
 import { setTrialAttendance } from "@/lib/trials.functions";
 import { listPayments } from "@/lib/tuition.functions";
 import { listLearningLogs } from "@/lib/learning.functions";
@@ -89,6 +89,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const fetchCats = useServerFn(listExpenseCategories);
   const setAtt = useServerFn(setAttendance);
   const setTrialAtt = useServerFn(setTrialAttendance);
+  const saveStudent = useServerFn(upsertStudent);
 
   const now = new Date();
   const todayISO = toLocalISO(now);
@@ -201,9 +202,16 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const unpaid = useMemo(() => {
     const paid = new Set(payments.map((p) => p.student_id));
     return activeStudents
-      .filter((s) => (s.status === "Đang học" || s.status === "Hoàn thành") && !paid.has(s.id))
+      .filter((s) => s.status === "Đang học" && remainOf(s) > 0 && !paid.has(s.id))
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [activeStudents, payments]);
+
+  const completedNeedRenewal = useMemo(
+    () => activeStudents
+      .filter((s) => s.status === "Đang học" && remainOf(s) <= 0)
+      .sort((a, b) => (a.end_date || "").localeCompare(b.end_date || "")),
+    [activeStudents],
+  );
 
   const minutesOfSlot = (hhmm: string) => {
     const [h, m] = hhmm.split(":").map(Number);
@@ -224,7 +232,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       .sort((a, b) => a.trial_date.localeCompare(b.trial_date) || String(a.start_time).localeCompare(String(b.start_time)));
   }, [trials, todayISO]);
 
-  const alertCount = expiring.length + lowSessions.length + unpaid.length + missingAttendance.length + upcomingTrials.length;
+  const alertCount = expiring.length + lowSessions.length + unpaid.length + completedNeedRenewal.length + missingAttendance.length + upcomingTrials.length;
 
 
   // Nghỉ / bảo lưu hôm nay
@@ -293,6 +301,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const endStudentMut = useMutation({
+    mutationFn: (s: Student) => saveStudent({ data: { ...s, status: "Kết thúc" } as any }),
+    onSuccess: () => {
+      toast.success("Đã đặt trạng thái Kết thúc.");
+      qc.invalidateQueries({ queryKey: ["students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-4">
       {/* Lời chào + thao tác nhanh */}
@@ -349,7 +366,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Cần xử lý"
           value={String(alertCount)}
-          sub={`${upcomingTrials.length} học thử · ${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${unpaid.length} chưa đóng · ${missingAttendance.length} chưa điểm danh`}
+          sub={`${upcomingTrials.length} học thử · ${expiring.length} sắp hết hạn · ${lowSessions.length} sắp hết buổi · ${completedNeedRenewal.length} hoàn thành khóa · ${unpaid.length} chưa đóng · ${missingAttendance.length} chưa điểm danh`}
           tone={alertCount > 0 ? "warning" : undefined}
           onClick={() => document.getElementById("dash-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
@@ -484,6 +501,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                     </div>
                   ))}
                 </AlertGroup>
+                <AlertGroup title="Học sinh đã hoàn thành khóa" empty={completedNeedRenewal.length === 0}>
+                  {completedNeedRenewal.map((s) => (
+                    <CompletedRow key={s.id} s={s} students={students} onEnd={(st) => endStudentMut.mutate(st)} ending={endStudentMut.isPending} />
+                  ))}
+                </AlertGroup>
                 <AlertGroup title="Chưa ghi nhận học phí" empty={unpaid.length === 0}>
                   {unpaid.map((s) => (
                     <AlertRow key={s.id} s={s} right={`${formatMoney(Number(s.tuition))}đ`} students={students} />
@@ -578,6 +600,35 @@ function AlertGroup({ title, empty, children }: { title: string; empty: boolean;
   );
 }
 
+function CompletedRow({ s, students, onEnd, ending }: { s: Student; students: Student[]; onEnd: (s: Student) => void; ending: boolean }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/5 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="truncate font-medium">{s.name}</span>
+        <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+        <span className="shrink-0">{classChip(s.class_type)}</span>
+        <Badge variant="outline" className="shrink-0 border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]">Hoàn thành khóa</Badge>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
+        <RecordPaymentDialog students={students} defaultStudentId={s.id} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 text-destructive hover:text-destructive"
+          disabled={ending}
+          onClick={() => {
+            if (window.confirm(`Xác nhận học sinh "${s.name}" KHÔNG tiếp tục học nữa và chuyển sang trạng thái "Kết thúc"?`)) {
+              onEnd(s);
+            }
+          }}
+        >
+          Kết thúc
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AlertRow({ s, right, students }: { s: Student; right: string; students: Student[] }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -588,7 +639,7 @@ function AlertRow({ s, right, students }: { s: Student; right: string; students:
       </div>
       <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:shrink-0 sm:items-center sm:justify-end sm:gap-2">
         <span className="whitespace-nowrap text-xs text-muted-foreground">{right}</span>
-        <RecordPaymentDialog students={students} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
+        <RecordPaymentDialog students={students} defaultStudentId={s.id} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
       </div>
     </div>
   );

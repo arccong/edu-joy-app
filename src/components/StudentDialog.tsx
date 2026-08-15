@@ -88,9 +88,35 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
   const startInvalid = startDow !== null && slotDays.size > 0 && !slotDays.has(startDow);
   const endInvalid = endDow !== null && slotDays.size > 0 && !slotDays.has(endDow);
 
+  const isEnded = student?.status === "Kết thúc";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {isEnded ? (
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Học sinh đã Kết thúc</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{student!.name}</span> hiện đang ở trạng thái{" "}
+            <span className="font-medium text-destructive">Kết thúc</span> — không còn theo học tại trung tâm.
+            Vì hồ sơ đã kết thúc, các thông tin khác (lịch học, học phí, ngày tháng...) không thể chỉnh sửa trực tiếp
+            tại đây. Nếu học sinh quay lại theo học, hãy chuyển trạng thái sang <span className="font-medium">Hoàn thành</span>{" "}
+            — hệ thống sẽ nhắc ghi nhận học phí khóa mới ở trang Tổng quan.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Đóng</Button>
+            <Button
+              onClick={() => mut.mutate({ ...form, status: "Hoàn thành" })}
+              disabled={mut.isPending}
+            >
+              {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Chuyển sang Hoàn thành (cho quay lại học)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      ) : (
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{student ? "Sửa học sinh" : "Thêm học sinh mới"}</DialogTitle>
@@ -242,6 +268,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
           </Button>
         </DialogFooter>
       </DialogContent>
+      )}
     </Dialog>
   );
 }

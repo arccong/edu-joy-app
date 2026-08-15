@@ -496,8 +496,41 @@ function LogDialog({ students, cls, artworks, existing, trigger, defaultStudentI
             <Label>Nội dung / Nhận xét</Label>
             <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Tiến độ, lưu ý, bài tập về nhà..." />
           </div>
+          {!isClassWide && (
+            <div className="grid gap-2">
+              <Label>Tác phẩm</Label>
+              <Select value={artworkId} onValueChange={setArtworkId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Không gắn tác phẩm —</SelectItem>
+                  {myArtworks.map((a) => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Input value={newArtworkTitle} onChange={(e) => setNewArtworkTitle(e.target.value)} placeholder="Tên tác phẩm mới..." />
+                <Button type="button" variant="outline" disabled={!newArtworkTitle.trim() || !studentId || createArtworkMut.isPending} onClick={() => createArtworkMut.mutate()}>
+                  {createArtworkMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tạo mới"}
+                </Button>
+              </div>
+            </div>
+          )}
+          <label className="flex items-center gap-2 rounded-lg border p-2 text-sm">
+            <Checkbox checked={isPublished} onCheckedChange={(v) => setIsPublished(!!v)} />
+            Công khai cho phụ huynh xem
+          </label>
           <div className="grid gap-2">
-            <Label>File đính kèm (link ảnh / video / tài liệu)</Label>
+            <Label>Ảnh buổi học</Label>
+            <input ref={fileRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" disabled={!!uploadState} onClick={() => fileRef.current?.click()}>
+                {uploadState ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Upload className="mr-1 h-4 w-4" />}
+                {uploadState === "optimizing" ? "Đang tối ưu ảnh..." : uploadState === "uploading" ? "Đang tải lên..." : "Tải ảnh lên"}
+              </Button>
+              <span className="text-xs text-muted-foreground">Chọn nhiều ảnh · tự nén & chuyển HEIC</span>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Link video / tài liệu ngoài</Label>
             <div className="flex gap-2">
               <Select value={newKind} onValueChange={(v) => setNewKind(v as Attachment["kind"])}>
                 <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
@@ -508,6 +541,7 @@ function LogDialog({ students, cls, artworks, existing, trigger, defaultStudentI
                 </SelectContent>
               </Select>
               <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://..." />
+
               <Button type="button" variant="outline" onClick={() => {
                 if (!newUrl.trim()) return;
                 setAttachments((a) => [...a, { kind: newKind, url: newUrl.trim(), label: null }]);

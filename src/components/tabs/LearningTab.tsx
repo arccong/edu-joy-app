@@ -214,10 +214,33 @@ function Thumb({ src, alt, className }: { src: string; alt: string; className?: 
   return <img src={src} alt={alt} loading="lazy" onError={() => setOk(false)} className={className} />;
 }
 
-function LogCard({ log, name, students, compact }: { log: LearningLog; name: string; students: Student[]; compact?: boolean }) {
+function PublishBadge({ log }: { log: LearningLog }) {
+  const qc = useQueryClient();
+  const setPub = useServerFn(setLogPublished);
+  const mut = useMutation({
+    mutationFn: (v: boolean) => setPub({ data: { id: log.id, is_published: v } }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["learning-logs"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <button
+      type="button"
+      disabled={mut.isPending}
+      onClick={() => mut.mutate(!log.is_published)}
+      title="Bật/tắt công khai cho phụ huynh"
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${log.is_published ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+    >
+      {log.is_published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+      {log.is_published ? "Đã công khai" : "Riêng tư"}
+    </button>
+  );
+}
+
+function LogCard({ log, name, students, artworks, compact }: { log: LearningLog; name: string; students: Student[]; artworks: Artwork[]; compact?: boolean }) {
   const atts = log.attachments ?? [];
   const images = atts.filter((a) => a.kind === "image");
   const others = atts.filter((a) => a.kind !== "image");
+  const artwork = artworks.find((a) => a.id === log.artwork_id);
   return (
     <div className="rounded-lg border bg-card p-3">
       {images.length > 0 && (
@@ -235,8 +258,10 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
             <span className="font-medium text-foreground">{fmtDate(log.date)}</span>
             {classChip(log.class_type)}
             <Badge variant="outline">{name}</Badge>
+            <PublishBadge log={log} />
           </div>
           <p className="mt-1 font-semibold">{log.title}</p>
+          {artwork && <p className="text-xs text-muted-foreground">Tác phẩm: {artwork.title}</p>}
           {log.content && <p className={`mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground ${compact ? "line-clamp-2" : ""}`}>{log.content}</p>}
           {others.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -249,13 +274,56 @@ function LogCard({ log, name, students, compact }: { log: LearningLog; name: str
           )}
         </div>
         <div className="flex shrink-0 gap-1">
-          <LogDialog students={students} cls={log.class_type} existing={log} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
+          <LogDialog students={students} cls={log.class_type} artworks={artworks} existing={log} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
           <DeleteLogButton id={log.id} />
         </div>
       </div>
     </div>
   );
 }
+
+function ArtworkView({ artworks, logs, students, stuMap }: { artworks: Artwork[]; logs: LearningLog[]; students: Student[]; stuMap: Map<string, Student> }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (artworks.length === 0) return <EmptyState text="Chưa có tác phẩm nào. Tạo tác phẩm khi ghi nhật ký." />;
+  const open = artworks.find((a) => a.id === openId) ?? null;
+  const openLogs = open ? logs.filter((l) => l.artwork_id === open.id).slice().sort((a, b) => a.date.localeCompare(b.date)) : [];
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {artworks.map((a) => {
+          const related = logs.filter((l) => l.artwork_id === a.id);
+          const cover = a.cover_image_url ?? related.flatMap((l) => l.attachments ?? []).find((x) => x.kind === "image")?.url ?? null;
+          return (
+            <button key={a.id} type="button" onClick={() => setOpenId(a.id)} className={`overflow-hidden rounded-lg border bg-card text-left transition hover:shadow-card ${openId === a.id ? "ring-2 ring-primary" : ""}`}>
+              <div className="flex h-28 items-center justify-center bg-muted">
+                {cover ? <Thumb src={cover} alt={a.title} className="h-28 w-full object-cover" /> : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+              </div>
+              <div className="p-3">
+                <p className="truncate font-semibold">{a.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{stuMap.get(a.student_id)?.name ?? "—"} · {related.length} buổi đã ghi</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {open && (
+        <section>
+          <h3 className="mb-2 text-sm font-semibold">Các buổi thuộc tác phẩm “{open.title}”</h3>
+          {openLogs.length === 0 ? (
+            <EmptyState text="Chưa có bản ghi nào cho tác phẩm này." />
+          ) : (
+            <div className="space-y-2">
+              {openLogs.map((l) => (
+                <LogCard key={l.id} log={l} name={stuMap.get(l.student_id ?? "")?.name ?? "—"} students={students} artworks={artworks} compact />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
 
 
 function DeleteLogButton({ id }: { id: string }) {

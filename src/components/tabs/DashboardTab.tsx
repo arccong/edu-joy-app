@@ -44,14 +44,19 @@ import {
   type ScheduleChange,
   type ScheduleSlot,
   type Student,
+  type TrialStudent,
   type TuitionPayment,
 } from "@/lib/shared";
 import { listAttendance, listAttendanceRange, listScheduleChanges, listStudents, setAttendance } from "@/lib/students.functions";
+import { setTrialAttendance } from "@/lib/trials.functions";
 import { listPayments } from "@/lib/tuition.functions";
 import { listLearningLogs } from "@/lib/learning.functions";
 import { listExpenseCategories } from "@/lib/finance.functions";
 
 type TodayItem = { s: Student; slot: ScheduleSlot };
+type TodayRow =
+  | { kind: "student"; s: Student; slot: ScheduleSlot; start: string; end: string }
+  | { kind: "trial"; t: TrialStudent; start: string; end: string };
 
 function relTime(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -83,6 +88,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const fetchLogs = useServerFn(listLearningLogs);
   const fetchCats = useServerFn(listExpenseCategories);
   const setAtt = useServerFn(setAttendance);
+  const setTrialAtt = useServerFn(setTrialAttendance);
 
   const now = new Date();
   const todayISO = toLocalISO(now);
@@ -149,6 +155,25 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     return h * 60 + m;
   };
   const donePart = todayItems.filter(({ slot }) => nowMinutes >= minutesOf(slot.end)).length;
+
+  const trialToday = useMemo(
+    () => (trials as TrialStudent[]).filter((t) => t.trial_date === todayISO && trialStatus(t, todayISO) === "Học thử"),
+    [trials, todayISO],
+  );
+
+  const todayRows = useMemo<TodayRow[]>(() => {
+    const rows: TodayRow[] = [
+      ...todayItems.map(({ s, slot }) => ({ kind: "student" as const, s, slot, start: slot.start, end: slot.end })),
+      ...trialToday.map((t) => ({ kind: "trial" as const, t, start: hhmm(t.start_time), end: hhmm(t.end_time) })),
+    ];
+    return rows.sort((a, b) => {
+      const byTime = a.start.localeCompare(b.start);
+      if (byTime !== 0) return byTime;
+      const nameA = a.kind === "student" ? a.s.name : a.t.name;
+      const nameB = b.kind === "student" ? b.s.name : b.t.name;
+      return nameA.localeCompare(nameB, "vi");
+    });
+  }, [todayItems, trialToday]);
 
   const activeCount = activeStudents.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
   const reserveCount = activeStudents.filter((s) => s.status === "Bảo lưu").length;
@@ -262,6 +287,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const trialMut = useMutation({
+    mutationFn: (v: { id: string; status: "Đi học" | "Nghỉ không phép" }) => setTrialAtt({ data: { id: v.id, status: v.status, note: null, makeup_date: null } as any }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["trial-students"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-4">
       {/* Lời chào + thao tác nhanh */}
@@ -333,11 +364,45 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               <CardDescription>Điểm danh nhanh ngay tại đây</CardDescription>
             </CardHeader>
             <CardContent className="min-w-0">
-              {todayItems.length === 0 ? (
+              {todayRows.length === 0 ? (
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
                 <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
-                  {todayItems.map(({ s, slot }, i) => {
+                  {todayRows.map((row, i) => {
+                    if (row.kind === "trial") {
+                      const t = row.t;
+                      const done = !!t.attendance_status;
+                      return (
+                        <div key={`trial-${t.id}-${i}`} className="rounded-lg border border-dashed bg-card p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{t.name}</span>
+                                <Badge variant="outline" className="text-[10px]">Học thử</Badge>
+                                {classChip(t.class_type)}
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground">⏰ {row.start}–{row.end}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {done ? (
+                                <Badge variant="outline" className={t.attendance_status === "Đi học" ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]" : "text-muted-foreground"}>
+                                  {t.attendance_status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}{t.attendance_status}
+                                </Badge>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" disabled={trialMut.isPending}
+                                    onClick={() => trialMut.mutate({ id: t.id, status: "Đi học" })}>Đã đến học</Button>
+                                  <Button size="sm" variant="outline" disabled={trialMut.isPending}
+                                    onClick={() => trialMut.mutate({ id: t.id, status: "Nghỉ không phép" })}>Vắng</Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const { s, slot } = row;
                     const rec = attMap.get(s.id);
                     const startM = minutesOf(slot.start);
                     const canCheckIn = nowMinutes >= startM - 20;

@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
-import { BookOpen, Download, Eye, EyeOff, Image as ImageIcon, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { BookOpen, Download, Eye, EyeOff, Image as ImageIcon, Loader2, Pencil, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { coursePrefix, dayOfWeekOf, fmtDate, slotsEffectiveOn, toLocalISO, type ClassType, type ScheduleChange, type Student } from "@/lib/shared";
 import { listAttendance, listScheduleChanges, listStudents } from "@/lib/students.functions";
-import { deleteLearningLog, listLearningLogs, setLogPublished, upsertLearningLog } from "@/lib/learning.functions";
+import { cleanupOrphanedLearningMedia, deleteLearningLog, listLearningLogs, setLogPublished, upsertLearningLog } from "@/lib/learning.functions";
 import { createArtwork, listArtworks } from "@/lib/artworks.functions";
 import { uploadLearningImage } from "@/lib/image-upload";
 import { exportXlsx } from "@/lib/export";
@@ -47,13 +47,23 @@ export type LearningLog = {
 
 
 export function LearningTab() {
+  const { isOwner } = useAccess();
   const fetchStudents = useServerFn(listStudents);
   const fetchLogs = useServerFn(listLearningLogs);
   const fetchAtt = useServerFn(listAttendance);
   const fetchArtworks = useServerFn(listArtworks);
+  const runCleanup = useServerFn(cleanupOrphanedLearningMedia);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: logs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: artworks = [] } = useQuery<Artwork[]>({ queryKey: ["artworks"], queryFn: () => fetchArtworks() as any });
+
+  const cleanupMut = useMutation({
+    mutationFn: () => runCleanup() as Promise<{ deleted: number }>,
+    onSuccess: (res) => {
+      toast.success(res.deleted > 0 ? `Đã xóa ${res.deleted} ảnh không còn dùng đến.` : "Không có ảnh thừa nào để dọn dẹp.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const [cls, setCls] = useState<ClassType>("Piano");
   const [studentId, setStudentId] = useState<string>("all");
@@ -133,6 +143,17 @@ export function LearningTab() {
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={doExport}><Download className="mr-1 h-4 w-4" />Xuất dữ liệu</Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                disabled={cleanupMut.isPending}
+                onClick={() => cleanupMut.mutate()}
+                title="Xóa các ảnh trong kho lưu trữ không còn được nhật ký nào tham chiếu tới"
+              >
+                {cleanupMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                Dọn dẹp ảnh không dùng
+              </Button>
+            )}
             <LogDialog students={inClass} cls={cls} defaultDate={date} artworks={artworks} trigger={<Button><Plus className="mr-1 h-4 w-4" />Ghi nhật ký</Button>} />
           </div>
         </CardHeader>

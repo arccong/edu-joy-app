@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      artworks: {
+        Row: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          cover_image_url: string | null
+          created_at: string
+          id: string
+          student_id: string
+          title: string
+        }
+        Insert: {
+          class_type: Database["public"]["Enums"]["class_type"]
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          student_id: string
+          title: string
+        }
+        Update: {
+          class_type?: Database["public"]["Enums"]["class_type"]
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          student_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artworks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance: {
         Row: {
           created_at: string
@@ -231,6 +266,7 @@ export type Database = {
       }
       learning_logs: {
         Row: {
+          artwork_id: string | null
           attachments: Json
           class_type: Database["public"]["Enums"]["class_type"]
           content: string | null
@@ -238,11 +274,13 @@ export type Database = {
           date: string
           id: string
           is_class_wide: boolean
+          is_published: boolean
           student_id: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          artwork_id?: string | null
           attachments?: Json
           class_type: Database["public"]["Enums"]["class_type"]
           content?: string | null
@@ -250,11 +288,13 @@ export type Database = {
           date: string
           id?: string
           is_class_wide?: boolean
+          is_published?: boolean
           student_id?: string | null
           title?: string
           updated_at?: string
         }
         Update: {
+          artwork_id?: string | null
           attachments?: Json
           class_type?: Database["public"]["Enums"]["class_type"]
           content?: string | null
@@ -262,11 +302,19 @@ export type Database = {
           date?: string
           id?: string
           is_class_wide?: boolean
+          is_published?: boolean
           student_id?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "learning_logs_artwork_id_fkey"
+            columns: ["artwork_id"]
+            isOneToOne: false
+            referencedRelation: "artworks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "learning_logs_student_id_fkey"
             columns: ["student_id"]

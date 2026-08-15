@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,10 +62,86 @@ const ALL_TABS = [
   { value: "settings", label: "Cài đặt", labelKey: null, Icon: SettingsIcon, managerOnly: true },
 ] as const;
 
+function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast.success("Đã đổi mật khẩu thành công.");
+      setNewPassword("");
+      setConfirmPassword("");
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Đổi mật khẩu thất bại."),
+  });
+
+  const submit = () => {
+    if (newPassword.length < 6) return toast.error("Mật khẩu mới cần tối thiểu 6 ký tự.");
+    if (newPassword !== confirmPassword) return toast.error("Xác nhận mật khẩu không khớp.");
+    mut.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setNewPassword(""); setConfirmPassword(""); } }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" />Đổi mật khẩu</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <Label>Mật khẩu mới</Label>
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Tối thiểu 6 ký tự"
+                className="pr-10"
+                onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-1">
+            <Label>Nhập lại mật khẩu mới</Label>
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
+          <Button onClick={submit} disabled={mut.isPending}>
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Đổi mật khẩu
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AccountMenu() {
   const access = useAccess();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   async function handleSignOut() {
     await qc.cancelQueries();
@@ -77,30 +153,46 @@ function AccountMenu() {
   const initial = (access.email || "?").charAt(0).toUpperCase();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{initial}</span>
-          <span className="hidden max-w-[160px] truncate sm:inline">{access.email || "Tài khoản"}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="space-y-1">
-          <div className="truncate text-sm">{access.email}</div>
-          <div className="flex flex-wrap gap-1">
-            <Badge variant={access.isManager ? "default" : "secondary"}>
-              {access.isOwner ? "Chủ trung tâm" : access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
-            </Badge>
+    <>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => toast.info("Tính năng đổi ảnh đại diện sẽ sớm ra mắt.")}
+          title="Đổi ảnh đại diện"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground transition hover:opacity-80"
+        >
+          {initial}
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <span className="hidden max-w-[160px] truncate sm:inline">{access.email || "Tài khoản"}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="space-y-1">
+              <div className="truncate text-sm">{access.email}</div>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant={access.isManager ? "default" : "secondary"}>
+                  {access.isOwner ? "Chủ trung tâm" : access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
+                </Badge>
 
-            {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => { void handleSignOut(); }}>
-          <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+                {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+              <KeyRound className="mr-2 h-4 w-4" /> Đổi mật khẩu
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => { void handleSignOut(); }}>
+              <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
+    </>
   );
 }
 

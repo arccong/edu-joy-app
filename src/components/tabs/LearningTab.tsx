@@ -343,10 +343,11 @@ function DeleteLogButton({ id }: { id: string }) {
   );
 }
 
-function LogDialog({ students, cls, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
+function LogDialog({ students, cls, artworks, existing, trigger, defaultStudentId, defaultDate }: { students: Student[]; cls: ClassType; artworks: Artwork[]; existing?: LearningLog; trigger: React.ReactNode; defaultStudentId?: string; defaultDate?: string }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const save = useServerFn(upsertLearningLog);
+  const addArtwork = useServerFn(createArtwork);
 
   const classWideDefault = existing?.is_class_wide ?? cls === "Múa";
   const [isClassWide, setIsClassWide] = useState(classWideDefault);
@@ -356,7 +357,54 @@ function LogDialog({ students, cls, existing, trigger, defaultStudentId, default
   const [content, setContent] = useState(existing?.content ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>(existing?.attachments ?? []);
   const [newUrl, setNewUrl] = useState("");
-  const [newKind, setNewKind] = useState<Attachment["kind"]>("image");
+  const [newKind, setNewKind] = useState<Attachment["kind"]>("video");
+  const [artworkId, setArtworkId] = useState<string>(existing?.artwork_id ?? "none");
+  const [isPublished, setIsPublished] = useState<boolean>(existing?.is_published ?? false);
+  const [newArtworkTitle, setNewArtworkTitle] = useState("");
+  const [uploadState, setUploadState] = useState<"" | "optimizing" | "uploading">("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const myArtworks = useMemo(
+    () => artworks.filter((a) => a.class_type === cls && (isClassWide || a.student_id === studentId)),
+    [artworks, cls, studentId, isClassWide],
+  );
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    try {
+      setUploadState("optimizing");
+      for (const f of list) {
+        setUploadState("optimizing");
+        const url = await uploadLearningImage(f);
+        setUploadState("uploading");
+        setAttachments((a) => [...a, { kind: "image", url, label: f.name }]);
+      }
+      toast.success(`Đã tải lên ${list.length} ảnh`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Tải ảnh thất bại");
+    } finally {
+      setUploadState("");
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const createArtworkMut = useMutation({
+    mutationFn: () => addArtwork({ data: {
+      student_id: studentId,
+      class_type: cls,
+      title: newArtworkTitle.trim(),
+      cover_image_url: attachments.find((a) => a.kind === "image")?.url ?? null,
+    } }) as any,
+    onSuccess: (row: any) => {
+      qc.invalidateQueries({ queryKey: ["artworks"] });
+      setArtworkId(row?.id ?? "none");
+      setNewArtworkTitle("");
+      toast.success("Đã tạo tác phẩm");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const fetchChanges = useServerFn(listScheduleChanges);
   const fetchAtt = useServerFn(listAttendance);

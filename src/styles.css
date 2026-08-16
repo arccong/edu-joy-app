@@ -110,6 +110,13 @@
   html {
     scrollbar-gutter: stable;
   }
+  /* Radix (Select/Dropdown/Popover) tự chèn margin-right bù thanh cuộn vào body mỗi khi mở, rồi xóa
+     khi đóng — gây hiện tượng trang "co lại rồi bung ra". Đã có scrollbar-gutter: stable giữ chỗ cố
+     định ở trên nên không cần Radix bù thêm nữa — vô hiệu hóa hẳn để tránh xung đột 2 lớp. */
+  html body[data-scroll-locked] {
+    margin-right: 0px !important;
+    overflow: visible !important;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

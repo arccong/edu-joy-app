@@ -6,6 +6,7 @@ import { toast, Toaster } from "sonner";
 import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -273,36 +274,38 @@ function AccountMenu() {
   }
 
   const initial = (access.email || "?").charAt(0).toUpperCase();
+  const roleLabel = access.isOwner ? "Chủ trung tâm" : access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền";
+
+  const AvatarPic = ({ className }: { className?: string }) =>
+    access.avatarUrl ? (
+      <img src={access.avatarUrl} alt="Ảnh đại diện" className={cn("h-full w-full object-cover", className)} />
+    ) : (
+      <>{initial}</>
+    );
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
+      {/* Desktop: avatar riêng (bấm đổi ảnh) + nút email riêng (bấm mở menu) */}
+      <div className="hidden items-center gap-1.5 sm:flex">
         <button
           type="button"
           onClick={() => setAvatarOpen(true)}
           title="Đổi ảnh đại diện"
           className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-primary-foreground transition hover:opacity-80"
         >
-          {access.avatarUrl ? (
-            <img src={access.avatarUrl} alt="Ảnh đại diện" className="h-full w-full object-cover" />
-          ) : (
-            initial
-          )}
+          <AvatarPic />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
-              <span className="hidden max-w-[160px] truncate sm:inline">{access.email || "Tài khoản"}</span>
+              <span className="max-w-[160px] truncate">{access.email || "Tài khoản"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel className="space-y-1">
               <div className="truncate text-sm">{access.email}</div>
               <div className="flex flex-wrap gap-1">
-                <Badge variant={access.isManager ? "default" : "secondary"}>
-                  {access.isOwner ? "Chủ trung tâm" : access.isManager ? "Quản lý" : access.role === "giao_vien" ? "Giáo viên" : "Chưa phân quyền"}
-                </Badge>
-
+                <Badge variant={access.isManager ? "default" : "secondary"}>{roleLabel}</Badge>
                 {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
               </div>
             </DropdownMenuLabel>
@@ -317,6 +320,42 @@ function AccountMenu() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Mobile: chỉ 1 avatar, bấm vào mở menu đầy đủ (gồm cả mục Đổi avatar) */}
+      <div className="sm:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              title="Tài khoản"
+              className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-primary-foreground transition hover:opacity-80"
+            >
+              <AvatarPic />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="space-y-1">
+              <div className="truncate text-sm">{access.email}</div>
+              <div className="flex flex-wrap gap-1">
+                <Badge variant={access.isManager ? "default" : "secondary"}>{roleLabel}</Badge>
+                {!access.isManager && access.classes.map((c) => <Badge key={c} variant="outline">{c}</Badge>)}
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setAvatarOpen(true)}>
+              <Camera className="mr-2 h-4 w-4" /> Đổi ảnh đại diện
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+              <KeyRound className="mr-2 h-4 w-4" /> Đổi mật khẩu
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => { void handleSignOut(); }}>
+              <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
       <AvatarDialog open={avatarOpen} onOpenChange={setAvatarOpen} currentUrl={access.avatarUrl} />
     </>

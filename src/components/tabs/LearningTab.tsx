@@ -743,10 +743,12 @@ function LogDialog({
           <DialogTitle>{existing ? "Sửa nhật ký" : `Ghi nhật ký lớp ${cls}`}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={isClassWide} onCheckedChange={(v) => setIsClassWide(!!v)} />
-            <span>Bài học chung cả lớp (áp dụng cho lớp Múa)</span>
-          </label>
+          {cls === "Múa" && (
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={isClassWide} onCheckedChange={(v) => setIsClassWide(!!v)} />
+              <span>Bài học chung cả lớp (áp dụng cho lớp Múa)</span>
+            </label>
+          )}
           {!isClassWide && (
             <div className="grid gap-1">
               <Label>Học sinh</Label>

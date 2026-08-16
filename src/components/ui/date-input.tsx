@@ -52,12 +52,15 @@ export type DateInputProps = {
   className?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** Chỉ áp dụng cho variant="date": trả về true để đánh dấu ngày đó (vd: thuộc lịch học của học sinh). */
+  isHighlightedDate?: (date: Date) => boolean;
+  highlightHint?: string;
 };
 
 const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => `Th${i + 1}`);
 
 const DateInput = React.forwardRef<HTMLButtonElement, DateInputProps>(
-  ({ value, onChange, variant = "date", className, disabled, placeholder }, ref) => {
+  ({ value, onChange, variant = "date", className, disabled, placeholder, isHighlightedDate, highlightHint }, ref) => {
     const [open, setOpen] = React.useState(false);
     const isMonth = variant === "month";
     const label = isMonth ? fmtMonthVN(value ?? "") : fmtDateVN(value ?? "");
@@ -133,15 +136,25 @@ const DateInput = React.forwardRef<HTMLButtonElement, DateInputProps>(
               </div>
             </div>
           ) : (
-            <Calendar
-              mode="single"
-              selected={parseISODate(value ?? "")}
-              defaultMonth={parseISODate(value ?? "") ?? now}
-              onSelect={(d) => {
-                if (d) emit(toISO(d));
-                setOpen(false);
-              }}
-            />
+            <div>
+              <Calendar
+                mode="single"
+                selected={parseISODate(value ?? "")}
+                defaultMonth={parseISODate(value ?? "") ?? now}
+                onSelect={(d) => {
+                  if (d) emit(toISO(d));
+                  setOpen(false);
+                }}
+                modifiers={isHighlightedDate ? { scheduled: isHighlightedDate } : undefined}
+                modifiersClassNames={isHighlightedDate ? { scheduled: "bg-primary/15 font-semibold text-primary" } : undefined}
+              />
+              {isHighlightedDate && (
+                <p className="flex items-center gap-1.5 border-t px-3 py-2 text-[11px] text-muted-foreground">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-primary/15" />
+                  {highlightHint ?? "Ngày thuộc lịch học"}
+                </p>
+              )}
+            </div>
           )}
         </PopoverContent>
       </Popover>

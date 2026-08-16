@@ -1,11 +1,15 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
 import {
   BookOpen,
+  Check,
+  ChevronsUpDown,
+  Copy,
   Download,
   Eye,
   EyeOff,
@@ -28,6 +32,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
@@ -522,6 +528,61 @@ function DeleteLogButton({ id }: { id: string }) {
   );
 }
 
+function StudentCombobox({
+  students,
+  value,
+  onChange,
+}: {
+  students: Student[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = students.find((s) => s.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className="truncate">
+            {current ? `${current.name} · ${coursePrefix(current.class_type)}${current.course_index ?? 1}` : "Chọn học sinh"}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Gõ tên để tìm..." />
+          <CommandList>
+            <CommandEmpty>Không tìm thấy học sinh.</CommandEmpty>
+            <CommandGroup>
+              {students.map((s) => (
+                <CommandItem
+                  key={s.id}
+                  value={`${s.name} ${coursePrefix(s.class_type)}${s.course_index ?? 1}`}
+                  onSelect={() => {
+                    onChange(s.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === s.id ? "opacity-100" : "opacity-0")} />
+                  {s.name} · {coursePrefix(s.class_type)}
+                  {s.course_index ?? 1}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function LogDialog({
   students,
   cls,
@@ -621,6 +682,19 @@ function LogDialog({
     [attOfDate],
   );
 
+  const isHighlightedDate = useCallback(
+    (d: Date): boolean => {
+      const s = students.find((x) => x.id === studentId);
+      if (!s) return false;
+      const iso = toLocalISO(d);
+      if (iso < s.start_date || iso > s.end_date) return false;
+      const dow = dayOfWeekOf(iso);
+      const slots = slotsEffectiveOn(s, changes, iso);
+      return dow !== null && slots.some((sl) => sl.day === dow);
+    },
+    [students, studentId, changes],
+  );
+
   const validation = useMemo<{ ok: boolean; message?: string }>(() => {
     if (!date) return { ok: false, message: "Chọn ngày học." };
     if (isClassWide) {
@@ -676,24 +750,17 @@ function LogDialog({
           {!isClassWide && (
             <div className="grid gap-1">
               <Label>Học sinh</Label>
-              <Select value={studentId} onValueChange={setStudentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn học sinh" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} · {coursePrefix(s.class_type)}
-                      {s.course_index ?? 1}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentCombobox students={students} value={studentId} onChange={setStudentId} />
             </div>
           )}
           <div className="grid gap-1">
             <Label>Ngày học</Label>
-            <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              isHighlightedDate={!isClassWide && studentId ? isHighlightedDate : undefined}
+              highlightHint="Ngày thuộc lịch học của học sinh"
+            />
             {!validation.ok && <p className="text-xs text-destructive">{validation.message}</p>}
           </div>
 
@@ -771,9 +838,9 @@ function LogDialog({
           </div>
           <div className="grid gap-2">
             <Label>Link video / tài liệu ngoài</Label>
-            <div className="flex gap-2">
+            <div className="flex min-w-0 gap-2">
               <Select value={newKind} onValueChange={(v) => setNewKind(v as Attachment["kind"])}>
-                <SelectTrigger className="w-[110px]">
+                <SelectTrigger className="w-[110px] shrink-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -782,11 +849,12 @@ function LogDialog({
                   <SelectItem value="link">Link</SelectItem>
                 </SelectContent>
               </Select>
-              <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://..." />
+              <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://..." className="min-w-0 flex-1" />
 
               <Button
                 type="button"
                 variant="outline"
+                className="shrink-0"
                 onClick={() => {
                   if (!newUrl.trim()) return;
                   setAttachments((a) => [...a, { kind: newKind, url: newUrl.trim(), label: null }]);
@@ -797,9 +865,9 @@ function LogDialog({
               </Button>
             </div>
             {attachments.length > 0 && (
-              <ul className="space-y-1">
+              <ul className="min-w-0 space-y-1">
                 {attachments.map((a, i) => (
-                  <li key={i} className="flex items-center gap-2 rounded bg-muted/50 px-2 py-1 text-xs">
+                  <li key={i} className="flex min-w-0 items-center gap-2 rounded bg-muted/50 px-2 py-1 text-xs">
                     {a.kind === "image" ? (
                       <Thumb
                         src={a.url}
@@ -809,8 +877,25 @@ function LogDialog({
                     ) : (
                       <span className="shrink-0">{a.kind === "video" ? "🎬" : "🔗"}</span>
                     )}
-                    <span className="min-w-0 flex-1 truncate">{a.url}</span>
-                    <button type="button" onClick={() => setAttachments((x) => x.filter((_, j) => j !== i))}>
+                    <span className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" title={a.url}>
+                      {a.url}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      title="Sao chép link"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(a.url);
+                          toast.success("Đã sao chép link.");
+                        } catch {
+                          toast.error("Không sao chép được, thử chọn thủ công.");
+                        }
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" className="shrink-0" onClick={() => setAttachments((x) => x.filter((_, j) => j !== i))}>
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>

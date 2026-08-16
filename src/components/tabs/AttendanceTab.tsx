@@ -102,7 +102,11 @@ function ByDateView() {
   const mut = useMutation({
     mutationFn: (v: { student_id: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>
       setAtt({ data: { ...v, date } as any }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", date] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance", date] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["attendance-by-student"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -137,6 +141,8 @@ function ByDateView() {
         catch { /* ignore */ }
       }
       qc.invalidateQueries({ queryKey: ["attendance", date] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["attendance-by-student"] });
       toast.success(`Đã tự động điểm danh ${missing.length} học sinh`);
     })();
   }, [autoMark, date, scheduled, attMap, setAtt, qc, dow]);
@@ -497,7 +503,12 @@ function BackfillButton({ students }: { students: Student[] }) {
       setProgress(i + 1);
     }
     setSaving(false);
+    // Làm mới mọi vùng dữ liệu điểm danh liên quan — không chỉ đúng khóa "attendance" (trang Học sinh
+    // tính "Buổi còn lại" từ khóa "attendance-range" riêng, không tự khớp nếu chỉ báo mỗi "attendance").
     qc.invalidateQueries({ queryKey: ["attendance"] });
+    qc.invalidateQueries({ queryKey: ["attendance-range"] });
+    qc.invalidateQueries({ queryKey: ["attendance-by-student"] });
+    qc.invalidateQueries({ queryKey: ["students"] });
     toast.success(`Đã lưu ${ok} buổi${fail ? `, lỗi ${fail}` : ""}`);
     setRows([]);
     setOpen(false);
@@ -741,12 +752,20 @@ function ByStudentView() {
   const setMut = useMutation({
     mutationFn: (v: { date: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>
       setAtt({ data: { student_id: studentId, ...v } as any }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const delMut = useMutation({
     mutationFn: (date: string) => delAtt({ data: { student_id: studentId, date } as any }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance-by-student", studentId] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 

@@ -729,9 +729,10 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label>Chế độ</Label>
-            <div className="inline-flex flex-wrap rounded-md border bg-muted/40 p-0.5">
+            <div className="flex w-full rounded-md border bg-muted/40 p-0.5">
               <Button
                 size="sm"
+                className="flex-1"
                 variant={mode === "next" ? "default" : "ghost"}
                 onClick={() => {
                   setMode("next");
@@ -743,6 +744,7 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
               </Button>
               <Button
                 size="sm"
+                className="flex-1"
                 variant={mode === "class" ? "default" : "ghost"}
                 onClick={() => {
                   setMode("class");
@@ -754,6 +756,7 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
               </Button>
               <Button
                 size="sm"
+                className="flex-1"
                 variant={mode === "new" ? "default" : "ghost"}
                 onClick={() => {
                   setMode("new");

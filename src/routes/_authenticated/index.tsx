@@ -421,9 +421,9 @@ function App() {
           </div>
 
           {/* Tablet/Desktop */}
-          <TabsList className="hidden h-auto w-full gap-1 sm:grid sm:grid-cols-4 lg:grid-cols-9">
+          <TabsList className="hidden h-auto w-full gap-1 sm:flex">
             {tabs.map(({ value, label, labelKey, Icon }) => (
-              <TabsTrigger key={value} value={value} className="min-w-0 py-1.5">
+              <TabsTrigger key={value} value={value} className="min-w-0 flex-1 py-1.5">
                 <Icon className="mr-1 h-4 w-4 shrink-0" />
                 <span className="truncate">{labelKey ? t(labelKey) : label}</span>
               </TabsTrigger>

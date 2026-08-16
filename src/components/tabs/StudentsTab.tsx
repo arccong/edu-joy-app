@@ -19,6 +19,7 @@ import {
   addScheduledDays,
   coursePrefix,
   effectiveStatus,
+  countsTowardSessions,
   fmtDate,
   formatMoney,
   nextScheduledDate,
@@ -104,7 +105,7 @@ export function StudentsTab() {
     const m = new Map<string, number>();
     for (const r of attendedRows) {
       const s = studentById.get(r.student_id);
-      if (r.status === "Đi học" && inCourse(s, r.date))
+      if (countsTowardSessions(r) && inCourse(s, r.date))
         m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(s, r.date));
     }
     return m;

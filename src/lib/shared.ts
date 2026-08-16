@@ -11,6 +11,19 @@ export function effectiveStatus(status: StudentStatus, remain: number): StudentS
   return status;
 }
 
+/**
+ * Quy định tính buổi (áp dụng từ [ngày cập nhật]): "Đi học" và "Nghỉ không phép" luôn tính là 1 buổi
+ * đã dùng của khóa học. "Nghỉ có phép" cũng tính là 1 buổi đã dùng, TRỪ KHI học sinh đã được xếp lịch
+ * học bù cho đúng buổi đó (makeup_date có giá trị) — khi đó buổi nghỉ không bị trừ, chờ tính vào buổi
+ * học bù thay thế. "Bảo lưu" không tính vào buổi của khóa.
+ */
+export function countsTowardSessions(r: { status: AttendanceStatus; makeup_date?: string | null }): boolean {
+  if (r.status === "Đi học") return true;
+  if (r.status === "Nghỉ không phép") return true;
+  if (r.status === "Nghỉ có phép") return !r.makeup_date;
+  return false;
+}
+
 /** Ngày học kế tiếp (theo lịch học) sau ngày cho trước */
 export function nextScheduledDate(afterISO: string, slots: ScheduleSlot[]): string {
   if (!afterISO || slots.length === 0) return afterISO;

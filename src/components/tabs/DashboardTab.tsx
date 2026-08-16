@@ -50,7 +50,15 @@ import {
   type TrialStudent,
   type TuitionPayment,
 } from "@/lib/shared";
-import { listAttendance, listAttendanceRange, listMakeupsInRange, listScheduleChanges, listStudents, setAttendance, upsertStudent } from "@/lib/students.functions";
+import {
+  listAttendance,
+  listAttendanceRange,
+  listMakeupsInRange,
+  listScheduleChanges,
+  listStudents,
+  setAttendance,
+  upsertStudent,
+} from "@/lib/students.functions";
 import { setTrialAttendance } from "@/lib/trials.functions";
 import { listPayments } from "@/lib/tuition.functions";
 import { listLearningLogs } from "@/lib/learning.functions";
@@ -101,22 +109,37 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const dow = now.getDay();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const from = new Date(now); from.setFullYear(from.getFullYear() - 2);
+  const from = new Date(now);
+  from.setFullYear(from.getFullYear() - 2);
   const fromISO = toLocalISO(from);
 
-  const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
-  const { data: attToday = [] } = useQuery<AttendanceRow[]>({ queryKey: ["attendance", todayISO], queryFn: () => fetchAtt({ data: { date: todayISO } }) as any });
-  const { data: attRange = [] } = useQuery<AttendanceRow[]>({ queryKey: ["attendance-range", fromISO, todayISO], queryFn: () => fetchAttRange({ data: { from: fromISO, to: todayISO } }) as any });
+  const { data: students = [] } = useQuery<Student[]>({
+    queryKey: ["students"],
+    queryFn: () => fetchStudents() as any,
+  });
+  const { data: attToday = [] } = useQuery<AttendanceRow[]>({
+    queryKey: ["attendance", todayISO],
+    queryFn: () => fetchAtt({ data: { date: todayISO } }) as any,
+  });
+  const { data: attRange = [] } = useQuery<AttendanceRow[]>({
+    queryKey: ["attendance-range", fromISO, todayISO],
+    queryFn: () => fetchAttRange({ data: { from: fromISO, to: todayISO } }) as any,
+  });
   const { data: makeupRowsToday = [] } = useQuery<AttendanceRow[]>({
     queryKey: ["makeups-range", todayISO, todayISO],
     queryFn: () => fetchMakeups({ data: { from: todayISO, to: todayISO } }) as any,
   });
-  const { data: payments = [] } = useQuery<TuitionPayment[]>({ queryKey: ["payments"], queryFn: () => fetchPayments() as any });
-  const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
+  const { data: payments = [] } = useQuery<TuitionPayment[]>({
+    queryKey: ["payments"],
+    queryFn: () => fetchPayments() as any,
+  });
+  const { data: changes = [] } = useQuery<ScheduleChange[]>({
+    queryKey: ["schedule-changes"],
+    queryFn: () => fetchChanges() as any,
+  });
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: cats = [] } = useQuery<any[]>({ queryKey: ["expense-cats"], queryFn: () => fetchCats() as any });
   const { data: trials = [] } = useTrialStudents();
-
 
   const activeStudents = useMemo(() => students.filter((s) => s.status !== "Kết thúc"), [students]);
   const studentById = useMemo(() => new Map(activeStudents.map((s) => [s.id, s] as const)), [activeStudents]);
@@ -138,14 +161,18 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     const m = new Map<string, number>();
     for (const r of attRange) {
       const s = studentById.get(r.student_id);
-      if (countsTowardSessions(r) && inCourse(s, r.date)) m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(s, r.date));
+      if (countsTowardSessions(r) && inCourse(s, r.date))
+        m.set(r.student_id, (m.get(r.student_id) ?? 0) + sessionsOnDate(s, r.date));
     }
     return m;
   }, [attRange, studentById]);
   const remainOf = (s: Student) => Math.max(0, (s.total_sessions ?? 0) - (attendedByStudent.get(s.id) ?? 0));
 
   const attMap = useMemo(() => new Map(attToday.map((r) => [r.student_id, r] as const)), [attToday]);
-  const reservedToday = useMemo(() => new Set(attToday.filter((r) => r.status === "Bảo lưu").map((r) => r.student_id)), [attToday]);
+  const reservedToday = useMemo(
+    () => new Set(attToday.filter((r) => r.status === "Bảo lưu").map((r) => r.student_id)),
+    [attToday],
+  );
 
   const todayItems = useMemo<TodayItem[]>(() => {
     const out: TodayItem[] = [];
@@ -185,7 +212,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     return rows.sort((a, b) => {
       const byTime = a.start.localeCompare(b.start);
       if (byTime !== 0) return byTime;
-      const nameOf = (r: TodayRow) => (r.kind === "student" ? r.s.name : r.kind === "trial" ? r.t.name : r.m.student.name);
+      const nameOf = (r: TodayRow) =>
+        r.kind === "student" ? r.s.name : r.kind === "trial" ? r.t.name : r.m.student.name;
       return nameOf(a).localeCompare(nameOf(b), "vi");
     });
   }, [todayItems, trialToday, makeupToday]);
@@ -205,11 +233,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   }, [activeStudents, attendedByStudent]);
 
   const lowSessions = useMemo(
-    () => activeStudents
-      .filter((s) => s.status === "Đang học")
-      .map((s) => ({ s, remain: remainOf(s) }))
-      .filter((x) => x.remain > 0 && x.remain <= 2)
-      .sort((a, b) => a.remain - b.remain),
+    () =>
+      activeStudents
+        .filter((s) => s.status === "Đang học")
+        .map((s) => ({ s, remain: remainOf(s) }))
+        .filter((x) => x.remain > 0 && x.remain <= 2)
+        .sort((a, b) => a.remain - b.remain),
     [activeStudents, attendedByStudent],
   );
 
@@ -222,17 +251,25 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
   const completedNeedRenewal = useMemo(() => {
     const bySameOwner = (s: Student, o: Student) =>
-      s.person_id ? s.person_id === o.person_id : (s.name.trim().toLowerCase() === o.name.trim().toLowerCase() && s.age === o.age);
-    return activeStudents
-      .filter((s) => (s.status === "Đang học" && remainOf(s) <= 0) || s.status === "Hoàn thành")
-      // Bỏ qua nếu đã có khóa mới hơn (Chuẩn bị/Đang học/Bảo lưu) đăng ký sau khóa này — coi như đã gia hạn
-      .filter((s) => !activeStudents.some((o) =>
-        o.id !== s.id &&
-        bySameOwner(s, o) &&
-        (o.course_index ?? 1) > (s.course_index ?? 1) &&
-        (o.status === "Đang học" || o.status === "Chuẩn bị" || o.status === "Bảo lưu"),
-      ))
-      .sort((a, b) => (a.end_date || "").localeCompare(b.end_date || ""));
+      s.person_id
+        ? s.person_id === o.person_id
+        : s.name.trim().toLowerCase() === o.name.trim().toLowerCase() && s.age === o.age;
+    return (
+      activeStudents
+        .filter((s) => (s.status === "Đang học" && remainOf(s) <= 0) || s.status === "Hoàn thành")
+        // Bỏ qua nếu đã có khóa mới hơn (Chuẩn bị/Đang học/Bảo lưu) đăng ký sau khóa này — coi như đã gia hạn
+        .filter(
+          (s) =>
+            !activeStudents.some(
+              (o) =>
+                o.id !== s.id &&
+                bySameOwner(s, o) &&
+                (o.course_index ?? 1) > (s.course_index ?? 1) &&
+                (o.status === "Đang học" || o.status === "Chuẩn bị" || o.status === "Bảo lưu"),
+            ),
+        )
+        .sort((a, b) => (a.end_date || "").localeCompare(b.end_date || ""))
+    );
   }, [activeStudents]);
 
   const minutesOfSlot = (hhmm: string) => {
@@ -241,9 +278,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   };
 
   const missingAttendance = useMemo(
-    () => todayItems
-      .filter(({ s, slot }) => nowMinutes >= minutesOfSlot(slot.end) && !attMap.has(s.id))
-      .sort((a, b) => a.slot.end.localeCompare(b.slot.end)),
+    () =>
+      todayItems
+        .filter(({ s, slot }) => nowMinutes >= minutesOfSlot(slot.end) && !attMap.has(s.id))
+        .sort((a, b) => a.slot.end.localeCompare(b.slot.end)),
     [todayItems, attMap, nowMinutes],
   );
 
@@ -251,11 +289,18 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     const limit = toLocalISO(new Date(Date.now() + 7 * 86400000));
     return (trials as any[])
       .filter((t) => trialStatus(t, todayISO) === "Học thử" && t.trial_date >= todayISO && t.trial_date <= limit)
-      .sort((a, b) => a.trial_date.localeCompare(b.trial_date) || String(a.start_time).localeCompare(String(b.start_time)));
+      .sort(
+        (a, b) => a.trial_date.localeCompare(b.trial_date) || String(a.start_time).localeCompare(String(b.start_time)),
+      );
   }, [trials, todayISO]);
 
-  const alertCount = expiring.length + lowSessions.length + unpaid.length + completedNeedRenewal.length + missingAttendance.length + upcomingTrials.length;
-
+  const alertCount =
+    expiring.length +
+    lowSessions.length +
+    unpaid.length +
+    completedNeedRenewal.length +
+    missingAttendance.length +
+    upcomingTrials.length;
 
   // Nghỉ / bảo lưu hôm nay
   const absentToday = useMemo(() => {
@@ -280,36 +325,51 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       items.push({
         at: r.created_at,
         icon: r.status === "Bảo lưu" ? "reserve" : "att",
-        text: r.status === "Bảo lưu"
-          ? `${s.name} (${courseLabel(s)}) bảo lưu ngày ${fmtDate(r.date)}`
-          : `${s.name} (${courseLabel(s)}) — ${r.status} ngày ${fmtDate(r.date)}`,
+        text:
+          r.status === "Bảo lưu"
+            ? `${s.name} (${courseLabel(s)}) bảo lưu ngày ${fmtDate(r.date)}`
+            : `${s.name} (${courseLabel(s)}) — ${r.status} ngày ${fmtDate(r.date)}`,
       });
     }
     for (const p of payments as any[]) {
       const s = studentById.get(p.student_id);
       if (!p.created_at) continue;
-      items.push({ at: p.created_at, icon: "pay", text: `Đóng học phí ${formatMoney(Number(p.amount))}đ${s ? ` — ${s.name} (${courseLabel(s)})` : ""}` });
+      items.push({
+        at: p.created_at,
+        icon: "pay",
+        text: `Đóng học phí ${formatMoney(Number(p.amount))}đ${s ? ` — ${s.name} (${courseLabel(s)})` : ""}`,
+      });
     }
     for (const c of changes) {
       const s = studentById.get(c.student_id);
       if (!c.created_at) continue;
-      items.push({ at: c.created_at, icon: "sched", text: `Đổi lịch học${s ? ` — ${s.name} (${courseLabel(s)})` : ""} từ ${fmtDate(c.effective_from)}` });
+      items.push({
+        at: c.created_at,
+        icon: "sched",
+        text: `Đổi lịch học${s ? ` — ${s.name} (${courseLabel(s)})` : ""} từ ${fmtDate(c.effective_from)}`,
+      });
     }
     for (const l of logs) {
       if (!l.created_at) continue;
       const s = l.student_id ? studentById.get(l.student_id) : undefined;
-      items.push({ at: l.created_at, icon: "log", text: `Nhật ký ${l.class_type}: ${l.title || "(không tiêu đề)"}${s ? ` — ${s.name}` : ""}` });
+      items.push({
+        at: l.created_at,
+        icon: "log",
+        text: `Nhật ký ${l.class_type}: ${l.title || "(không tiêu đề)"}${s ? ` — ${s.name}` : ""}`,
+      });
     }
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 18);
   }, [attRange, payments, changes, logs, studentById]);
 
   const greeting = nowMinutes < 11 * 60 ? "Chào buổi sáng" : nowMinutes < 18 * 60 ? "Chào buổi chiều" : "Chào buổi tối";
-  const summary = todayItems.length === 0
-    ? `Hôm nay không có buổi học nào.${alertCount ? ` Có ${alertCount} việc cần xử lý.` : ""}`
-    : `Hôm nay có ${todayItems.length} buổi học, ${marked} đã điểm danh, ${absentToday.length} nghỉ/bảo lưu${alertCount ? `, ${alertCount} việc cần xử lý` : ""}.`;
+  const summary =
+    todayItems.length === 0
+      ? `Hôm nay không có buổi học nào.${alertCount ? ` Có ${alertCount} việc cần xử lý.` : ""}`
+      : `Hôm nay có ${todayItems.length} buổi học, ${marked} đã điểm danh, ${absentToday.length} nghỉ/bảo lưu${alertCount ? `, ${alertCount} việc cần xử lý` : ""}.`;
 
   const mut = useMutation({
-    mutationFn: (v: { student_id: string; status: AttendanceStatus }) => setAtt({ data: { ...v, date: todayISO, note: null, makeup_date: null } as any }),
+    mutationFn: (v: { student_id: string; status: AttendanceStatus }) =>
+      setAtt({ data: { ...v, date: todayISO, note: null, makeup_date: null } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance", todayISO] });
       qc.invalidateQueries({ queryKey: ["attendance-range", fromISO, todayISO] });
@@ -318,7 +378,8 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   });
 
   const trialMut = useMutation({
-    mutationFn: (v: { id: string; status: "Đi học" | "Nghỉ không phép" }) => setTrialAtt({ data: { id: v.id, status: v.status, note: null, makeup_date: null } as any }),
+    mutationFn: (v: { id: string; status: "Đi học" | "Nghỉ không phép" }) =>
+      setTrialAtt({ data: { id: v.id, status: v.status, note: null, makeup_date: null } as any }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["trial-students"] }),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -338,24 +399,43 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       <Card className="shadow-card">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold sm:text-xl" suppressHydrationWarning>{greeting}! 👋</h2>
-            <p className="text-sm text-muted-foreground" suppressHydrationWarning>{DAYS[dow]}, {fmtDate(todayISO)} — {summary}</p>
+            <h2 className="text-lg font-bold sm:text-xl" suppressHydrationWarning>
+              {greeting}! 👋
+            </h2>
+            <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+              {DAYS[dow]}, {fmtDate(todayISO)} — {summary}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <RecordPaymentDialog
               students={students}
-              trigger={<Button size="sm"><Wallet className="mr-1 h-4 w-4" />{t("btn.payment")}</Button>}
+              trigger={
+                <Button size="sm">
+                  <Wallet className="mr-1 h-4 w-4" />
+                  {t("btn.payment")}
+                </Button>
+              }
             />
-            
+
             <FinanceEntryDialog
               cats={cats}
               students={students}
               defaultMonth={todayISO.slice(0, 7)}
               defaultClass={null}
-              trigger={<Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" />{t("btn.finance")}</Button>}
+              trigger={
+                <Button size="sm" variant="outline">
+                  <Plus className="mr-1 h-4 w-4" />
+                  {t("btn.finance")}
+                </Button>
+              }
             />
             <TrialStudentDialog
-              trigger={<Button size="sm" variant="outline"><GraduationCap className="mr-1 h-4 w-4" />{t("btn.new_student")}</Button>}
+              trigger={
+                <Button size="sm" variant="outline">
+                  <GraduationCap className="mr-1 h-4 w-4" />
+                  {t("btn.new_student")}
+                </Button>
+              }
             />
           </div>
         </CardContent>
@@ -399,7 +479,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="min-w-0 shadow-card">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-5 w-5 text-primary" />Lịch học hôm nay</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CalendarClock className="h-5 w-5 text-primary" />
+                Lịch học hôm nay
+              </CardTitle>
               <CardDescription>Điểm danh nhanh ngay tại đây</CardDescription>
             </CardHeader>
             <CardContent className="min-w-0">
@@ -417,22 +500,48 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-medium">{t.name}</span>
-                                <Badge variant="outline" className="text-[10px]">Học thử</Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                  Học thử
+                                </Badge>
                                 {classChip(t.class_type)}
                               </div>
-                              <p className="mt-0.5 text-xs text-muted-foreground">⏰ {row.start}–{row.end}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                ⏰ {row.start}–{row.end}
+                              </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-1">
                               {done ? (
-                                <Badge variant="outline" className={t.attendance_status === "Đi học" ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]" : "text-muted-foreground"}>
-                                  {t.attendance_status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}{t.attendance_status}
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    t.attendance_status === "Đi học"
+                                      ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  {t.attendance_status === "Đi học" ? (
+                                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                  ) : null}
+                                  {t.attendance_status}
                                 </Badge>
                               ) : (
                                 <>
-                                  <Button size="sm" variant="outline" disabled={trialMut.isPending}
-                                    onClick={() => trialMut.mutate({ id: t.id, status: "Đi học" })}>Đã đến học</Button>
-                                  <Button size="sm" variant="outline" disabled={trialMut.isPending}
-                                    onClick={() => trialMut.mutate({ id: t.id, status: "Nghỉ không phép" })}>Vắng</Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={trialMut.isPending}
+                                    onClick={() => trialMut.mutate({ id: t.id, status: "Đi học" })}
+                                  >
+                                    Đã đến học
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={trialMut.isPending}
+                                    onClick={() => trialMut.mutate({ id: t.id, status: "Nghỉ không phép" })}
+                                  >
+                                    Vắng mặt
+                                  </Button>
                                 </>
                               )}
                             </div>
@@ -445,14 +554,24 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                       const m = row.m;
                       const mrec = attMap.get(m.student.id);
                       return (
-                        <div key={`makeup-${m.attendanceId}-${i}`} className="rounded-lg border border-dashed bg-card p-3">
+                        <div
+                          key={`makeup-${m.attendanceId}-${i}`}
+                          className="rounded-lg border border-dashed bg-card p-3"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-medium">{m.student.name}</span>
-                                <Badge variant="outline" className="text-[10px]">{courseLabel(m.student)}</Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {courseLabel(m.student)}
+                                </Badge>
                                 {classChip(m.student.class_type)}
-                                <Badge variant="outline" className="border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]">Học bù</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]"
+                                >
+                                  Học bù
+                                </Badge>
                               </div>
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 ⏰ {row.start}–{row.end} · Bù cho buổi nghỉ {fmtDate(m.originalDate)}
@@ -460,15 +579,35 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                             </div>
                             <div className="flex flex-wrap items-center gap-1">
                               {mrec ? (
-                                <Badge variant="outline" className={mrec.status === "Đi học" ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]" : "text-muted-foreground"}>
-                                  {mrec.status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}{mrec.status === "Đi học" ? "Đi học" : "Vắng mặt"}
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    mrec.status === "Đi học"
+                                      ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  {mrec.status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}
+                                  {mrec.status === "Đi học" ? "Đi học" : "Vắng mặt"}
                                 </Badge>
                               ) : (
                                 <>
-                                  <Button size="sm" variant="outline" disabled={mut.isPending}
-                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Đi học" })}>Đi học</Button>
-                                  <Button size="sm" variant="outline" disabled={mut.isPending}
-                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Nghỉ không phép" })}>Vắng mặt</Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={mut.isPending}
+                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Đi học" })}
+                                  >
+                                    Đi học
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={mut.isPending}
+                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Nghỉ không phép" })}
+                                  >
+                                    Vắng mặt
+                                  </Button>
                                 </>
                               )}
                             </div>
@@ -488,24 +627,61 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-medium">{s.name}</span>
-                              <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {courseLabel(s)}
+                              </Badge>
                               {classChip(s.class_type)}
-                              {upcoming && <Badge className="bg-warning/15 text-[color:var(--warning)] text-[10px]" variant="outline">Sắp tới giờ</Badge>}
+                              {upcoming && (
+                                <Badge
+                                  className="bg-warning/15 text-[color:var(--warning)] text-[10px]"
+                                  variant="outline"
+                                >
+                                  Sắp tới giờ
+                                </Badge>
+                              )}
                             </div>
-                            <p className="mt-0.5 text-xs text-muted-foreground">⏰ {slot.start}–{slot.end}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              ⏰ {slot.start}–{slot.end}
+                            </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-1">
                             {rec ? (
-                              <Badge variant="outline" className={rec.status === "Đi học" ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]" : "text-muted-foreground"}>
-                                {rec.status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}{rec.status}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  rec.status === "Đi học"
+                                    ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {rec.status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}
+                                {rec.status}
                               </Badge>
                             ) : null}
-                            <Button size="sm" variant={rec?.status === "Đi học" ? "default" : "outline"} disabled={!canCheckIn || mut.isPending}
-                              onClick={() => mut.mutate({ student_id: s.id, status: "Đi học" })}>Đi học</Button>
-                            <Button size="sm" variant={rec?.status === "Nghỉ có phép" ? "default" : "outline"} disabled={mut.isPending}
-                              onClick={() => mut.mutate({ student_id: s.id, status: "Nghỉ có phép" })}>Nghỉ CP</Button>
-                            <Button size="sm" variant={rec?.status === "Nghỉ không phép" ? "default" : "outline"} disabled={mut.isPending}
-                              onClick={() => mut.mutate({ student_id: s.id, status: "Nghỉ không phép" })}>Nghỉ KP</Button>
+                            <Button
+                              size="sm"
+                              variant={rec?.status === "Đi học" ? "default" : "outline"}
+                              disabled={!canCheckIn || mut.isPending}
+                              onClick={() => mut.mutate({ student_id: s.id, status: "Đi học" })}
+                            >
+                              Đi học
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={rec?.status === "Nghỉ có phép" ? "default" : "outline"}
+                              disabled={mut.isPending}
+                              onClick={() => mut.mutate({ student_id: s.id, status: "Nghỉ có phép" })}
+                            >
+                              Nghỉ CP
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={rec?.status === "Nghỉ không phép" ? "default" : "outline"}
+                              disabled={mut.isPending}
+                              onClick={() => mut.mutate({ student_id: s.id, status: "Nghỉ không phép" })}
+                            >
+                              Nghỉ KP
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -518,20 +694,32 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
           <Card id="dash-alerts" className="flex min-w-0 flex-1 flex-col shadow-card scroll-mt-24">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />Cần xử lý</CardTitle>
-              <CardDescription>{alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />
+                Cần xử lý
+              </CardTitle>
+              <CardDescription>
+                {alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                 <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                   {missingAttendance.map(({ s, slot }, i) => (
-                    <div key={`miss-${s.id}-${i}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                      key={`miss-${s.id}-${i}`}
+                      className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                    >
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         <span className="truncate font-medium">{s.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                          {courseLabel(s)}
+                        </Badge>
                         <span className="shrink-0">{classChip(s.class_type)}</span>
                       </div>
-                      <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">Ca {slot.start}–{slot.end}</span>
+                      <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+                        Ca {slot.start}–{slot.end}
+                      </span>
                     </div>
                   ))}
                 </AlertGroup>
@@ -547,10 +735,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 </AlertGroup>
                 <AlertGroup title="Các buổi học thử sắp tới" empty={upcomingTrials.length === 0}>
                   {upcomingTrials.map((t: any) => (
-                    <div key={`trial-${t.id}`} className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div
+                      key={`trial-${t.id}`}
+                      className="flex flex-col gap-1.5 rounded-lg border bg-muted/30 p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                    >
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                         <span className="truncate font-medium">{t.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">Học thử</Badge>
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                          Học thử
+                        </Badge>
                         <span className="shrink-0">{classChip(t.class_type)}</span>
                       </div>
                       <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
@@ -561,7 +754,13 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 </AlertGroup>
                 <AlertGroup title="Học sinh đã hoàn thành khóa" empty={completedNeedRenewal.length === 0}>
                   {completedNeedRenewal.map((s) => (
-                    <CompletedRow key={s.id} s={s} students={students} onEnd={(st) => endStudentMut.mutate(st)} ending={endStudentMut.isPending} />
+                    <CompletedRow
+                      key={s.id}
+                      s={s}
+                      students={students}
+                      onEnd={(st) => endStudentMut.mutate(st)}
+                      ending={endStudentMut.isPending}
+                    />
                   ))}
                 </AlertGroup>
                 <AlertGroup title="Chưa ghi nhận học phí" empty={unpaid.length === 0}>
@@ -572,14 +771,16 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               </div>
             </CardContent>
           </Card>
-
         </div>
 
         {/* Cảnh báo + hoạt động */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="min-w-0 shadow-card">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><PauseCircle className="h-5 w-5 text-muted-foreground" />Nghỉ / Bảo lưu hôm nay</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PauseCircle className="h-5 w-5 text-muted-foreground" />
+                Nghỉ / Bảo lưu hôm nay
+              </CardTitle>
             </CardHeader>
             <CardContent className="min-w-0">
               {absentToday.length === 0 ? (
@@ -587,10 +788,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               ) : (
                 <div className="max-h-[18rem] space-y-2 overflow-y-auto pr-1">
                   {absentToday.map(({ s, reason }, i) => (
-                    <div key={`${s.id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5">
+                    <div
+                      key={`${s.id}-${i}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2.5"
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{s.name}</span>
-                        <Badge variant="outline" className="text-[10px]">{courseLabel(s)}</Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {courseLabel(s)}
+                        </Badge>
                         {classChip(s.class_type)}
                       </div>
                       <span className="text-xs text-muted-foreground">{reason}</span>
@@ -601,10 +807,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardContent>
           </Card>
 
-
           <Card className="flex min-w-0 flex-1 flex-col shadow-card">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><History className="h-5 w-5 text-primary" />Hoạt động gần đây</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <History className="h-5 w-5 text-primary" />
+                Hoạt động gần đây
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
               {activities.length === 0 ? (
@@ -636,9 +844,27 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   );
 }
 
-function Kpi({ icon, label, value, sub, tone, onClick }: { icon: React.ReactNode; label: string; value: string; sub: string; tone?: "warning"; onClick: () => void }) {
+function Kpi({
+  icon,
+  label,
+  value,
+  sub,
+  tone,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  tone?: "warning";
+  onClick: () => void;
+}) {
   return (
-    <button type="button" onClick={onClick} className="rounded-xl border bg-card p-3 text-left shadow-card transition hover:border-primary/40 hover:shadow-md sm:p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border bg-card p-3 text-left shadow-card transition hover:border-primary/40 hover:shadow-md sm:p-4"
+    >
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className={tone === "warning" ? "text-[color:var(--warning)]" : "text-primary"}>{icon}</span>
         <span className="truncate">{label}</span>
@@ -653,29 +879,62 @@ function AlertGroup({ title, empty, children }: { title: string; empty: boolean;
   return (
     <div>
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      {empty ? <p className="text-sm text-muted-foreground">Không có.</p> : <div className="space-y-1.5">{children}</div>}
+      {empty ? (
+        <p className="text-sm text-muted-foreground">Không có.</p>
+      ) : (
+        <div className="space-y-1.5">{children}</div>
+      )}
     </div>
   );
 }
 
-function CompletedRow({ s, students, onEnd, ending }: { s: Student; students: Student[]; onEnd: (s: Student) => void; ending: boolean }) {
+function CompletedRow({
+  s,
+  students,
+  onEnd,
+  ending,
+}: {
+  s: Student;
+  students: Student[];
+  onEnd: (s: Student) => void;
+  ending: boolean;
+}) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning)]/5 p-2.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="truncate font-medium">{s.name}</span>
-        <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+        <Badge variant="outline" className="shrink-0 text-[10px]">
+          {courseLabel(s)}
+        </Badge>
         <span className="shrink-0">{classChip(s.class_type)}</span>
-        <Badge variant="outline" className="shrink-0 border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]">Hoàn thành khóa</Badge>
+        <Badge
+          variant="outline"
+          className="shrink-0 border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]"
+        >
+          Hoàn thành khóa
+        </Badge>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
-        <RecordPaymentDialog students={students} defaultStudentId={s.id} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
+        <RecordPaymentDialog
+          students={students}
+          defaultStudentId={s.id}
+          trigger={
+            <Button size="sm" variant="outline" className="shrink-0">
+              Ghi nhận
+            </Button>
+          }
+        />
         <Button
           size="sm"
           variant="outline"
           className="shrink-0 text-destructive hover:text-destructive"
           disabled={ending}
           onClick={() => {
-            if (window.confirm(`Xác nhận học sinh "${s.name}" KHÔNG tiếp tục học nữa và chuyển sang trạng thái "Kết thúc"?`)) {
+            if (
+              window.confirm(
+                `Xác nhận học sinh "${s.name}" KHÔNG tiếp tục học nữa và chuyển sang trạng thái "Kết thúc"?`,
+              )
+            ) {
               onEnd(s);
             }
           }}
@@ -692,12 +951,22 @@ function AlertRow({ s, right, students }: { s: Student; right: string; students:
     <div className="flex flex-col gap-2 rounded-lg border p-2.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="truncate font-medium">{s.name}</span>
-        <Badge variant="outline" className="shrink-0 text-[10px]">{courseLabel(s)}</Badge>
+        <Badge variant="outline" className="shrink-0 text-[10px]">
+          {courseLabel(s)}
+        </Badge>
         <span className="shrink-0">{classChip(s.class_type)}</span>
       </div>
       <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:shrink-0 sm:items-center sm:justify-end sm:gap-2">
         <span className="whitespace-nowrap text-xs text-muted-foreground">{right}</span>
-        <RecordPaymentDialog students={students} defaultStudentId={s.id} trigger={<Button size="sm" variant="outline" className="shrink-0">Ghi nhận</Button>} />
+        <RecordPaymentDialog
+          students={students}
+          defaultStudentId={s.id}
+          trigger={
+            <Button size="sm" variant="outline" className="shrink-0">
+              Ghi nhận
+            </Button>
+          }
+        />
       </div>
     </div>
   );

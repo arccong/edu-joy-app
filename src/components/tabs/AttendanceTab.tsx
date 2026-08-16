@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,17 +73,6 @@ export function AttendanceTab() {
 function ByDateView() {
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
-  const [autoMark, setAutoMark] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("att-auto") === "1";
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("att-auto", autoMark ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [autoMark]);
 
   const fetchList = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
@@ -142,46 +130,6 @@ function ByDateView() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Auto-mark: chỉ điểm danh sau khi đã tới giờ học của slot đó.
-  // Trường hợp ngày trong quá khứ: điểm danh toàn bộ buổi chưa có bản ghi.
-  const autoRunRef = useRef<string>("");
-  useEffect(() => {
-    if (!autoMark) return;
-    const key = `${date}|${scheduled.map((s) => s.id).join(",")}`;
-    if (autoRunRef.current === key) return;
-    autoRunRef.current = key;
-
-    const now = new Date();
-    const todayISO = toLocalISO(now);
-    const isPast = date < todayISO;
-    const isToday = date === todayISO;
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const missing = scheduled.filter((s) => {
-      if (attMap.has(s.id)) return false;
-      if (isPast) return true;
-      if (!isToday) return false; // ngày tương lai: không tự điểm danh
-      const slot = (s.schedule_slots ?? []).find((sl) => sl.day === dow);
-      if (!slot) return false;
-      const [sh, sm] = slot.start.split(":").map(Number);
-      return nowMinutes >= sh * 60 + sm - 20; // cho phép từ 20 phút trước giờ học
-    });
-    if (missing.length === 0) return;
-    (async () => {
-      for (const s of missing) {
-        try {
-          await setAtt({ data: { student_id: s.id, date, status: "Đi học", note: null, makeup_date: null } as any });
-        } catch {
-          /* ignore */
-        }
-      }
-      qc.invalidateQueries({ queryKey: ["attendance", date] });
-      qc.invalidateQueries({ queryKey: ["attendance-range"] });
-      qc.invalidateQueries({ queryKey: ["attendance-by-student"] });
-      toast.success(`Đã tự động điểm danh ${missing.length} học sinh`);
-    })();
-  }, [autoMark, date, scheduled, attMap, setAtt, qc, dow]);
-
   return (
     <div className="space-y-3">
       <Card className="shadow-card">
@@ -192,10 +140,6 @@ function ByDateView() {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <BackfillButton students={students as Student[]} />
-            <label className="flex items-center justify-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
-              <Switch checked={autoMark} onCheckedChange={setAutoMark} />
-              <span className="font-medium">Tự động điểm danh</span>
-            </label>
             <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
             <ClassSelect
               className="w-full sm:w-[140px]"

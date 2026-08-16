@@ -13,7 +13,15 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import {
   DAYS,
@@ -32,7 +40,15 @@ import {
   type Student,
   type TrialStudent,
 } from "@/lib/shared";
-import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listMakeupsInRange, listStudents, setAttendance } from "@/lib/students.functions";
+import {
+  deleteAttendance,
+  listAttendance,
+  listAttendanceByStudent,
+  listAttendanceRange,
+  listMakeupsInRange,
+  listStudents,
+  setAttendance,
+} from "@/lib/students.functions";
 import { Badge } from "@/components/ui/badge";
 import { listTrialStudents, setTrialAttendance } from "@/lib/trials.functions";
 
@@ -42,8 +58,12 @@ export function AttendanceTab() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
-          <Button size="sm" variant={mode === "date" ? "default" : "ghost"} onClick={() => setMode("date")}>Theo ngày</Button>
-          <Button size="sm" variant={mode === "student" ? "default" : "ghost"} onClick={() => setMode("student")}>Theo học sinh</Button>
+          <Button size="sm" variant={mode === "date" ? "default" : "ghost"} onClick={() => setMode("date")}>
+            Theo ngày
+          </Button>
+          <Button size="sm" variant={mode === "student" ? "default" : "ghost"} onClick={() => setMode("student")}>
+            Theo học sinh
+          </Button>
         </div>
       </div>
       {mode === "date" ? <ByDateView /> : <ByStudentView />}
@@ -52,7 +72,6 @@ export function AttendanceTab() {
 }
 
 function ByDateView() {
-
   const [date, setDate] = useState(toLocalISO(new Date()));
   const [classFilter, setClassFilter] = useState<"Tất cả" | ClassType>("Tất cả");
   const [autoMark, setAutoMark] = useState<boolean>(() => {
@@ -60,7 +79,11 @@ function ByDateView() {
     return localStorage.getItem("att-auto") === "1";
   });
   useEffect(() => {
-    try { localStorage.setItem("att-auto", autoMark ? "1" : "0"); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("att-auto", autoMark ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
   }, [autoMark]);
 
   const fetchList = useServerFn(listStudents);
@@ -76,7 +99,8 @@ function ByDateView() {
 
   const attMap = useMemo(() => {
     const m = new Map<string, { status: AttendanceStatus; note: string | null; makeup_date: string | null }>();
-    for (const r of attRows) m.set(r.student_id, { status: r.status, note: r.note ?? null, makeup_date: r.makeup_date ?? null });
+    for (const r of attRows)
+      m.set(r.student_id, { status: r.status, note: r.note ?? null, makeup_date: r.makeup_date ?? null });
     return m;
   }, [attRows]);
 
@@ -88,22 +112,28 @@ function ByDateView() {
   );
   const scheduled = useMemo(() => {
     if (dow === null) return [];
-    return (students as Student[])
-      .filter((s) => s.status !== "Bảo lưu" && s.status !== "Chuẩn bị")
-      .filter((s) => !reservedToday.has(s.id))
-      .filter((s) => (classFilter === "Tất cả" || s.class_type === classFilter))
-      // Ngày điểm danh phải nằm trong kỳ học (ngày bắt đầu → ngày kết thúc thực tế)
-      .filter((s) => {
-        if (!s.start_date || date < s.start_date) return false;
-        const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
-        return !actualEnd || date <= actualEnd;
-      })
-      .filter((s) => (s.schedule_slots ?? []).some((sl: ScheduleSlot) => sl.day === dow));
+    return (
+      (students as Student[])
+        .filter((s) => s.status !== "Bảo lưu" && s.status !== "Chuẩn bị")
+        .filter((s) => !reservedToday.has(s.id))
+        .filter((s) => classFilter === "Tất cả" || s.class_type === classFilter)
+        // Ngày điểm danh phải nằm trong kỳ học (ngày bắt đầu → ngày kết thúc thực tế)
+        .filter((s) => {
+          if (!s.start_date || date < s.start_date) return false;
+          const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
+          return !actualEnd || date <= actualEnd;
+        })
+        .filter((s) => (s.schedule_slots ?? []).some((sl: ScheduleSlot) => sl.day === dow))
+    );
   }, [students, dow, classFilter, reservedToday, date]);
 
   const mut = useMutation({
-    mutationFn: (v: { student_id: string; status: AttendanceStatus; note?: string | null; makeup_date?: string | null }) =>
-      setAtt({ data: { ...v, date } as any }),
+    mutationFn: (v: {
+      student_id: string;
+      status: AttendanceStatus;
+      note?: string | null;
+      makeup_date?: string | null;
+    }) => setAtt({ data: { ...v, date } as any }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance", date] });
       qc.invalidateQueries({ queryKey: ["attendance-range"] });
@@ -139,8 +169,11 @@ function ByDateView() {
     if (missing.length === 0) return;
     (async () => {
       for (const s of missing) {
-        try { await setAtt({ data: { student_id: s.id, date, status: "Đi học", note: null, makeup_date: null } as any }); }
-        catch { /* ignore */ }
+        try {
+          await setAtt({ data: { student_id: s.id, date, status: "Đi học", note: null, makeup_date: null } as any });
+        } catch {
+          /* ignore */
+        }
       }
       qc.invalidateQueries({ queryKey: ["attendance", date] });
       qc.invalidateQueries({ queryKey: ["attendance-range"] });
@@ -151,61 +184,72 @@ function ByDateView() {
 
   return (
     <div className="space-y-3">
-    <Card className="shadow-card">
-
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <CardTitle>Sổ điểm danh</CardTitle>
-          <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <BackfillButton students={students as Student[]} />
-          <label className="flex items-center justify-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
-            <Switch checked={autoMark} onCheckedChange={setAutoMark} />
-            <span className="font-medium">Tự động điểm danh</span>
-          </label>
-          <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
-          <ClassSelect className="w-full sm:w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
-        </div>
-
-      </CardHeader>
-      <CardContent>
-        {scheduled.length === 0 ? (
-          <EmptyState text="Ngày này không có học sinh nào có lịch học." />
-        ) : (
-          <div className="space-y-2">
-            {scheduled.map((s) => {
-              const rec = attMap.get(s.id);
-              const slot = (s.schedule_slots ?? []).find((sl: ScheduleSlot) => sl.day === dow);
-              const now = new Date();
-              const todayISO = toLocalISO(now);
-              let presentAllowed = date < todayISO;
-              if (date === todayISO && slot) {
-                const [sh, sm] = slot.start.split(":").map(Number);
-                presentAllowed = now.getHours() * 60 + now.getMinutes() >= sh * 60 + sm - 20;
-              }
-              return (
-                <AttendanceRow
-                  key={s.id}
-                  student={s}
-                  slot={slot}
-                  rec={rec}
-                  presentAllowed={presentAllowed}
-                  onChange={(status, extra) => mut.mutate({ student_id: s.id, status, ...extra })}
-                />
-              );
-            })}
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Sổ điểm danh</CardTitle>
+            <CardDescription>{DAYS[dow ?? 0]} · Chỉ hiển thị học sinh có lịch học ngày này.</CardDescription>
           </div>
-        )}
-      </CardContent>
-    </Card>
-    <TrialAttendanceCard date={date} classFilter={classFilter} />
-    <MakeupAttendanceCard date={date} classFilter={classFilter} students={students as Student[]} />
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <BackfillButton students={students as Student[]} />
+            <label className="flex items-center justify-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
+              <Switch checked={autoMark} onCheckedChange={setAutoMark} />
+              <span className="font-medium">Tự động điểm danh</span>
+            </label>
+            <DateInput value={date} onChange={(e) => setDate(e.target.value)} className="w-full sm:w-[150px]" />
+            <ClassSelect
+              className="w-full sm:w-[140px]"
+              allLabel="Tất cả lớp"
+              value={classFilter}
+              onChange={(v) => setClassFilter(v as typeof classFilter)}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {scheduled.length === 0 ? (
+            <EmptyState text="Ngày này không có học sinh nào có lịch học." />
+          ) : (
+            <div className="space-y-2">
+              {scheduled.map((s) => {
+                const rec = attMap.get(s.id);
+                const slot = (s.schedule_slots ?? []).find((sl: ScheduleSlot) => sl.day === dow);
+                const now = new Date();
+                const todayISO = toLocalISO(now);
+                let presentAllowed = date < todayISO;
+                if (date === todayISO && slot) {
+                  const [sh, sm] = slot.start.split(":").map(Number);
+                  presentAllowed = now.getHours() * 60 + now.getMinutes() >= sh * 60 + sm - 20;
+                }
+                return (
+                  <AttendanceRow
+                    key={s.id}
+                    student={s}
+                    slot={slot}
+                    rec={rec}
+                    presentAllowed={presentAllowed}
+                    onChange={(status, extra) => mut.mutate({ student_id: s.id, status, ...extra })}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <TrialAttendanceCard date={date} classFilter={classFilter} />
+      <MakeupAttendanceCard date={date} classFilter={classFilter} students={students as Student[]} />
     </div>
   );
 }
 
-function MakeupAttendanceCard({ date, classFilter, students }: { date: string; classFilter: "Tất cả" | ClassType; students: Student[] }) {
+function MakeupAttendanceCard({
+  date,
+  classFilter,
+  students,
+}: {
+  date: string;
+  classFilter: "Tất cả" | ClassType;
+  students: Student[];
+}) {
   const fetchMakeups = useServerFn(listMakeupsInRange);
   const fetchAtt = useServerFn(listAttendance);
   const setAtt = useServerFn(setAttendance);
@@ -246,7 +290,9 @@ function MakeupAttendanceCard({ date, classFilter, students }: { date: string; c
     <Card className="shadow-card">
       <CardHeader>
         <CardTitle className="text-base">Điểm danh học bù</CardTitle>
-        <CardDescription>Học sinh nghỉ có phép, được xếp học bù đúng ngày này. Chỉ điểm danh Đi học / Vắng mặt.</CardDescription>
+        <CardDescription>
+          Học sinh nghỉ có phép, được xếp học bù đúng ngày này. Chỉ điểm danh Đi học / Vắng mặt.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {entries.map((m) => (
@@ -285,11 +331,16 @@ function MakeupAttendanceRow({
           </div>
           <div>
             <p className="font-medium">
-              {entry.student.name} <Badge variant="outline" className="ml-1 border-[color:var(--warning)]/40 text-[color:var(--warning)]">Học bù</Badge>
+              {entry.student.name}{" "}
+              <Badge variant="outline" className="ml-1 border-[color:var(--warning)]/40 text-[color:var(--warning)]">
+                Học bù
+              </Badge>
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {classChip(entry.student.class_type)}
-              <span>⏰ {entry.slot.start}–{entry.slot.end}</span>
+              <span>
+                ⏰ {entry.slot.start}–{entry.slot.end}
+              </span>
               <span>· Bù cho buổi nghỉ {fmtDate(entry.originalDate)}</span>
             </div>
           </div>
@@ -330,11 +381,17 @@ function TrialAttendanceCard({ date, classFilter }: { date: string; classFilter:
   );
 
   const mut = useMutation({
-    mutationFn: (v: { id: string; status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép"; note?: string | null; makeup_date?: string | null }) =>
-      mark({ data: v } as any),
+    mutationFn: (v: {
+      id: string;
+      status: "Đi học" | "Nghỉ có phép" | "Nghỉ không phép";
+      note?: string | null;
+      makeup_date?: string | null;
+    }) => mark({ data: v } as any),
     onSuccess: (r: any) => {
       qc.invalidateQueries({ queryKey: ["trial-students"] });
-      toast.success(r?.rescheduled_to ? `Đã dời buổi học thử sang ${fmtDate(r.rescheduled_to)}` : "Đã điểm danh buổi học thử");
+      toast.success(
+        r?.rescheduled_to ? `Đã dời buổi học thử sang ${fmtDate(r.rescheduled_to)}` : "Đã điểm danh buổi học thử",
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -346,12 +403,17 @@ function TrialAttendanceCard({ date, classFilter }: { date: string; classFilter:
       <CardHeader>
         <CardTitle className="text-base">Điểm danh học sinh học thử</CardTitle>
         <CardDescription>
-          Buổi học thử duy nhất trong ngày. Đi học: xác nhận đã tham gia buổi học thử. Vắng: không đến, buổi học thử khép lại.
+          Buổi học thử duy nhất trong ngày. Đi học: xác nhận đã tham gia buổi học thử. Vắng: không đến, buổi học thử
+          khép lại.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {rows.map((t) => (
-          <TrialAttendanceRow key={t.id} trial={t} onChange={(status) => mut.mutate({ id: t.id, status, note: null, makeup_date: null })} />
+          <TrialAttendanceRow
+            key={t.id}
+            trial={t}
+            onChange={(status) => mut.mutate({ id: t.id, status, note: null, makeup_date: null })}
+          />
         ))}
       </CardContent>
     </Card>
@@ -368,7 +430,7 @@ function TrialAttendanceRow({
   const current = trial.attendance_status ?? null;
   const opts: { v: "Đi học" | "Nghỉ không phép"; label: string; cls: string }[] = [
     { v: "Đi học", label: "Đi học", cls: "bg-success text-white" },
-    { v: "Nghỉ không phép", label: "Vắng", cls: "bg-danger text-white" },
+    { v: "Nghỉ không phép", label: "Vắng mặt", cls: "bg-danger text-white" },
   ];
   const history = trial.reschedule_history ?? [];
 
@@ -381,11 +443,16 @@ function TrialAttendanceRow({
           </div>
           <div>
             <p className="font-medium">
-              {trial.name} <Badge variant="outline" className="ml-1 border-[#4AA09E]/40 text-[#4AA09E]">Học thử</Badge>
+              {trial.name}{" "}
+              <Badge variant="outline" className="ml-1 border-[#4AA09E]/40 text-[#4AA09E]">
+                Học thử
+              </Badge>
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {classChip(trial.class_type)}
-              <span>⏰ {trial.start_time.slice(0, 5)}–{trial.end_time.slice(0, 5)}</span>
+              <span>
+                ⏰ {trial.start_time.slice(0, 5)}–{trial.end_time.slice(0, 5)}
+              </span>
               {history.length > 0 && <span>· Đã dời {history.length} lần</span>}
             </div>
           </div>
@@ -407,7 +474,10 @@ function TrialAttendanceRow({
       {history.length > 0 && (
         <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
           {history.map((h, i) => (
-            <p key={i}>Nghỉ có phép {fmtDate(h.from_date)} → dời sang {fmtDate(h.to_date)}{h.reason ? ` · ${h.reason}` : ""}</p>
+            <p key={i}>
+              Nghỉ có phép {fmtDate(h.from_date)} → dời sang {fmtDate(h.to_date)}
+              {h.reason ? ` · ${h.reason}` : ""}
+            </p>
           ))}
         </div>
       )}
@@ -415,9 +485,12 @@ function TrialAttendanceRow({
   );
 }
 
-
 function AttendanceRow({
-  student, slot, rec, onChange, presentAllowed = true,
+  student,
+  slot,
+  rec,
+  onChange,
+  presentAllowed = true,
 }: {
   student: Student;
   slot?: ScheduleSlot;
@@ -433,7 +506,6 @@ function AttendanceRow({
     { v: "Đi học", cls: "bg-success text-white" },
     { v: "Nghỉ có phép", cls: "bg-warning text-white" },
     { v: "Nghỉ không phép", cls: "bg-danger text-white" },
-    
   ];
 
   return (
@@ -447,7 +519,11 @@ function AttendanceRow({
             <p className="font-medium">{student.name}</p>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
               {classChip(student.class_type)}
-              {slot && <span>⏰ {slot.start}–{slot.end}</span>}
+              {slot && (
+                <span>
+                  ⏰ {slot.start}–{slot.end}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -462,7 +538,12 @@ function AttendanceRow({
                 className={current === o.v ? o.cls : ""}
                 disabled={blocked}
                 title={blocked ? "Chỉ được điểm danh 'Đi học' từ 20 phút trước giờ học" : undefined}
-                onClick={() => onChange(o.v, o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null })}
+                onClick={() =>
+                  onChange(
+                    o.v,
+                    o.v === "Nghỉ có phép" ? { note, makeup_date: makeup || null } : { note: null, makeup_date: null },
+                  )
+                }
               >
                 {o.v}
               </Button>
@@ -474,7 +555,12 @@ function AttendanceRow({
         <div className="mt-3 grid gap-3 rounded-md border border-warning/40 bg-warning/5 p-3 sm:grid-cols-[1fr_180px]">
           <div className="grid gap-1">
             <Label className="text-xs">Nội dung phép</Label>
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Vd: Ốm, đi du lịch..." />
+            <Textarea
+              rows={2}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Vd: Ốm, đi du lịch..."
+            />
           </div>
           <div className="grid gap-1">
             <Label className="text-xs">Ngày học bù</Label>
@@ -509,7 +595,10 @@ function BackfillButton({ students }: { students: Student[] }) {
     return toLocalISO(d);
   }, []);
   const defaultFrom = useMemo(() => {
-    const dates = students.map((s) => s.start_date).filter(Boolean).sort();
+    const dates = students
+      .map((s) => s.start_date)
+      .filter(Boolean)
+      .sort();
     if (dates.length === 0) {
       const d = new Date();
       d.setDate(d.getDate() - 30);
@@ -627,7 +716,9 @@ function BackfillButton({ students }: { students: Student[] }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary" size="sm" className="w-full sm:w-auto">Điểm danh bù</Button>
+        <Button variant="secondary" size="sm" className="w-full sm:w-auto">
+          Điểm danh bù
+        </Button>
       </DialogTrigger>
       <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
@@ -637,103 +728,156 @@ function BackfillButton({ students }: { students: Student[] }) {
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
-          <div className="grid gap-1">
-            <Label className="text-xs">Từ ngày</Label>
-            <DateInput value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Đến ngày</Label>
-            <DateInput value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-          <ClassSelect label="Lớp" allLabel="Tất cả lớp" value={scope} onChange={(v) => setScope(v as typeof scope)} />
-          <div className="grid gap-1">
-            <Label className="text-xs">Học sinh</Label>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                {students
-                  .filter((s) => scope === "Tất cả" || s.class_type === scope)
-                  .map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {coursePrefix(s.class_type)}{s.course_index ?? 1}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button onClick={loadRows} disabled={loading}>{loading ? "Đang tải..." : "Quét buổi thiếu"}</Button>
-          </div>
-        </div>
-
-        {rows.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={(v) => setRows((rs) => rs.map((r) => ({ ...r, selected: !!v })))}
+            <div className="grid gap-1">
+              <Label className="text-xs">Từ ngày</Label>
+              <DateInput value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Đến ngày</Label>
+              <DateInput value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+            <ClassSelect
+              label="Lớp"
+              allLabel="Tất cả lớp"
+              value={scope}
+              onChange={(v) => setScope(v as typeof scope)}
             />
-            <span>Chọn tất cả ({selectedCount}/{rows.length})</span>
-            <div className="ml-auto flex gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Đi học" } : r))}>Đặt = Đi học</Button>
-              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Nghỉ có phép" } : r))}>Đặt = Nghỉ CP</Button>
-              <Button variant="outline" size="sm" onClick={() => setRows((rs) => rs.map((r) => r.selected ? { ...r, status: "Nghỉ không phép" } : r))}>Đặt = Nghỉ KP</Button>
+            <div className="grid gap-1">
+              <Label className="text-xs">Học sinh</Label>
+              <Select value={studentId} onValueChange={setStudentId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  {students
+                    .filter((s) => scope === "Tất cả" || s.class_type === scope)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} · {coursePrefix(s.class_type)}
+                        {s.course_index ?? 1}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={loadRows} disabled={loading}>
+                {loading ? "Đang tải..." : "Quét buổi thiếu"}
+              </Button>
             </div>
           </div>
-        )}
 
-        <div className="mt-2 max-h-[400px] overflow-auto rounded-md border">
-          {rows.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Chưa có dữ liệu. Bấm "Quét buổi thiếu" để bắt đầu.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-muted/60 text-xs">
-                <tr>
-                  <th className="w-10 p-2"></th>
-                  <th className="p-2 text-left">Ngày</th>
-                  <th className="p-2 text-left">Thứ</th>
-                  <th className="p-2 text-left">Học sinh</th>
-                  <th className="p-2 text-left">Lớp</th>
-                  <th className="p-2 text-left">Khung giờ</th>
-                  <th className="p-2 text-left">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.key} className="border-t">
-                    <td className="p-2 text-center">
-                      <Checkbox
-                        checked={r.selected}
-                        onCheckedChange={(v) => setRows((rs) => rs.map((x) => x.key === r.key ? { ...x, selected: !!v } : x))}
-                      />
-                    </td>
-                    <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
-                    <td className="p-2">{DAYS_SHORT[r.dow]}</td>
-                    <td className="p-2">{r.student.name}</td>
-                    <td className="p-2">{classChip(r.student.class_type)}</td>
-                    <td className="p-2 whitespace-nowrap">{r.slot.start}–{r.slot.end}</td>
-                    <td className="p-2">
-                      <Select
-                        value={r.status}
-                        onValueChange={(v) => setRows((rs) => rs.map((x) => x.key === r.key ? { ...x, status: v as AttendanceStatus } : x))}
-                      >
-                        <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Đi học">Đi học</SelectItem>
-                          <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
-                          <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {rows.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(v) => setRows((rs) => rs.map((r) => ({ ...r, selected: !!v })))}
+              />
+              <span>
+                Chọn tất cả ({selectedCount}/{rows.length})
+              </span>
+              <div className="ml-auto flex gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRows((rs) => rs.map((r) => (r.selected ? { ...r, status: "Đi học" } : r)))}
+                >
+                  Đặt = Đi học
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRows((rs) => rs.map((r) => (r.selected ? { ...r, status: "Nghỉ có phép" } : r)))}
+                >
+                  Đặt = Nghỉ CP
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRows((rs) => rs.map((r) => (r.selected ? { ...r, status: "Nghỉ không phép" } : r)))}
+                >
+                  Đặt = Nghỉ KP
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
 
+          <div className="mt-2 max-h-[400px] overflow-auto rounded-md border">
+            {rows.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Chưa có dữ liệu. Bấm "Quét buổi thiếu" để bắt đầu.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/60 text-xs">
+                  <tr>
+                    <th className="w-10 p-2"></th>
+                    <th className="p-2 text-left">Ngày</th>
+                    <th className="p-2 text-left">Thứ</th>
+                    <th className="p-2 text-left">Học sinh</th>
+                    <th className="p-2 text-left">Lớp</th>
+                    <th className="p-2 text-left">Khung giờ</th>
+                    <th className="p-2 text-left">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.key} className="border-t">
+                      <td className="p-2 text-center">
+                        <Checkbox
+                          checked={r.selected}
+                          onCheckedChange={(v) =>
+                            setRows((rs) => rs.map((x) => (x.key === r.key ? { ...x, selected: !!v } : x)))
+                          }
+                        />
+                      </td>
+                      <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
+                      <td className="p-2">{DAYS_SHORT[r.dow]}</td>
+                      <td className="p-2">{r.student.name}</td>
+                      <td className="p-2">{classChip(r.student.class_type)}</td>
+                      <td className="p-2 whitespace-nowrap">
+                        {r.slot.start}–{r.slot.end}
+                      </td>
+                      <td className="p-2">
+                        <Select
+                          value={r.status}
+                          onValueChange={(v) =>
+                            setRows((rs) =>
+                              rs.map((x) => (x.key === r.key ? { ...x, status: v as AttendanceStatus } : x)),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Đi học">Đi học</SelectItem>
+                            <SelectItem value="Nghỉ có phép">Nghỉ có phép</SelectItem>
+                            <SelectItem value="Nghỉ không phép">Nghỉ không phép</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="mt-3">
-          {saving && <span className="mr-auto text-xs text-muted-foreground">Đang lưu {progress}/{rows.filter((r) => r.selected).length}...</span>}
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Hủy</Button>
-          <Button onClick={saveAll} disabled={saving || selectedCount === 0}>Lưu {selectedCount} buổi</Button>
+          {saving && (
+            <span className="mr-auto text-xs text-muted-foreground">
+              Đang lưu {progress}/{rows.filter((r) => r.selected).length}...
+            </span>
+          )}
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+            Hủy
+          </Button>
+          <Button onClick={saveAll} disabled={saving || selectedCount === 0}>
+            Lưu {selectedCount} buổi
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -753,9 +897,6 @@ type SessionRow = {
   isToday: boolean;
   isFuture: boolean;
 };
-
-
-
 
 function ByStudentView() {
   const fetchList = useServerFn(listStudents);
@@ -795,7 +936,8 @@ function ByStudentView() {
 
   const attMap = useMemo(() => {
     const m = new Map<string, { status: AttendanceStatus; note: string | null; makeup_date: string | null }>();
-    for (const r of attRows) m.set(r.date, { status: r.status, note: r.note ?? null, makeup_date: r.makeup_date ?? null });
+    for (const r of attRows)
+      m.set(r.date, { status: r.status, note: r.note ?? null, makeup_date: r.makeup_date ?? null });
     return m;
   }, [attRows]);
 
@@ -887,14 +1029,27 @@ function ByStudentView() {
           <CardDescription>Toàn bộ buổi trong khóa — sửa trạng thái/ghi chú trực tiếp.</CardDescription>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <ClassSelect className="w-full sm:w-[140px]" allLabel="Tất cả lớp" value={classFilter} onChange={(v) => setClassFilter(v as typeof classFilter)} />
-          <Input placeholder="Tìm học sinh..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[180px]" />
+          <ClassSelect
+            className="w-full sm:w-[140px]"
+            allLabel="Tất cả lớp"
+            value={classFilter}
+            onChange={(v) => setClassFilter(v as typeof classFilter)}
+          />
+          <Input
+            placeholder="Tìm học sinh..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-[180px]"
+          />
           <Select value={studentId} onValueChange={setStudentId}>
-            <SelectTrigger className="col-span-2 w-full sm:w-[220px]"><SelectValue placeholder="Chọn học sinh" /></SelectTrigger>
+            <SelectTrigger className="col-span-2 w-full sm:w-[220px]">
+              <SelectValue placeholder="Chọn học sinh" />
+            </SelectTrigger>
             <SelectContent>
               {filteredStudents.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.name} · {coursePrefix(s.class_type)}{s.course_index}
+                  {s.name} · {coursePrefix(s.class_type)}
+                  {s.course_index}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -910,9 +1065,13 @@ function ByStudentView() {
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-semibold">{student.name}</span>
                 {classChip(student.class_type)}
-                <Badge variant="outline">Khóa {coursePrefix(student.class_type)}{student.course_index}</Badge>
+                <Badge variant="outline">
+                  Khóa {coursePrefix(student.class_type)}
+                  {student.course_index}
+                </Badge>
                 <span className="text-muted-foreground">
-                  {fmtDate(student.start_date)} → {fmtDate(addScheduledDays(student.end_date, student.schedule_slots ?? [], student.reserve_days ?? 0))}
+                  {fmtDate(student.start_date)} →{" "}
+                  {fmtDate(addScheduledDays(student.end_date, student.schedule_slots ?? [], student.reserve_days ?? 0))}
                 </span>
                 <span className="text-muted-foreground">· Tổng: {student.total_sessions} buổi</span>
               </div>
@@ -951,30 +1110,33 @@ function ByStudentView() {
                       return (
                         <tr
                           key={r.key}
-                          className={[
-                            "border-t",
-                            r.isFuture ? "opacity-50" : "",
-                            r.isToday ? "bg-primary/5" : "",
-                          ].join(" ")}
+                          className={["border-t", r.isFuture ? "opacity-50" : "", r.isToday ? "bg-primary/5" : ""].join(
+                            " ",
+                          )}
                         >
                           <td className="p-2 text-muted-foreground">{i + 1}</td>
                           <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
                           <td className="p-2">{DAYS_SHORT[r.dow]}</td>
-                          <td className="p-2 whitespace-nowrap">{r.slot.start}–{r.slot.end}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            {r.slot.start}–{r.slot.end}
+                          </td>
                           <td className="p-2">
                             <Select
                               value={status || "__blank__"}
                               onValueChange={(v) => {
                                 if (v === "__blank__") delMut.mutate(r.date);
-                                else setMut.mutate({
-                                  date: r.date,
-                                  status: v as AttendanceStatus,
-                                  note: rec?.note ?? null,
-                                  makeup_date: rec?.makeup_date ?? null,
-                                });
+                                else
+                                  setMut.mutate({
+                                    date: r.date,
+                                    status: v as AttendanceStatus,
+                                    note: rec?.note ?? null,
+                                    makeup_date: rec?.makeup_date ?? null,
+                                  });
                               }}
                             >
-                              <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-8 w-[150px]">
+                                <SelectValue />
+                              </SelectTrigger>
                               <SelectContent>
                                 {canDelete && <SelectItem value="__blank__">Chưa điểm danh</SelectItem>}
                                 <SelectItem value="Đi học">Đi học</SelectItem>
@@ -1033,5 +1195,3 @@ function ByStudentView() {
     </Card>
   );
 }
-
-

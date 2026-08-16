@@ -52,6 +52,7 @@ import {
   listScheduleChanges,
   listStudents,
   replaceReserveDates,
+  resyncAllReserveDays,
   setAttendance,
 } from "@/lib/students.functions";
 
@@ -371,8 +372,20 @@ export function ScheduleTab() {
 /** ================= Học sinh bảo lưu ================= */
 function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: Date }) {
   const myClasses = useMyClasses();
+  const { isOwner } = useAccess();
+  const qc = useQueryClient();
   const fetchAtt = useServerFn(listAttendanceRange);
+  const runResync = useServerFn(resyncAllReserveDays);
   const [scope, setScope] = useState<"course" | "week" | "month">("course");
+
+  const resyncMut = useMutation({
+    mutationFn: () => runResync() as Promise<{ updated: number }>,
+    onSuccess: (res) => {
+      toast.success(`Đã đồng bộ lại ${res.updated} học sinh.`);
+      qc.invalidateQueries({ queryKey: ["students"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const courseWindow = (s: Student) => ({
     from: s.start_date,
@@ -434,6 +447,12 @@ function ReserveCard({ students, weekStart }: { students: Student[]; weekStart: 
             </SelectContent>
           </Select>
           <ReserveDialog students={students} />
+          {isOwner && (
+            <Button size="sm" variant="outline" disabled={resyncMut.isPending} onClick={() => resyncMut.mutate()}>
+              {resyncMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <History className="mr-1 h-4 w-4" />}
+              Đồng bộ lại số buổi bảo lưu
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-5">

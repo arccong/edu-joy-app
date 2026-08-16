@@ -275,6 +275,48 @@ export const deleteScheduleChange = createServerFn({ method: "POST" }).middlewar
   });
 
 /** ===== Bảo lưu: sửa / xóa ===== */
+/**
+ * Tính lại đúng số buổi bảo lưu thực tế (theo danh sách ngày "Bảo lưu" hiện có trong sổ điểm danh,
+ * có tính trọng số nếu 1 ngày có nhiều buổi) rồi ghi lại vào reserve_days của học sinh — vì đây là
+ * con số DUY NHẤT được Lịch học/Sổ điểm danh dùng để tính ngày kết thúc kéo dài thêm, cần luôn khớp
+ * với danh sách ngày bảo lưu thật, không được để lệch.
+ */
+async function syncReserveDays(sb: any, studentId: string) {
+  const { data: student, error: sErr } = await sb.from("students").select("schedule_slots").eq("id", studentId).maybeSingle();
+  if (sErr || !student) return;
+  const { data: rows, error: rErr } = await sb.from("attendance").select("date").eq("student_id", studentId).eq("status", "Bảo lưu");
+  if (rErr) return;
+  const slots: { day: number }[] = student.schedule_slots ?? [];
+  const perDay = new Map<number, number>();
+  for (const sl of slots) perDay.set(sl.day, (perDay.get(sl.day) ?? 0) + 1);
+  let total = 0;
+  for (const r of rows ?? []) {
+    const dow = new Date(`${r.date}T00:00:00`).getDay();
+    total += perDay.get(dow) ?? 1;
+  }
+  await sb.from("students").update({ reserve_days: total }).eq("id", studentId);
+}
+
+/** Chạy 1 lần: đồng bộ lại reserve_days cho TOÀN BỘ học sinh, khớp đúng với ngày bảo lưu thực tế đã
+ * ghi trong sổ điểm danh — dùng để sửa dữ liệu cũ bị lệch từ trước khi có syncReserveDays ở trên. */
+export const resyncAllReserveDays = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id;
+    const { data: ownerRow } = await (sb as any).from("center_owner").select("user_id").eq("id", 1).maybeSingle();
+    if (!uid || ownerRow?.user_id !== uid) throw new Error("Chỉ Chủ trung tâm mới có quyền đồng bộ.");
+
+    const { data: students, error: sErr } = await (sb as any).from("students").select("id");
+    if (sErr) throw new Error(sErr.message);
+    let updated = 0;
+    for (const s of students ?? []) {
+      await syncReserveDays(sb, s.id);
+      updated++;
+    }
+    return { updated };
+  });
+
 export const deleteReserveDates = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ student_id: z.string().uuid(), dates: z.array(z.string()).min(1) }).parse(d),
@@ -288,6 +330,7 @@ export const deleteReserveDates = createServerFn({ method: "POST" }).middleware(
       .eq("status", "Bảo lưu")
       .in("date", data.dates);
     if (error) throw new Error(error.message);
+    await syncReserveDays(sb, data.student_id);
     return { ok: true };
   });
 
@@ -320,5 +363,6 @@ export const replaceReserveDates = createServerFn({ method: "POST" }).middleware
     }));
     const { error: e2 } = await (sb as any).from("attendance").upsert(rows, { onConflict: "student_id,date" });
     if (e2) throw new Error(e2.message);
+    await syncReserveDays(sb, data.student_id);
     return { ok: true };
   });

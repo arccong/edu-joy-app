@@ -40,6 +40,8 @@ import {
   hhmm,
   trialStatus,
   countsTowardSessions,
+  computeMakeupEntries,
+  type MakeupEntry,
   type AttendanceRow,
   type AttendanceStatus,
   type ScheduleChange,
@@ -48,7 +50,7 @@ import {
   type TrialStudent,
   type TuitionPayment,
 } from "@/lib/shared";
-import { listAttendance, listAttendanceRange, listScheduleChanges, listStudents, setAttendance, upsertStudent } from "@/lib/students.functions";
+import { listAttendance, listAttendanceRange, listMakeupsInRange, listScheduleChanges, listStudents, setAttendance, upsertStudent } from "@/lib/students.functions";
 import { setTrialAttendance } from "@/lib/trials.functions";
 import { listPayments } from "@/lib/tuition.functions";
 import { listLearningLogs } from "@/lib/learning.functions";
@@ -57,7 +59,8 @@ import { listExpenseCategories } from "@/lib/finance.functions";
 type TodayItem = { s: Student; slot: ScheduleSlot };
 type TodayRow =
   | { kind: "student"; s: Student; slot: ScheduleSlot; start: string; end: string }
-  | { kind: "trial"; t: TrialStudent; start: string; end: string };
+  | { kind: "trial"; t: TrialStudent; start: string; end: string }
+  | { kind: "makeup"; m: MakeupEntry; start: string; end: string };
 
 function relTime(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -84,6 +87,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
+  const fetchMakeups = useServerFn(listMakeupsInRange);
   const fetchPayments = useServerFn(listPayments);
   const fetchChanges = useServerFn(listScheduleChanges);
   const fetchLogs = useServerFn(listLearningLogs);
@@ -103,6 +107,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: attToday = [] } = useQuery<AttendanceRow[]>({ queryKey: ["attendance", todayISO], queryFn: () => fetchAtt({ data: { date: todayISO } }) as any });
   const { data: attRange = [] } = useQuery<AttendanceRow[]>({ queryKey: ["attendance-range", fromISO, todayISO], queryFn: () => fetchAttRange({ data: { from: fromISO, to: todayISO } }) as any });
+  const { data: makeupRowsToday = [] } = useQuery<AttendanceRow[]>({
+    queryKey: ["makeups-range", todayISO, todayISO],
+    queryFn: () => fetchMakeups({ data: { from: todayISO, to: todayISO } }) as any,
+  });
   const { data: payments = [] } = useQuery<TuitionPayment[]>({ queryKey: ["payments"], queryFn: () => fetchPayments() as any });
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
@@ -163,19 +171,24 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     [trials, todayISO],
   );
 
+  const makeupToday = useMemo(
+    () => computeMakeupEntries(students, makeupRowsToday, todayISO, todayISO),
+    [students, makeupRowsToday, todayISO],
+  );
+
   const todayRows = useMemo<TodayRow[]>(() => {
     const rows: TodayRow[] = [
       ...todayItems.map(({ s, slot }) => ({ kind: "student" as const, s, slot, start: slot.start, end: slot.end })),
       ...trialToday.map((t) => ({ kind: "trial" as const, t, start: hhmm(t.start_time), end: hhmm(t.end_time) })),
+      ...makeupToday.map((m) => ({ kind: "makeup" as const, m, start: m.slot.start, end: m.slot.end })),
     ];
     return rows.sort((a, b) => {
       const byTime = a.start.localeCompare(b.start);
       if (byTime !== 0) return byTime;
-      const nameA = a.kind === "student" ? a.s.name : a.t.name;
-      const nameB = b.kind === "student" ? b.s.name : b.t.name;
-      return nameA.localeCompare(nameB, "vi");
+      const nameOf = (r: TodayRow) => (r.kind === "student" ? r.s.name : r.kind === "trial" ? r.t.name : r.m.student.name);
+      return nameOf(a).localeCompare(nameOf(b), "vi");
     });
-  }, [todayItems, trialToday]);
+  }, [todayItems, trialToday, makeupToday]);
 
   const activeCount = activeStudents.filter((s) => s.status === "Đang học" && remainOf(s) > 0).length;
   const reserveCount = activeStudents.filter((s) => s.status === "Bảo lưu").length;
@@ -420,6 +433,42 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                                     onClick={() => trialMut.mutate({ id: t.id, status: "Đi học" })}>Đã đến học</Button>
                                   <Button size="sm" variant="outline" disabled={trialMut.isPending}
                                     onClick={() => trialMut.mutate({ id: t.id, status: "Nghỉ không phép" })}>Vắng</Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (row.kind === "makeup") {
+                      const m = row.m;
+                      const mrec = attMap.get(m.student.id);
+                      return (
+                        <div key={`makeup-${m.attendanceId}-${i}`} className="rounded-lg border border-dashed bg-card p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{m.student.name}</span>
+                                <Badge variant="outline" className="text-[10px]">{courseLabel(m.student)}</Badge>
+                                {classChip(m.student.class_type)}
+                                <Badge variant="outline" className="border-[color:var(--warning)]/40 text-[10px] text-[color:var(--warning)]">Học bù</Badge>
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                ⏰ {row.start}–{row.end} · Bù cho buổi nghỉ {fmtDate(m.originalDate)}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {mrec ? (
+                                <Badge variant="outline" className={mrec.status === "Đi học" ? "border-[color:var(--success)]/40 bg-success/15 text-[color:var(--success)]" : "text-muted-foreground"}>
+                                  {mrec.status === "Đi học" ? <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> : null}{mrec.status === "Đi học" ? "Đi học" : "Vắng mặt"}
+                                </Badge>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" disabled={mut.isPending}
+                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Đi học" })}>Đi học</Button>
+                                  <Button size="sm" variant="outline" disabled={mut.isPending}
+                                    onClick={() => mut.mutate({ student_id: m.student.id, status: "Nghỉ không phép" })}>Vắng mặt</Button>
                                 </>
                               )}
                             </div>

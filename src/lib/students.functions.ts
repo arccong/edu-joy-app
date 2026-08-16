@@ -133,6 +133,25 @@ export const listAttendanceRange = createServerFn({ method: "POST" }).middleware
     return rows ?? [];
   });
 
+/**
+ * Tìm các buổi 'Nghỉ có phép' có ngày học bù (makeup_date) rơi vào khoảng [from, to] - dùng riêng vì
+ * ngày nghỉ gốc (date) có thể nằm NGOÀI khoảng đang xem (vd nghỉ tuần trước, học bù tuần này), nên
+ * không thể tìm ra bằng listAttendanceRange (lọc theo date, không phải makeup_date).
+ */
+export const listMakeupsInRange = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ from: z.string(), to: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const { data: rows, error } = await (sb as any)
+      .from("attendance")
+      .select("*")
+      .eq("status", "Nghỉ có phép")
+      .gte("makeup_date", data.from)
+      .lte("makeup_date", data.to);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 export const listAttendanceByStudent = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ student_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {

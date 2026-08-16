@@ -24,13 +24,15 @@ import {
   fmtDate,
   slotsPerDayMap,
   toLocalISO,
+  computeMakeupEntries,
   type AttendanceStatus,
   type ClassType,
+  type MakeupEntry,
   type ScheduleSlot,
   type Student,
   type TrialStudent,
 } from "@/lib/shared";
-import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listStudents, setAttendance } from "@/lib/students.functions";
+import { deleteAttendance, listAttendance, listAttendanceByStudent, listAttendanceRange, listMakeupsInRange, listStudents, setAttendance } from "@/lib/students.functions";
 import { Badge } from "@/components/ui/badge";
 import { listTrialStudents, setTrialAttendance } from "@/lib/trials.functions";
 
@@ -198,6 +200,114 @@ function ByDateView() {
       </CardContent>
     </Card>
     <TrialAttendanceCard date={date} classFilter={classFilter} />
+    <MakeupAttendanceCard date={date} classFilter={classFilter} students={students as Student[]} />
+    </div>
+  );
+}
+
+function MakeupAttendanceCard({ date, classFilter, students }: { date: string; classFilter: "Tất cả" | ClassType; students: Student[] }) {
+  const fetchMakeups = useServerFn(listMakeupsInRange);
+  const fetchAtt = useServerFn(listAttendance);
+  const setAtt = useServerFn(setAttendance);
+  const qc = useQueryClient();
+  const { data: makeupRows = [] } = useQuery<any[]>({
+    queryKey: ["makeups-range", date, date],
+    queryFn: () => fetchMakeups({ data: { from: date, to: date } }) as any,
+  });
+  const { data: attRows = [] } = useQuery<any[]>({
+    queryKey: ["attendance", date],
+    queryFn: () => fetchAtt({ data: { date } }) as any,
+  });
+  const attMap = useMemo(() => new Map((attRows as any[]).map((r) => [r.student_id, r])), [attRows]);
+
+  const entries = useMemo(
+    () =>
+      computeMakeupEntries(students, makeupRows, date, date).filter(
+        (m) => classFilter === "Tất cả" || m.student.class_type === classFilter,
+      ),
+    [students, makeupRows, date, classFilter],
+  );
+
+  const mut = useMutation({
+    mutationFn: (v: { student_id: string; status: "Đi học" | "Nghỉ không phép" }) =>
+      setAtt({ data: { ...v, date, note: null, makeup_date: null } as any }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance", date] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
+      qc.invalidateQueries({ queryKey: ["attendance-by-student"] });
+      toast.success("Đã điểm danh buổi học bù");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (entries.length === 0) return null;
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="text-base">Điểm danh học bù</CardTitle>
+        <CardDescription>Học sinh nghỉ có phép, được xếp học bù đúng ngày này. Chỉ điểm danh Đi học / Vắng mặt.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {entries.map((m) => (
+          <MakeupAttendanceRow
+            key={m.attendanceId}
+            entry={m}
+            status={attMap.get(m.student.id)?.status ?? null}
+            onChange={(status) => mut.mutate({ student_id: m.student.id, status })}
+          />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MakeupAttendanceRow({
+  entry,
+  status,
+  onChange,
+}: {
+  entry: MakeupEntry;
+  status: string | null;
+  onChange: (status: "Đi học" | "Nghỉ không phép") => void;
+}) {
+  const opts: { v: "Đi học" | "Nghỉ không phép"; label: string; cls: string }[] = [
+    { v: "Đi học", label: "Đi học", cls: "bg-success text-white" },
+    { v: "Nghỉ không phép", label: "Vắng mặt", cls: "bg-danger text-white" },
+  ];
+
+  return (
+    <div className="rounded-lg border border-dashed bg-card p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--warning)]/15 font-semibold text-[color:var(--warning)]">
+            {entry.student.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <p className="font-medium">
+              {entry.student.name} <Badge variant="outline" className="ml-1 border-[color:var(--warning)]/40 text-[color:var(--warning)]">Học bù</Badge>
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {classChip(entry.student.class_type)}
+              <span>⏰ {entry.slot.start}–{entry.slot.end}</span>
+              <span>· Bù cho buổi nghỉ {fmtDate(entry.originalDate)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {opts.map((o) => (
+            <Button
+              key={o.v}
+              size="sm"
+              variant={status === o.v ? "default" : "outline"}
+              className={status === o.v ? o.cls : ""}
+              onClick={() => onChange(o.v)}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

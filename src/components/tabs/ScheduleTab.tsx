@@ -31,8 +31,10 @@ import {
   startOfWeek,
   toLocalISO,
   slotsPerDayMap,
+  computeMakeupEntries,
   type AttendanceRow,
   type ClassType,
+  type MakeupEntry,
   type ScheduleChange,
   withDefaultSlotAdded,
   hhmm,
@@ -46,6 +48,7 @@ import {
   deleteReserveDates,
   deleteScheduleChange,
   listAttendanceRange,
+  listMakeupsInRange,
   listScheduleChanges,
   listStudents,
   replaceReserveDates,
@@ -116,6 +119,12 @@ export function ScheduleTab() {
     queryKey: ["attendance-range", fromISO, toISO],
     queryFn: () => fetchAtt({ data: { from: fromISO, to: toISO } }) as any,
   });
+  const fetchMakeups = useServerFn(listMakeupsInRange);
+  const { data: makeupRows = [] } = useQuery<AttendanceRow[]>({
+    queryKey: ["makeups-range", fromISO, toISO],
+    queryFn: () => fetchMakeups({ data: { from: fromISO, to: toISO } }) as any,
+  });
+  const weekMakeups = useMemo(() => computeMakeupEntries(students, makeupRows, fromISO, toISO), [students, makeupRows, fromISO, toISO]);
 
   // Map: studentId -> map<dateISO, status>
   const attByStudentDate = useMemo(() => {
@@ -293,6 +302,13 @@ export function ScheduleTab() {
                               t.trial_date === dateISO &&
                               overlaps({ start: hhmm(t.start_time), end: hhmm(t.end_time) }, row),
                           );
+                          const cellMakeups = weekMakeups.filter(
+                            (m) =>
+                              m.date === dateISO &&
+                              overlaps(m.slot, row) &&
+                              m.student.class_type === cls &&
+                              (studentFilter === "all" || personKey(m.student) === studentFilter),
+                          );
                           return (
                             <td key={dow} className="border p-1 align-top">
                               <div className="space-y-1">
@@ -303,6 +319,15 @@ export function ScheduleTab() {
                                     style={{ borderLeftColor: "var(--trial, #4AA09E)", backgroundColor: "color-mix(in srgb, var(--trial, #4AA09E) 12%, transparent)", color: "var(--trial, #4AA09E)" }}
                                   >
                                     <div className="font-medium">{t.name} (HT)</div>
+                                  </div>
+                                ))}
+                                {cellMakeups.map((m) => (
+                                  <div
+                                    key={m.attendanceId}
+                                    className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                    style={{ borderLeftColor: "var(--warning, #B45309)", backgroundColor: "color-mix(in srgb, var(--warning, #B45309) 12%, transparent)", color: "var(--warning, #B45309)" }}
+                                  >
+                                    <div className="font-medium">{m.student.name} (Bù)</div>
                                   </div>
                                 ))}
                                 {cellStudents.map(({ s, dim, suffix }, idx) => (
@@ -326,6 +351,10 @@ export function ScheduleTab() {
             <span className="inline-flex items-center gap-1">
               <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "var(--trial, #4AA09E)" }} />
               (HT) học sinh học thử
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: "var(--warning, #B45309)" }} />
+              (Bù) buổi học bù cho ngày nghỉ có phép
             </span>
             <span>• Tuần đã qua hiển thị theo lịch có hiệu lực tại thời điểm đó</span>
           </div>

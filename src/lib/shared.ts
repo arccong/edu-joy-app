@@ -136,6 +136,39 @@ export function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("vi-VN");
 }
 
+/**
+ * Buổi học bù: học sinh nghỉ có phép ngày X, được xếp học bù vào ngày Y — dùng lại đúng khung giờ của
+ * buổi đã nghỉ (khớp theo thứ trong tuần của ngày nghỉ gốc) để hiển thị trên lịch/điểm danh ngày Y.
+ */
+export interface MakeupEntry {
+  student: Student;
+  date: string; // ngày học bù (Y)
+  slot: ScheduleSlot;
+  originalDate: string; // ngày nghỉ gốc (X)
+  attendanceId: string; // id bản ghi điểm danh "Nghỉ có phép" gốc
+}
+
+export function computeMakeupEntries(
+  students: Student[],
+  makeupRows: AttendanceRow[],
+  from: string,
+  to: string,
+): MakeupEntry[] {
+  const byId = new Map(students.map((s) => [s.id, s]));
+  const out: MakeupEntry[] = [];
+  for (const r of makeupRows) {
+    if (r.status !== "Nghỉ có phép" || !r.makeup_date) continue;
+    if (r.makeup_date < from || r.makeup_date > to) continue;
+    const s = byId.get(r.student_id);
+    if (!s) continue;
+    const dow = dayOfWeekOf(r.date);
+    const slot = (s.schedule_slots ?? []).find((sl) => sl.day === dow);
+    if (!slot) continue;
+    out.push({ student: s, date: r.makeup_date, slot, originalDate: r.date, attendanceId: r.id });
+  }
+  return out;
+}
+
 export function dayOfWeekOf(iso: string): number | null {
   if (!iso) return null;
   const d = new Date(iso + "T00:00:00");

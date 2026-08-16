@@ -508,13 +508,14 @@ function BackfillButton({ students }: { students: Student[] }) {
       <DialogTrigger asChild>
         <Button variant="secondary" size="sm" className="w-full sm:w-auto">Điểm danh bù</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="flex max-h-[92vh] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Điểm danh bù hàng loạt</DialogTitle>
           <DialogDescription>Liệt kê các buổi học đã qua chưa điểm danh trong khoảng ngày đã chọn.</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
           <div className="grid gap-1">
             <Label className="text-xs">Từ ngày</Label>
             <DateInput value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -604,6 +605,8 @@ function BackfillButton({ students }: { students: Student[] }) {
               </tbody>
             </table>
           )}
+        </div>
+
         </div>
 
         <DialogFooter className="mt-3">

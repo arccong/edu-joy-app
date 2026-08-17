@@ -8,6 +8,7 @@ import { BrandLogo } from "@/lib/branding";
 import { useLabel } from "@/lib/labels";
 
 import { supabase } from "@/integrations/supabase/client";
+import { setRememberMe, getRememberMe } from "@/lib/remember-me";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,11 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMeState] = useState(true);
+
+  useEffect(() => {
+    setRememberMeState(getRememberMe());
+  }, []);
 
   const { data: mgr, refetch } = useQuery<{ exists: boolean }>({
     queryKey: ["manager-exists"],
@@ -55,6 +61,7 @@ function AuthPage() {
 
   const login = useMutation({
     mutationFn: async () => {
+      setRememberMe(rememberMe);
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw new Error(error.message === "Invalid login credentials" ? "Email hoặc mật khẩu không đúng" : error.message);
     },
@@ -67,6 +74,7 @@ function AuthPage() {
 
   const setup = useMutation({
     mutationFn: async () => {
+      setRememberMe(rememberMe);
       await setupManager({ data: { email: email.trim(), password, full_name: fullName || undefined } as any });
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw new Error(error.message);
@@ -149,6 +157,15 @@ function AuthPage() {
               </button>
             </div>
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMeState(e.target.checked)}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            Ghi nhớ đăng nhập trên thiết bị này
+          </label>
           <Button
             className="w-full rounded-full"
             disabled={pending || !email || password.length < 6}

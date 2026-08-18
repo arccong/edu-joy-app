@@ -579,7 +579,12 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         />
       </div>
 
-      <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
+      {/* items-start (không phải items-stretch): để mỗi cột tự nhiên theo đúng nội dung của nó, KHÔNG
+          ép 2 cột luôn cao bằng nhau. Nếu ép bằng nhau (items-stretch cũ), hễ 1 khung bên dưới tự mở
+          rộng (bỏ rút gọn) thì cột kia bị kéo giãn theo dù nội dung không đủ dài, tạo khoảng trắng.
+          Việc khớp cạnh đáy 2 khung "Cần xử lý" / "Hoạt động gần đây" giờ hoàn toàn do logic JS phía
+          trên (so cạnh đáy thực tế, chỉ bỏ rút gọn khung nào thực sự có thêm nội dung để lấp đầy). */}
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card ref={topScheduleRef} className="min-w-0 shadow-card">

@@ -860,7 +860,7 @@ export function EntryDialog({
           ) : (
             <div className="grid grid-cols-[1fr_100px] gap-3">
               <div className="grid gap-1">
-                <Label>Đơn giá (VNĐ)</Label>
+                <Label>Số tiền (VNĐ)</Label>
                 <Input
                   inputMode="numeric"
                   value={amountStr}

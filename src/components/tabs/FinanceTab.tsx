@@ -471,7 +471,7 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
             <TableHead>Tháng</TableHead>
             <TableHead>Lớp</TableHead>
             <TableHead>Khoản mục</TableHead>
-            <TableHead className="text-right">Đơn giá</TableHead>
+            <TableHead className="text-right">Số tiền</TableHead>
             <TableHead className="text-center">SL</TableHead>
             <TableHead className="text-right">Thành tiền</TableHead>
             <TableHead>Ghi chú</TableHead>

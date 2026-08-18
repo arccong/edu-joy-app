@@ -127,8 +127,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const activityListRef = useRef<HTMLOListElement>(null);
   // false mặc định: LUÔN áp trạng thái rút gọn cho cả 2 khung trước, chỉ bật lên true sau khi đo thực
   // tế xong và xác nhận khung đó thực sự cần kéo dãn để khớp cạnh đáy với khung còn lại.
-  const [alertsGrowMeasured, setAlertsGrowMeasured] = useState(false);
-  const [activityGrowMeasured, setActivityGrowMeasured] = useState(false);
+  // null = không can thiệp (giữ mức rút gọn mặc định 374px qua class Tailwind, hoặc đang Mobile/Full
+  // thủ công). Số cụ thể = chiều cao (px) CHÍNH XÁC cần kéo tới để khớp cạnh đáy với khung kia — không
+  // bao giờ bung hẳn toàn bộ nội dung nếu chỉ cần kéo thêm một chút.
+  const [alertsAutoHeight, setAlertsAutoHeight] = useState<number | null>(null);
+  const [activityAutoHeight, setActivityAutoHeight] = useState<number | null>(null);
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
@@ -398,51 +401,58 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 18);
   }, [attRange, payments, changes, logs, studentById]);
 
-  // Đo cạnh đáy thực tế của 2 khung "Cần xử lý" / "Hoạt động gần đây" theo đúng nghĩa: vị trí Y (trên
-  // trang) nếu khung ĐANG rút gọn — tính bằng "vị trí top của khung danh sách" (cố định, không đổi dù
-  // khung có grow hay không, vì phần kéo dãn chỉ CHÈN THÊM khoảng trống PHÍA SAU, không đẩy phần trên)
-  // cộng với chiều cao rút gọn 374px (hoặc thấp hơn nếu nội dung tự nhiên ngắn hơn — lấy scrollHeight,
-  // vì scrollHeight luôn phản ánh TOÀN BỘ nội dung bất kể đang bị max-h cắt hay không). Nhờ vậy phép đo
-  // này hoàn toàn độc lập với chính trạng thái grow đang bật/tắt → không có vòng lặp tự đo sai lệch.
-  // Khung nào có cạnh đáy (theo công thức trên) NÔNG HƠN (Y nhỏ hơn) thì tự bỏ rút gọn để kéo dãn;
-  // khung có cạnh đáy sâu hơn giữ nguyên trạng thái rút gọn mặc định.
+  // Đo cạnh đáy thực tế của 2 khung "Cần xử lý" / "Hoạt động gần đây" rồi tính CHÍNH XÁC số px cần kéo
+  // dãn thêm cho khung nông hơn — KHÔNG bung hẳn toàn bộ nội dung (tránh trường hợp nội dung thật rất
+  // dài khiến khung đó vọt qua mặt khung kia, ngược hẳn với mục đích khớp cạnh đáy).
+  // - "top" của khung danh sách cố định, không đổi dù khung có được kéo dãn hay không (phần kéo dãn chỉ
+  //   CHÈN THÊM khoảng trống/nội dung PHÍA SAU, không đẩy phần trên).
+  // - "scrollHeight" luôn phản ánh TOÀN BỘ nội dung thật, bất kể đang bị max-h cắt hay không.
+  // => Phép đo hoàn toàn độc lập với chính trạng thái đang kéo dãn của khung đó, không gây vòng lặp.
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
     const COLLAPSE_CAP = 374;
-    const collapsedBottomOf = (el: HTMLElement | null) => {
-      if (!el) return null;
-      return el.getBoundingClientRect().top + Math.min(COLLAPSE_CAP, el.scrollHeight);
-    };
+    const EPS = 4; // px sai số cho phép, tránh dao động do làm tròn
     const update = () => {
       // Mobile xếp các khung theo chiều dọc (không phải lưới 2 cột) nên không có chuyện lệch cạnh đáy.
       if (window.innerWidth < 1024) {
-        setAlertsGrowMeasured(false);
-        setActivityGrowMeasured(false);
+        setAlertsAutoHeight(null);
+        setActivityAutoHeight(null);
         return;
       }
+      const elAlerts = alertsListRef.current;
+      const elActivity = activityListRef.current;
+      if (!elAlerts || !elActivity) return;
       const alertsEligible = alertCount >= COLLAPSE_THRESHOLD;
       const activityEligible = activities.length >= COLLAPSE_THRESHOLD;
-      if (!alertsEligible && !activityEligible) {
-        setAlertsGrowMeasured(false);
-        setActivityGrowMeasured(false);
-        return;
+      const alertsTop = elAlerts.getBoundingClientRect().top;
+      const activityTop = elActivity.getBoundingClientRect().top;
+      const alertsNatural = elAlerts.scrollHeight;
+      const activityNatural = elActivity.scrollHeight;
+      // Cạnh đáy "mặc định" của mỗi khung: nếu đang mở Full thủ công thì lấy hết chiều cao thật, còn
+      // lại thì lấy mức rút gọn (374px, hoặc thấp hơn nếu nội dung tự nhiên đã ngắn hơn thế).
+      const alertsBaseH = fullAlerts ? alertsNatural : alertsEligible ? Math.min(COLLAPSE_CAP, alertsNatural) : alertsNatural;
+      const activityBaseH = fullActivity
+        ? activityNatural
+        : activityEligible
+          ? Math.min(COLLAPSE_CAP, activityNatural)
+          : activityNatural;
+      const alertsBottom = alertsTop + alertsBaseH;
+      const activityBottom = activityTop + activityBaseH;
+
+      let nextAlertsHeight: number | null = null;
+      let nextActivityHeight: number | null = null;
+
+      if (!fullActivity && activityEligible && alertsBottom - activityBottom > EPS) {
+        // "Cần xử lý" sâu hơn -> kéo "Hoạt động gần đây" dài thêm ĐÚNG BẰNG phần chênh lệch cần thiết,
+        // không vượt quá nội dung thật mà nó có.
+        nextActivityHeight = Math.max(COLLAPSE_CAP, Math.min(activityNatural, Math.round(alertsBottom - activityTop)));
       }
-      const bottomAlerts = collapsedBottomOf(alertsListRef.current);
-      const bottomActivity = collapsedBottomOf(activityListRef.current);
-      if (bottomAlerts == null || bottomActivity == null) return;
-      const EPS = 4; // px sai số cho phép, tránh dao động do làm tròn
-      if (bottomAlerts - bottomActivity > EPS) {
-        // "Cần xử lý" có cạnh đáy sâu hơn -> "Hoạt động gần đây" tự bỏ rút gọn để kéo dãn theo.
-        setAlertsGrowMeasured(false);
-        setActivityGrowMeasured(activityEligible);
-      } else if (bottomActivity - bottomAlerts > EPS) {
-        // "Hoạt động gần đây" có cạnh đáy sâu hơn -> "Cần xử lý" tự bỏ rút gọn để kéo dãn theo.
-        setAlertsGrowMeasured(alertsEligible);
-        setActivityGrowMeasured(false);
-      } else {
-        setAlertsGrowMeasured(false);
-        setActivityGrowMeasured(false);
+      if (!fullAlerts && alertsEligible && activityBottom - alertsBottom > EPS) {
+        // "Hoạt động gần đây" sâu hơn -> kéo "Cần xử lý" dài thêm ĐÚNG BẰNG phần chênh lệch cần thiết.
+        nextAlertsHeight = Math.max(COLLAPSE_CAP, Math.min(alertsNatural, Math.round(activityBottom - alertsTop)));
       }
+      setAlertsAutoHeight(nextAlertsHeight);
+      setActivityAutoHeight(nextActivityHeight);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -457,14 +467,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [alertCount, activities.length, fullSchedule, fullAbsent, todayRows.length, absentToday.length]);
-
-  // Bảng "Cần xử lý" cần bỏ giới hạn nếu tự đo thấy cạnh đáy nông hơn, HOẶC "Hoạt động gần đây" đang
-  // mở Full thủ công khiến cột phải cao hơn hẳn.
-  const alertsMustGrow = alertsGrowMeasured || fullActivity;
-  // Bảng "Hoạt động gần đây" cần bỏ giới hạn nếu tự đo thấy cạnh đáy nông hơn, HOẶC "Cần xử lý" đang
-  // mở Full thủ công khiến cột trái cao hơn hẳn.
-  const activityMustGrow = activityGrowMeasured || fullAlerts;
+  }, [alertCount, activities.length, fullSchedule, fullAbsent, fullAlerts, fullActivity, todayRows.length, absentToday.length]);
 
   const greeting = nowMinutes < 11 * 60 ? "Chào buổi sáng" : nowMinutes < 18 * 60 ? "Chào buổi chiều" : "Chào buổi tối";
   const summary =
@@ -829,8 +832,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 className={cn(
                   "min-h-0 flex-1 space-y-4 overflow-y-auto pr-1",
                   !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                  !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && alertsMustGrow && "lg:max-h-none",
                 )}
+                // Chỉ có tác dụng ở Desktop (state này = null trên Mobile) — kéo dài ĐÚNG BẰNG số px cần
+                // thiết để khớp cạnh đáy với "Hoạt động gần đây", ghi đè giá trị 374px mặc định ở trên.
+                style={alertsAutoHeight != null ? { maxHeight: alertsAutoHeight } : undefined}
               >
                 <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                   {missingAttendance.map(({ s, slot }, i) => (
@@ -960,8 +965,10 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                     // Bật Full (bấm icon mở rộng) là mở đầy đủ thật sự, không còn giới hạn max-h nào cả —
                     // kể cả trên Mobile — khớp với hành vi của khung "Cần xử lý".
                     !fullActivity && activities.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                    !fullActivity && activities.length >= COLLAPSE_THRESHOLD && activityMustGrow && "lg:max-h-none",
                   )}
+                  // Chỉ có tác dụng ở Desktop (state này = null trên Mobile) — kéo dài ĐÚNG BẰNG số px
+                  // cần thiết để khớp cạnh đáy với "Cần xử lý", ghi đè giá trị 374px mặc định ở trên.
+                  style={activityAutoHeight != null ? { maxHeight: activityAutoHeight } : undefined}
                 >
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">

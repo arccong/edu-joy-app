@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLabel } from "@/lib/labels";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,8 @@ import {
   Coins,
   GraduationCap,
   History,
+  Maximize2,
+  Minimize2,
   PauseCircle,
   Plus,
   Repeat,
@@ -22,6 +24,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { classChip, EmptyState } from "@/components/ui-bits";
 import { RecordPaymentDialog } from "@/components/tabs/TuitionTab";
@@ -89,9 +93,28 @@ function courseLabel(s: Student) {
   return `${coursePrefix(s.class_type)}${s.course_index ?? 1}`;
 }
 
+const COLLAPSE_HEIGHT = 374; // px — chiều cao khung khi thu gọn (Desktop), áp dụng khi đủ ≥6 dữ kiện
+const COLLAPSE_THRESHOLD = 6; // từ 6 dữ kiện trở lên mới cần thu gọn + cuộn
+
+function FullToggle({ full, onChange }: { full: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex shrink-0 cursor-pointer items-center gap-1.5" title={full ? "Đang hiện đầy đủ — bấm để thu gọn" : "Đang thu gọn — bấm để hiện đầy đủ"}>
+      {full ? <Maximize2 className="h-3.5 w-3.5 text-primary" /> : <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />}
+      <Switch checked={full} onCheckedChange={onChange} className="scale-90" />
+    </label>
+  );
+}
+
 export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const t = useLabel();
   const qc = useQueryClient();
+  // Mặc định: Desktop (≥1024px, khớp breakpoint lg dùng cho lưới 2 cột) = thu gọn; Mobile = hiện đầy đủ.
+  // Chỉ tính 1 lần lúc mở trang, không ghi nhớ qua lần sau (theo đúng yêu cầu).
+  const isDesktopDefault = () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
+  const [fullSchedule, setFullSchedule] = useState(() => !isDesktopDefault());
+  const [fullAbsent, setFullAbsent] = useState(() => !isDesktopDefault());
+  const [fullAlerts, setFullAlerts] = useState(() => !isDesktopDefault());
+  const [fullActivity, setFullActivity] = useState(() => !isDesktopDefault());
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
@@ -478,18 +501,24 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         {/* Lịch hôm nay + điểm danh nhanh */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="min-w-0 shadow-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CalendarClock className="h-5 w-5 text-primary" />
-                Lịch học hôm nay
-              </CardTitle>
-              <CardDescription>Điểm danh nhanh ngay tại đây</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CalendarClock className="h-5 w-5 text-primary" />
+                  Lịch học hôm nay
+                </CardTitle>
+                <CardDescription>Điểm danh nhanh ngay tại đây</CardDescription>
+              </div>
+              <FullToggle full={fullSchedule} onChange={setFullSchedule} />
             </CardHeader>
             <CardContent className="min-w-0">
               {todayRows.length === 0 ? (
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
-                <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+                <div
+                  className="space-y-2 overflow-y-auto pr-1"
+                  style={!fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                >
                   {todayRows.map((row, i) => {
                     if (row.kind === "trial") {
                       const t = row.t;
@@ -693,17 +722,23 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           </Card>
 
           <Card id="dash-alerts" className="flex min-w-0 flex-1 flex-col shadow-card scroll-mt-24">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />
-                Cần xử lý
-              </CardTitle>
-              <CardDescription>
-                {alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-5 w-5 text-[color:var(--warning)]" />
+                  Cần xử lý
+                </CardTitle>
+                <CardDescription>
+                  {alertCount === 0 ? "Không có việc nào cần xử lý." : `${alertCount} mục`}
+                </CardDescription>
+              </div>
+              <FullToggle full={fullAlerts} onChange={setFullAlerts} />
             </CardHeader>
             <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+              <div
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+                style={!fullAlerts && alertCount >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+              >
                 <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                   {missingAttendance.map(({ s, slot }, i) => (
                     <div
@@ -776,17 +811,21 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
         {/* Cảnh báo + hoạt động */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="min-w-0 shadow-card">
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <PauseCircle className="h-5 w-5 text-muted-foreground" />
                 Nghỉ / Bảo lưu hôm nay
               </CardTitle>
+              <FullToggle full={fullAbsent} onChange={setFullAbsent} />
             </CardHeader>
             <CardContent className="min-w-0">
               {absentToday.length === 0 ? (
                 <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
               ) : (
-                <div className="max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                <div
+                  className="space-y-2 overflow-y-auto pr-1"
+                  style={!fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                >
                   {absentToday.map(({ s, reason }, i) => (
                     <div
                       key={`${s.id}-${i}`}
@@ -808,17 +847,26 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
           </Card>
 
           <Card className="flex min-w-0 flex-1 flex-col shadow-card">
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <History className="h-5 w-5 text-primary" />
                 Hoạt động gần đây
               </CardTitle>
+              <FullToggle full={fullActivity} onChange={setFullActivity} />
             </CardHeader>
             <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (
-                <ol className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
+                <ol
+                  className={cn(
+                    "min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1",
+                    // Mobile: dù đang bật Full vẫn cuộn nếu ≥10 mục, tránh trang dài vô hạn — quy tắc
+                    // này CHỈ áp dụng cho Mobile (lg:max-h-none hủy nó khi lên màn hình Desktop).
+                    fullActivity && activities.length >= 10 && "max-h-[420px] lg:max-h-none",
+                  )}
+                  style={!fullActivity && activities.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                >
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

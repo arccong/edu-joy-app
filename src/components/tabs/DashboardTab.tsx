@@ -114,9 +114,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const [fullAbsent, setFullAbsent] = useState(() => !isDesktopDefault());
   const [fullAlerts, setFullAlerts] = useState(() => !isDesktopDefault());
   const [fullActivity, setFullActivity] = useState(() => !isDesktopDefault());
-  const topScheduleRef = useRef<HTMLDivElement>(null);
-  const topAbsentRef = useRef<HTMLDivElement>(null);
-  const [col1TopTaller, setCol1TopTaller] = useState(true); // true: "Lịch học hôm nay" ≥ "Nghỉ/Bảo lưu"
+  // Khung NỘI DUNG (CardContent, không tính phần bị cắt bởi max-h rút gọn) của 2 khung "Cần xử lý" /
+  // "Hoạt động gần đây" — dùng để đo cạnh đáy thực tế mà không phụ thuộc vào chính trạng thái rút gọn
+  // của khung đó (tránh đo-rồi-đổi-rồi-đo-lại gây nhấp nháy vô hạn).
+  const alertsContentAreaRef = useRef<HTMLDivElement>(null);
+  const activityContentAreaRef = useRef<HTMLDivElement>(null);
+  // false mặc định: LUÔN áp trạng thái rút gọn cho cả 2 khung trước, chỉ bật lên true sau khi đo thực
+  // tế xong và xác nhận khung đó thực sự cần kéo dãn để khớp cạnh đáy với khung còn lại.
+  const [alertsGrowMeasured, setAlertsGrowMeasured] = useState(false);
+  const [activityGrowMeasured, setActivityGrowMeasured] = useState(false);
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
@@ -340,29 +346,6 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     return rows;
   }, [attToday, studentById]);
 
-  // Đo thực tế chiều cao 2 khung phía trên (Lịch học hôm nay / Nghỉ-Bảo lưu hôm nay) — vì độ dài của
-  // chúng thay đổi liên tục theo dữ liệu thật, không thể đoán trước bằng CSS thuần. Kết quả đo dùng để
-  // quyết định chính xác khung CUỐI (Cần xử lý / Hoạt động gần đây) nào cần bỏ giới hạn 374px để tự
-  // giãn theo, tránh khoảng trắng khi 1 cột tự nhiên cao hơn cột kia.
-  useEffect(() => {
-    const el1 = topScheduleRef.current;
-    const el2 = topAbsentRef.current;
-    if (!el1 || !el2 || typeof ResizeObserver === "undefined") return;
-    const update = () => setCol1TopTaller(el1.getBoundingClientRect().height >= el2.getBoundingClientRect().height);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el1);
-    ro.observe(el2);
-    return () => ro.disconnect();
-  }, [todayRows.length, absentToday.length, fullSchedule, fullAbsent]);
-
-  // Bảng "Cần xử lý" (cột trái) cần bỏ giới hạn nếu: cột trái tự nhiên thấp hơn cột phải, HOẶC "Hoạt
-  // động gần đây" (cột phải) đang mở Full khiến cột phải cao hơn hẳn.
-  const alertsMustGrow = !col1TopTaller || fullActivity;
-  // Bảng "Hoạt động gần đây" (cột phải) cần bỏ giới hạn nếu: cột phải tự nhiên thấp hơn cột trái,
-  // HOẶC "Cần xử lý" (cột trái) đang mở Full khiến cột trái cao hơn hẳn.
-  const activityMustGrow = col1TopTaller || fullAlerts;
-
   // Hoạt động gần đây
   const activities = useMemo(() => {
     const items: Array<{ at: string; icon: "att" | "pay" | "sched" | "reserve" | "log"; text: string }> = [];
@@ -408,6 +391,54 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     }
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 18);
   }, [attRange, payments, changes, logs, studentById]);
+
+  // Đo cạnh đáy thực tế của 2 khung "Cần xử lý" / "Hoạt động gần đây": đo chiều cao khung NỘI DUNG
+  // (CardContent) — chiều cao này do CSS grid/flex quyết định dựa trên khung phía trên của MỖI cột,
+  // hoàn toàn độc lập với việc khung đang rút gọn (max-h) hay không, nên phép đo không bị vòng lặp do
+  // chính hành động "bỏ rút gọn" gây ra. Nếu khung nội dung được cấp nhiều chỗ hơn mức rút gọn cố định
+  // (374px + phần đệm CardContent), tức là cột kia đang có cạnh đáy sâu hơn (khung trên của cột kia
+  // thấp hơn) → khung này tự bỏ rút gọn để kéo dãn lấp đầy, cho cạnh đáy 2 khung khớp nhau. Khung nào
+  // có cạnh đáy sâu hơn (không dư chỗ) thì giữ nguyên trạng thái rút gọn mặc định.
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const CAP_WITH_PADDING = 374 + 40; // 374px khung cuộn rút gọn + đệm padding của CardContent
+    const check = (
+      el: HTMLDivElement | null,
+      itemCount: number,
+      isManualFull: boolean,
+      setGrow: (v: boolean) => void,
+    ) => {
+      if (!el) return;
+      // Mobile xếp các khung theo chiều dọc (không phải lưới 2 cột) nên không có chuyện lệch cạnh đáy;
+      // đang mở Full thủ công thì máy đã bỏ giới hạn rồi, không cần tính thêm; ít mục thì chưa từng bị
+      // rút gọn (chưa đủ ngưỡng COLLAPSE_THRESHOLD) nên cũng không có gì phải kéo dãn.
+      if (window.innerWidth < 1024 || isManualFull || itemCount < COLLAPSE_THRESHOLD) {
+        setGrow(false);
+        return;
+      }
+      setGrow(el.getBoundingClientRect().height > CAP_WITH_PADDING);
+    };
+    const updateAll = () => {
+      check(alertsContentAreaRef.current, alertCount, fullAlerts, setAlertsGrowMeasured);
+      check(activityContentAreaRef.current, activities.length, fullActivity, setActivityGrowMeasured);
+    };
+    updateAll();
+    const ro = new ResizeObserver(updateAll);
+    if (alertsContentAreaRef.current) ro.observe(alertsContentAreaRef.current);
+    if (activityContentAreaRef.current) ro.observe(activityContentAreaRef.current);
+    window.addEventListener("resize", updateAll);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateAll);
+    };
+  }, [alertCount, activities.length, fullAlerts, fullActivity]);
+
+  // Bảng "Cần xử lý" cần bỏ giới hạn nếu tự đo thấy dư chỗ, HOẶC "Hoạt động gần đây" đang mở Full thủ
+  // công khiến cột phải cao hơn hẳn.
+  const alertsMustGrow = alertsGrowMeasured || fullActivity;
+  // Bảng "Hoạt động gần đây" cần bỏ giới hạn nếu tự đo thấy dư chỗ, HOẶC "Cần xử lý" đang mở Full thủ
+  // công khiến cột trái cao hơn hẳn.
+  const activityMustGrow = activityGrowMeasured || fullAlerts;
 
   const greeting = nowMinutes < 11 * 60 ? "Chào buổi sáng" : nowMinutes < 18 * 60 ? "Chào buổi chiều" : "Chào buổi tối";
   const summary =
@@ -525,7 +556,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Card ref={topScheduleRef} className="min-w-0 shadow-card">
+          <Card className="min-w-0 shadow-card">
             <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -761,7 +792,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               </div>
               <FullToggle full={fullAlerts} onChange={setFullAlerts} />
             </CardHeader>
-            <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <CardContent ref={alertsContentAreaRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div
                 className={cn(
                   "min-h-0 flex-1 space-y-4 overflow-y-auto pr-1",
@@ -840,7 +871,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
         {/* Cảnh báo + hoạt động */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Card ref={topAbsentRef} className="min-w-0 shadow-card">
+          <Card className="min-w-0 shadow-card">
             <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <PauseCircle className="h-5 w-5 text-muted-foreground" />
@@ -886,16 +917,15 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
               </CardTitle>
               <FullToggle full={fullActivity} onChange={setFullActivity} />
             </CardHeader>
-            <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <CardContent ref={activityContentAreaRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
               {activities.length === 0 ? (
                 <EmptyState text="Chưa có hoạt động nào." />
               ) : (
                 <ol
                   className={cn(
                     "min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1",
-                    // Mobile: dù đang bật Full vẫn cuộn nếu ≥10 mục, tránh trang dài vô hạn — quy tắc
-                    // này CHỈ áp dụng cho Mobile (lg:max-h-none hủy nó khi lên màn hình Desktop).
-                    fullActivity && activities.length >= 10 && "max-h-[420px] lg:max-h-none",
+                    // Bật Full (bấm icon mở rộng) là mở đầy đủ thật sự, không còn giới hạn max-h nào cả —
+                    // kể cả trên Mobile — khớp với hành vi của khung "Cần xử lý".
                     !fullActivity && activities.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
                     !fullActivity && activities.length >= COLLAPSE_THRESHOLD && activityMustGrow && "lg:max-h-none",
                   )}

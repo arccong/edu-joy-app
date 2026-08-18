@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLabel } from "@/lib/labels";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -114,9 +114,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const [fullAbsent, setFullAbsent] = useState(() => !isDesktopDefault());
   const [fullAlerts, setFullAlerts] = useState(() => !isDesktopDefault());
   const [fullActivity, setFullActivity] = useState(() => !isDesktopDefault());
-  // Nếu BẤT KỲ bảng nào đang mở Full, các bảng còn lại (đang thu gọn) bỏ giới hạn 374px — để tự
-  // giãn theo, lấp khoảng trắng bằng dữ liệu thật của chính nó thay vì bị cắt cứng ở 374px.
-  const anyFull = fullSchedule || fullAbsent || fullAlerts || fullActivity;
+  const topScheduleRef = useRef<HTMLDivElement>(null);
+  const topAbsentRef = useRef<HTMLDivElement>(null);
+  const [col1TopTaller, setCol1TopTaller] = useState(true); // true: "Lịch học hôm nay" ≥ "Nghỉ/Bảo lưu"
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
@@ -340,6 +340,29 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     return rows;
   }, [attToday, studentById]);
 
+  // Đo thực tế chiều cao 2 khung phía trên (Lịch học hôm nay / Nghỉ-Bảo lưu hôm nay) — vì độ dài của
+  // chúng thay đổi liên tục theo dữ liệu thật, không thể đoán trước bằng CSS thuần. Kết quả đo dùng để
+  // quyết định chính xác khung CUỐI (Cần xử lý / Hoạt động gần đây) nào cần bỏ giới hạn 374px để tự
+  // giãn theo, tránh khoảng trắng khi 1 cột tự nhiên cao hơn cột kia.
+  useEffect(() => {
+    const el1 = topScheduleRef.current;
+    const el2 = topAbsentRef.current;
+    if (!el1 || !el2 || typeof ResizeObserver === "undefined") return;
+    const update = () => setCol1TopTaller(el1.getBoundingClientRect().height >= el2.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el1);
+    ro.observe(el2);
+    return () => ro.disconnect();
+  }, [todayRows.length, absentToday.length, fullSchedule, fullAbsent]);
+
+  // Bảng "Cần xử lý" (cột trái) cần bỏ giới hạn nếu: cột trái tự nhiên thấp hơn cột phải, HOẶC "Hoạt
+  // động gần đây" (cột phải) đang mở Full khiến cột phải cao hơn hẳn.
+  const alertsMustGrow = !col1TopTaller || fullActivity;
+  // Bảng "Hoạt động gần đây" (cột phải) cần bỏ giới hạn nếu: cột phải tự nhiên thấp hơn cột trái,
+  // HOẶC "Cần xử lý" (cột trái) đang mở Full khiến cột trái cao hơn hẳn.
+  const activityMustGrow = col1TopTaller || fullAlerts;
+
   // Hoạt động gần đây
   const activities = useMemo(() => {
     const items: Array<{ at: string; icon: "att" | "pay" | "sched" | "reserve" | "log"; text: string }> = [];
@@ -502,7 +525,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
       <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-2">
         {/* Lịch hôm nay + điểm danh nhanh */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Card className="min-w-0 shadow-card">
+          <Card ref={topScheduleRef} className="min-w-0 shadow-card">
             <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -521,7 +544,6 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                   className={cn(
                     "space-y-2 overflow-y-auto pr-1",
                     !fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                    !fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
                   )}
                 >
                   {todayRows.map((row, i) => {
@@ -744,7 +766,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 className={cn(
                   "min-h-0 flex-1 space-y-4 overflow-y-auto pr-1",
                   !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                  !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
+                  !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && alertsMustGrow && "lg:max-h-none",
                 )}
               >
                 <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
@@ -818,7 +840,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
 
         {/* Cảnh báo + hoạt động */}
         <div className="flex min-w-0 flex-col gap-4">
-          <Card className="min-w-0 shadow-card">
+          <Card ref={topAbsentRef} className="min-w-0 shadow-card">
             <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <PauseCircle className="h-5 w-5 text-muted-foreground" />
@@ -834,7 +856,6 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                   className={cn(
                     "space-y-2 overflow-y-auto pr-1",
                     !fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                    !fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
                   )}
                 >
                   {absentToday.map(({ s, reason }, i) => (
@@ -876,7 +897,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                     // này CHỈ áp dụng cho Mobile (lg:max-h-none hủy nó khi lên màn hình Desktop).
                     fullActivity && activities.length >= 10 && "max-h-[420px] lg:max-h-none",
                     !fullActivity && activities.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
-                    !fullActivity && activities.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
+                    !fullActivity && activities.length >= COLLAPSE_THRESHOLD && activityMustGrow && "lg:max-h-none",
                   )}
                 >
                   {activities.map((a, i) => (

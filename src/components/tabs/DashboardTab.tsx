@@ -93,7 +93,6 @@ function courseLabel(s: Student) {
   return `${coursePrefix(s.class_type)}${s.course_index ?? 1}`;
 }
 
-const COLLAPSE_HEIGHT = 374; // px — chiều cao khung khi thu gọn (Desktop), áp dụng khi đủ ≥6 dữ kiện
 const COLLAPSE_THRESHOLD = 6; // từ 6 dữ kiện trở lên mới cần thu gọn + cuộn
 
 function FullToggle({ full, onChange }: { full: boolean; onChange: (v: boolean) => void }) {
@@ -115,6 +114,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const [fullAbsent, setFullAbsent] = useState(() => !isDesktopDefault());
   const [fullAlerts, setFullAlerts] = useState(() => !isDesktopDefault());
   const [fullActivity, setFullActivity] = useState(() => !isDesktopDefault());
+  // Nếu BẤT KỲ bảng nào đang mở Full, các bảng còn lại (đang thu gọn) bỏ giới hạn 374px — để tự
+  // giãn theo, lấp khoảng trắng bằng dữ liệu thật của chính nó thay vì bị cắt cứng ở 374px.
+  const anyFull = fullSchedule || fullAbsent || fullAlerts || fullActivity;
   const fetchStudents = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendance);
   const fetchAttRange = useServerFn(listAttendanceRange);
@@ -516,8 +518,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 <EmptyState text="Hôm nay không có lịch học." />
               ) : (
                 <div
-                  className="space-y-2 overflow-y-auto pr-1"
-                  style={!fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                  className={cn(
+                    "space-y-2 overflow-y-auto pr-1",
+                    !fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
+                    !fullSchedule && todayRows.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
+                  )}
                 >
                   {todayRows.map((row, i) => {
                     if (row.kind === "trial") {
@@ -736,8 +741,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             </CardHeader>
             <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div
-                className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-                style={!fullAlerts && alertCount >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                className={cn(
+                  "min-h-0 flex-1 space-y-4 overflow-y-auto pr-1",
+                  !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && "max-h-[374px]",
+                  !fullAlerts && alertCount >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
+                )}
               >
                 <AlertGroup title="Chưa điểm danh (ca đã kết thúc hôm nay)" empty={missingAttendance.length === 0}>
                   {missingAttendance.map(({ s, slot }, i) => (
@@ -823,8 +831,11 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                 <EmptyState text="Không có học sinh nghỉ hoặc bảo lưu hôm nay." />
               ) : (
                 <div
-                  className="space-y-2 overflow-y-auto pr-1"
-                  style={!fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
+                  className={cn(
+                    "space-y-2 overflow-y-auto pr-1",
+                    !fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
+                    !fullAbsent && absentToday.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
+                  )}
                 >
                   {absentToday.map(({ s, reason }, i) => (
                     <div
@@ -864,8 +875,9 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
                     // Mobile: dù đang bật Full vẫn cuộn nếu ≥10 mục, tránh trang dài vô hạn — quy tắc
                     // này CHỈ áp dụng cho Mobile (lg:max-h-none hủy nó khi lên màn hình Desktop).
                     fullActivity && activities.length >= 10 && "max-h-[420px] lg:max-h-none",
+                    !fullActivity && activities.length >= COLLAPSE_THRESHOLD && "max-h-[374px]",
+                    !fullActivity && activities.length >= COLLAPSE_THRESHOLD && anyFull && "lg:max-h-none",
                   )}
-                  style={!fullActivity && activities.length >= COLLAPSE_THRESHOLD ? { maxHeight: COLLAPSE_HEIGHT } : undefined}
                 >
                   {activities.map((a, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">

@@ -44,6 +44,40 @@ export type ThemePreset = {
 export const brandKey = ["brand-settings"] as const;
 export const presetsKey = ["theme-presets"] as const;
 
+const BRAND_COLORS_CACHE_KEY = "brand-colors-cache-v1";
+
+function writeCachedColors(colors: BrandColors | null | undefined) {
+  if (typeof window === "undefined") return;
+  try {
+    if (colors && Object.keys(colors).length > 0) {
+      window.localStorage.setItem(BRAND_COLORS_CACHE_KEY, JSON.stringify(colors));
+    } else {
+      window.localStorage.removeItem(BRAND_COLORS_CACHE_KEY);
+    }
+  } catch {
+    // Bỏ qua nếu localStorage bị chặn (chế độ ẩn danh, v.v) — chỉ mất phần cache "vẽ trước", không
+    // ảnh hưởng chức năng chính.
+  }
+}
+
+/**
+ * Đoạn script chạy ĐỒNG BỘ ngay trong <head>, TRƯỚC KHI React tải/hydrate — đọc màu đã lưu cache từ
+ * lần trước (localStorage) và áp ngay lập tức lên :root. Nhờ vậy khi reload trang, màu đúng đã có sẵn
+ * ngay từ lần vẽ (paint) đầu tiên, không còn hiện tượng nháy về màu tím mặc định rồi mới đổi sang màu
+ * đang dùng nữa.
+ */
+export const BRAND_INLINE_SCRIPT = `(function () {
+  try {
+    var raw = window.localStorage.getItem(${JSON.stringify(BRAND_COLORS_CACHE_KEY)});
+    if (!raw) return;
+    var colors = JSON.parse(raw);
+    var root = document.documentElement;
+    for (var k in colors) {
+      if (colors[k]) root.style.setProperty("--" + k, colors[k]);
+    }
+  } catch (e) {}
+})();`;
+
 export async function fetchBrand(): Promise<BrandSettings | null> {
   const { data } = await supabase.from("brand_settings").select("*").eq("id", 1).maybeSingle();
   return (data as BrandSettings | null) ?? null;
@@ -82,8 +116,14 @@ export function applyBrandColors(colors: BrandColors | null | undefined) {
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const { data } = useBrand();
   useEffect(() => {
+    // data === undefined nghĩa là truy vấn CHƯA tải xong — không đụng gì tới màu hiện tại (đã được áp
+    // sẵn từ cache qua BRAND_INLINE_SCRIPT, hoặc còn giữ nguyên từ trước). Nếu cứ gọi applyBrandColors
+    // ngay cả khi chưa có data, nó sẽ xóa hết custom properties (về màu mặc định) rồi phải đợi fetch
+    // xong mới áp lại — chính là nguyên nhân gây nháy màu mỗi khi reload.
+    if (data === undefined) return;
     applyBrandColors(data?.colors);
-  }, [data?.colors]);
+    writeCachedColors(data?.colors);
+  }, [data]);
   return <>{children}</>;
 }
 

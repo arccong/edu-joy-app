@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { BrandingProvider } from "../lib/branding";
+import { BrandingProvider, BRAND_INLINE_SCRIPT } from "../lib/branding";
 import { PwaManager } from "../components/PwaManager";
 
 function NotFoundComponent() {
@@ -111,6 +111,9 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="overflow-x-hidden">
       <head>
+        {/* Chạy TRƯỚC HeadContent (áp cache màu đồng bộ, không đợi CSS/React) để tránh nháy về màu mặc
+            định trước khi màu thương hiệu thật được áp — xem chi tiết trong lib/branding.tsx. */}
+        <script dangerouslySetInnerHTML={{ __html: BRAND_INLINE_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="overflow-x-hidden">

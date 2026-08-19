@@ -37,12 +37,20 @@ import {
   type ScheduleSlot,
   type Student,
   type TuitionPayment,
+  type TrialStudent,
   groupByPerson,
 } from "@/lib/shared";
 import { listStudents, upsertStudent } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
+import { markTrialRegistered } from "@/lib/trials.functions";
 
-export function TuitionTab() {
+export function TuitionTab({
+  pendingTrialRegistration,
+  onConsumePendingTrial,
+}: {
+  pendingTrialRegistration?: TrialStudent | null;
+  onConsumePendingTrial?: () => void;
+} = {}) {
   const fetchList = useServerFn(listStudents);
   const fetchPay = useServerFn(listPayments);
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchList() as any });
@@ -59,6 +67,13 @@ export function TuitionTab() {
   const myClasses = useMyClasses();
 
   const stuMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+
+  // Đăng ký học chính thức cho 1 học sinh học thử: mở dialog "Ghi nhận học phí" ở chế độ "Học sinh mới",
+  // điền sẵn tên/tuổi/lớp của học sinh học thử.
+  const [trialRegOpen, setTrialRegOpen] = useState(false);
+  useEffect(() => {
+    if (pendingTrialRegistration) setTrialRegOpen(true);
+  }, [pendingTrialRegistration]);
 
   const monthISO = month + "-01";
   const inMonth = useMemo(() => payments.filter((p) => p.month.slice(0, 7) === month), [payments, month]);
@@ -170,6 +185,18 @@ export function TuitionTab() {
                   Ghi nhận
                 </Button>
               }
+            />
+            {/* Instance riêng, điều khiển từ bên ngoài — mở khi có 1 học sinh học thử được "Đăng ký" từ
+                trang Học sinh. Trigger để trống (không hiện nút) vì dialog này chỉ mở theo lập trình. */}
+            <RecordPaymentDialog
+              students={students}
+              trigger={<span className="hidden" />}
+              open={trialRegOpen}
+              onOpenChange={(v) => {
+                setTrialRegOpen(v);
+                if (!v) onConsumePendingTrial?.();
+              }}
+              prefillTrial={pendingTrialRegistration}
             />
           </div>
         </CardHeader>
@@ -547,11 +574,32 @@ function EditPaymentDialog({
 }
 
 /** Ghi nhận học phí: nhập đầy đủ thông tin khóa học → tự tạo/cập nhật học sinh */
-export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { students: Student[]; trigger: React.ReactNode; defaultStudentId?: string }) {
-  const [open, setOpen] = useState(false);
+export function RecordPaymentDialog({
+  students,
+  trigger,
+  defaultStudentId,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  prefillTrial,
+}: {
+  students: Student[];
+  trigger: React.ReactNode;
+  defaultStudentId?: string;
+  /** Điều khiển đóng/mở từ bên ngoài (vd: mở theo lập trình từ luồng "Đăng ký" học thử). Bỏ trống thì
+   *  dialog tự quản lý trạng thái đóng/mở qua nút `trigger` như bình thường. */
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  /** Có giá trị khi mở dialog từ nút "Đăng ký" của 1 học sinh học thử: tự chuyển sang chế độ "Học sinh
+   *  mới", điền sẵn tên/tuổi/lớp, và sau khi lưu thành công sẽ đánh dấu học thử đó là "Đã đăng ký". */
+  prefillTrial?: TrialStudent | null;
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = setControlledOpen ?? setUncontrolledOpen;
   const qc = useQueryClient();
   const savePayment = useServerFn(upsertPayment);
   const saveStudent = useServerFn(upsertStudent);
+  const markRegistered = useServerFn(markTrialRegistered);
 
   const [mode, setMode] = useState<"next" | "class" | "new">("next");
   const [baseId, setBaseId] = useState<string>("");
@@ -640,9 +688,28 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
     if (open && defaultStudentId) {
       setMode("next");
       pickBase(defaultStudentId);
+    } else if (open && prefillTrial) {
+      // Đăng ký học chính thức cho học sinh học thử: chuyển sang "Học sinh mới", điền sẵn tên/tuổi/lớp
+      // — phần lịch học/học phí/số buổi vẫn để người dùng nhập như bình thường.
+      setMode("new");
+      setBaseId("");
+      const cls = prefillTrial.class_type;
+      const t = defaultTuitionFor(cls);
+      setForm({
+        name: prefillTrial.name,
+        age: prefillTrial.age,
+        class_type: cls,
+        tuition: t,
+        total_sessions: defaultSessionsFor(cls),
+        course_index: 1,
+        schedule_slots: [],
+        start_date: toLocalISO(new Date()),
+        end_date: "",
+      });
+      setTuitionStr(formatMoney(t));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaultStudentId]);
+  }, [open, defaultStudentId, prefillTrial]);
 
   // Lịch mới không được trùng bất kỳ lịch nào của các lớp đang học
   const scheduleConflict = useMemo(() => {
@@ -709,11 +776,19 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
           note: null,
         } as any,
       });
+      if (prefillTrial) {
+        await markRegistered({ data: { id: prefillTrial.id, student_id: newId } });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["students"] });
-      toast.success("Đã ghi nhận học phí và cập nhật danh sách học sinh");
+      if (prefillTrial) {
+        qc.invalidateQueries({ queryKey: ["trial-students"] });
+        toast.success(`Đã đăng ký học chính thức cho ${prefillTrial.name}`);
+      } else {
+        toast.success("Đã ghi nhận học phí và cập nhật danh sách học sinh");
+      }
       setOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -726,6 +801,13 @@ export function RecordPaymentDialog({ students, trigger, defaultStudentId }: { s
         <DialogHeader>
           <DialogTitle>Ghi nhận đóng học phí</DialogTitle>
         </DialogHeader>
+        {prefillTrial && (
+          <p className="-mt-2 rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
+            Đăng ký học chính thức cho học sinh học thử <span className="font-semibold">{prefillTrial.name}</span> —
+            thông tin tên/tuổi/lớp đã được điền sẵn, đây và học sinh chính thức sắp tạo sẽ được xem là 1
+            học sinh để tiện theo dõi.
+          </p>
+        )}
         <div className="grid gap-4">
           <div className="grid gap-2">
             <Label>Chế độ</Label>

@@ -2,13 +2,16 @@ import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, GraduationCap, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Download, GraduationCap, Loader2, Pencil, Trash2, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateInput } from "@/components/ui/date-input";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState } from "@/components/ui-bits";
+import { NameSearchInput } from "@/components/NameSearchInput";
 import { TrialStudentDialog } from "@/components/TrialStudentDialog";
 import { useAccess } from "@/lib/access";
 import { ClassSelect } from "@/lib/class-scope";
@@ -21,19 +24,43 @@ export function useTrialStudents() {
   return useQuery<TrialStudent[]>({ queryKey: ["trial-students"], queryFn: () => fetchTrials() as any });
 }
 
-export function TrialStudentsCard() {
+export function TrialStudentsCard({ onRegisterTrial }: { onRegisterTrial?: (t: TrialStudent) => void } = {}) {
   const { data: trials = [], isLoading } = useTrialStudents();
-  const [statusFilter, setStatusFilter] = useState<"Tất cả" | "Học thử" | "Kết thúc">("Tất cả");
+  const [statusFilter, setStatusFilter] = useState<"Tất cả" | "Học thử" | "Kết thúc" | "Đã đăng ký">("Tất cả");
   const [classFilter, setClassFilter] = useState<ClassType | "Tất cả">("Tất cả");
+  const [nameSearch, setNameSearch] = useState("");
+
+  const now = new Date();
+  const [periodMode, setPeriodMode] = useState<"all" | "month" | "year">("all");
+  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const [year, setYear] = useState(String(now.getFullYear()));
 
   const rows = useMemo(
     () =>
-      trials.filter(
-        (t) =>
-          (classFilter === "Tất cả" || t.class_type === classFilter) &&
-          (statusFilter === "Tất cả" || trialStatus(t) === statusFilter),
-      ),
-    [trials, classFilter, statusFilter],
+      trials.filter((t) => {
+        if (classFilter !== "Tất cả" && t.class_type !== classFilter) return false;
+        if (statusFilter !== "Tất cả" && trialStatus(t) !== statusFilter) return false;
+        if (periodMode === "month" && t.trial_date.slice(0, 7) !== month) return false;
+        if (periodMode === "year" && t.trial_date.slice(0, 4) !== year) return false;
+        if (nameSearch.trim() && !t.name.toLowerCase().includes(nameSearch.trim().toLowerCase())) return false;
+        return true;
+      }),
+    [trials, classFilter, statusFilter, periodMode, month, year, nameSearch],
+  );
+
+  // Gợi ý tên trong phạm vi lớp + trạng thái + kỳ hạn đang lọc (chưa áp lọc theo tên).
+  const nameSuggestions = useMemo(
+    () =>
+      trials
+        .filter((t) => {
+          if (classFilter !== "Tất cả" && t.class_type !== classFilter) return false;
+          if (statusFilter !== "Tất cả" && trialStatus(t) !== statusFilter) return false;
+          if (periodMode === "month" && t.trial_date.slice(0, 7) !== month) return false;
+          if (periodMode === "year" && t.trial_date.slice(0, 4) !== year) return false;
+          return true;
+        })
+        .map((t) => t.name),
+    [trials, classFilter, statusFilter, periodMode, month, year],
   );
 
   return (
@@ -44,12 +71,33 @@ export function TrialStudentsCard() {
           <CardDescription>Học sinh đăng ký học thử 1 buổi trước khi vào học chính thức.</CardDescription>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
+          <NameSearchInput
+            value={nameSearch}
+            onChange={setNameSearch}
+            names={nameSuggestions}
+            className="col-span-2 w-full sm:w-[220px]"
+          />
+          <Select value={periodMode} onValueChange={(v) => setPeriodMode(v as typeof periodMode)}>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả học sinh</SelectItem>
+              <SelectItem value="month">Theo tháng</SelectItem>
+              <SelectItem value="year">Theo năm</SelectItem>
+            </SelectContent>
+          </Select>
+          {periodMode === "month" && (
+            <DateInput variant="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-full sm:w-[150px]" />
+          )}
+          {periodMode === "year" && (
+            <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="w-full sm:w-[110px]" />
+          )}
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
             <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Tất cả">Tất cả trạng thái</SelectItem>
               <SelectItem value="Học thử">Học thử</SelectItem>
               <SelectItem value="Kết thúc">Kết thúc</SelectItem>
+              <SelectItem value="Đã đăng ký">Đã đăng ký</SelectItem>
             </SelectContent>
           </Select>
           <ClassSelect
@@ -117,6 +165,13 @@ export function TrialStudentsCard() {
               <TableBody>
                 {rows.map((t) => {
                   const st = trialStatus(t);
+                  const alreadyRegistered = st === "Đã đăng ký";
+                  const canRegister = t.attendance_status === "Đi học" && !alreadyRegistered;
+                  const registerTitle = alreadyRegistered
+                    ? "Học sinh đã đăng ký học chính thức"
+                    : t.attendance_status === "Đi học"
+                      ? "Đăng ký học chính thức cho học sinh này"
+                      : "Chỉ đăng ký được sau khi điểm danh 'Đi học'";
                   return (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.name}</TableCell>
@@ -131,7 +186,13 @@ export function TrialStudentsCard() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={st === "Học thử" ? "border-primary/40 bg-primary/10 text-primary" : "text-muted-foreground"}
+                          className={
+                            st === "Học thử"
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : st === "Đã đăng ký"
+                                ? "border-success/40 bg-success/10 text-[color:var(--success)]"
+                                : "text-muted-foreground"
+                          }
                         >
                           {st}
                         </Badge>
@@ -157,6 +218,19 @@ export function TrialStudentsCard() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={canRegister ? "text-primary hover:bg-primary/10" : "opacity-40"}
+                            disabled={!canRegister}
+                            title={registerTitle}
+                            onClick={() => {
+                              if (!canRegister) return;
+                              onRegisterTrial?.(t);
+                            }}
+                          >
+                            <UserCheck className="h-4 w-4" />
+                          </Button>
                           <TrialStudentDialog trial={t} trigger={<Button size="icon" variant="ghost"><Pencil className="h-4 w-4" /></Button>} />
                           <DeleteTrialButton id={t.id} name={t.name} />
                         </div>

@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { StudentDialog } from "@/components/StudentDialog";
+import { NameSearchInput } from "@/components/NameSearchInput";
 import {
   DAYS_SHORT,
   addScheduledDays,
@@ -31,6 +32,7 @@ import {
   type Student,
   type StudentStatus,
   type AttendanceRow,
+  type TrialStudent,
 } from "@/lib/shared";
 import { deleteStudent, listAttendanceRange, listStudents, upsertStudent } from "@/lib/students.functions";
 import { TrialStudentsCard } from "@/components/tabs/TrialStudentsCard";
@@ -55,13 +57,14 @@ const DEFAULT_COLS: ColKey[] = ALL_COLS.map((c) => c.key);
 
 const STATUS_OPTS: StudentStatus[] = ["Đang học", "Chuẩn bị", "Bảo lưu", "Hoàn thành", "Kết thúc"];
 
-export function StudentsTab() {
+export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialStudent) => void } = {}) {
   const fetchList = useServerFn(listStudents);
   const fetchAttRange = useServerFn(listAttendanceRange);
   const { data: students = [], isLoading } = useQuery({ queryKey: ["students"], queryFn: () => fetchList() });
 
   const [filter, setFilter] = useState<ClassType>("Piano");
   const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Tất cả");
+  const [nameSearch, setNameSearch] = useState("");
   const [visible, setVisible] = useState<Set<ColKey>>(() => {
     if (typeof window === "undefined") return new Set(DEFAULT_COLS);
     try {
@@ -171,7 +174,17 @@ export function StudentsTab() {
   const filtered = useMemo(() => {
     let list = (students as Student[]).filter((s) => s.class_type === filter);
     if (statusFilter !== "Tất cả") list = list.filter((s) => statusOf(s) === statusFilter);
+    const q = nameSearch.trim().toLowerCase();
+    if (q) list = list.filter((s) => s.name.toLowerCase().includes(q));
     return list;
+  }, [students, filter, statusFilter, nameSearch, attendedByStudent]);
+
+  // Gợi ý tên trong phạm vi lớp + trạng thái đang lọc (chưa áp lọc theo tên), để gợi ý luôn khớp với
+  // những gì có thể hiển thị trong bảng.
+  const nameSuggestions = useMemo(() => {
+    let list = (students as Student[]).filter((s) => s.class_type === filter);
+    if (statusFilter !== "Tất cả") list = list.filter((s) => statusOf(s) === statusFilter);
+    return list.map((s) => s.name);
   }, [students, filter, statusFilter, attendedByStudent]);
 
 
@@ -203,6 +216,12 @@ export function StudentsTab() {
             <CardDescription>Thêm, sửa, xóa và theo dõi trạng thái học sinh.</CardDescription>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <NameSearchInput
+              value={nameSearch}
+              onChange={setNameSearch}
+              names={nameSuggestions}
+              className="col-span-2 w-full sm:w-[220px]"
+            />
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full sm:w-auto"><Columns3 className="mr-1 h-4 w-4" />Cột</Button>
@@ -361,7 +380,7 @@ export function StudentsTab() {
         </CardContent>
       </Card>
 
-      <TrialStudentsCard />
+      <TrialStudentsCard onRegisterTrial={onRegisterTrial} />
     </div>
 
   );

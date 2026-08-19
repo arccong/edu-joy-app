@@ -370,6 +370,7 @@ export type TrialStudent = {
   attendance_note?: string | null;
   attendance_marked_at?: string | null;
   reschedule_history?: { from_date: string; to_date: string; reason: string | null; at?: string }[];
+  converted_student_id?: string | null;
   created_at?: string;
 };
 
@@ -378,9 +379,14 @@ export const hhmm = (t: string) => (t ?? "").slice(0, 5);
 
 /**
  * Trạng thái học thử tính tại thời điểm hiển thị:
+ * đã "Đăng ký" học chính thức => "Đã đăng ký" (không bao giờ đổi lại);
  * ngày học thử đã qua => "Kết thúc" (không cần cron).
  */
-export function trialStatus(t: { trial_date: string; status: string }, todayISO?: string): "Học thử" | "Kết thúc" {
+export function trialStatus(
+  t: { trial_date: string; status: string },
+  todayISO?: string,
+): "Học thử" | "Kết thúc" | "Đã đăng ký" {
+  if (t.status === "Đã đăng ký") return "Đã đăng ký";
   if (t.status === "Kết thúc") return "Kết thúc";
   const today = todayISO ?? toLocalISO(new Date());
   return t.trial_date < today ? "Kết thúc" : "Học thử";

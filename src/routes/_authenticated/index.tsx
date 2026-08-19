@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccess } from "@/lib/access";
 import { listUsers, createTeacher, createManager, updateTeacherClasses, deleteUser, transferOwnership, changeUserRole, updateOwnAvatar } from "@/lib/auth.functions";
 import { fileToRenderableUrl, cropImageToBlob, uploadAvatarImage } from "@/lib/image-upload";
+import { type TrialStudent } from "@/lib/shared";
 import Cropper from "react-easy-crop";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
@@ -364,6 +365,10 @@ function AccountMenu() {
 
 function App() {
   const [tab, setTab] = useState<string>("dashboard");
+  // Học sinh học thử đang chờ "Đăng ký" học chính thức — bấm nút Đăng ký ở trang Học sinh sẽ set state
+  // này rồi chuyển sang trang Học phí; TuitionTab đọc state này để tự mở dialog "Ghi nhận học phí" ở
+  // chế độ "Học sinh mới" với thông tin điền sẵn.
+  const [trialToRegister, setTrialToRegister] = useState<TrialStudent | null>(null);
   const access = useAccess();
   const t = useLabel();
   const tabs = useMemo(
@@ -432,11 +437,23 @@ function App() {
 
 
           <TabsContent value="dashboard"><DashboardTab onNavigate={setTab} /></TabsContent>
-          <TabsContent value="students" forceMount className={tab === "students" ? "" : "hidden"}><StudentsTab /></TabsContent>
+          <TabsContent value="students" forceMount className={tab === "students" ? "" : "hidden"}>
+            <StudentsTab
+              onRegisterTrial={(trial) => {
+                setTrialToRegister(trial);
+                setTab("tuition");
+              }}
+            />
+          </TabsContent>
           <TabsContent value="schedule" forceMount className={tab === "schedule" ? "" : "hidden"}><ScheduleTab /></TabsContent>
           <TabsContent value="attendance" forceMount className={tab === "attendance" ? "" : "hidden"}><AttendanceTab /></TabsContent>
           <TabsContent value="learning" forceMount className={tab === "learning" ? "" : "hidden"}><LearningTab /></TabsContent>
-          <TabsContent value="tuition" forceMount className={tab === "tuition" ? "" : "hidden"}><TuitionTab /></TabsContent>
+          <TabsContent value="tuition" forceMount className={tab === "tuition" ? "" : "hidden"}>
+            <TuitionTab
+              pendingTrialRegistration={trialToRegister}
+              onConsumePendingTrial={() => setTrialToRegister(null)}
+            />
+          </TabsContent>
           <TabsContent value="finance"><FinanceTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>
           <TabsContent value="settings">

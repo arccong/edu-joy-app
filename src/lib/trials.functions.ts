@@ -63,6 +63,23 @@ export const deleteTrialStudent = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Đánh dấu học sinh học thử đã "Đăng ký" học chính thức, liên kết sang hồ sơ học sinh vừa tạo ở trang
+ * Học phí (cùng 1 người, tiện theo dõi và quản lý xuyên suốt học thử -> chính thức).
+ */
+export const markTrialRegistered = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), student_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as any;
+    const { error } = await sb
+      .from("trial_students")
+      .update({ status: "Đã đăng ký", converted_student_id: data.student_id })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 const TrialAttendance = z.object({
   id: z.string().uuid(),
   status: z.enum(["Đi học", "Nghỉ có phép", "Nghỉ không phép"]),

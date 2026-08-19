@@ -43,6 +43,7 @@ type Entry = {
   amount: number;
   note: string | null;
   is_fixed: boolean;
+  recurring_expense_id?: string | null;
   class_type: string | null;
   income_type: "hoc_phi" | "khac" | null;
   student_name: string | null;
@@ -892,10 +893,21 @@ export function EntryDialog({
           )}
 
           {formKind === "chi" && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isFixed} onChange={(e) => setIsFixed(e.target.checked)} />
-              <span>Khoản cố định hàng tháng</span>
-            </label>
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={isFixed} onChange={(e) => setIsFixed(e.target.checked)} />
+                <span>Khoản cố định hàng tháng</span>
+              </label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {existing?.recurring_expense_id
+                  ? isFixed
+                    ? "Sửa số tiền/danh mục sẽ áp dụng từ tháng này trở đi — các tháng sau cũng tự đổi theo. Các tháng trước giữ nguyên."
+                    : "Bỏ tick sẽ ngừng tự thêm các tháng sau (các tháng đã tạo trước đó vẫn giữ nguyên)."
+                  : isFixed
+                    ? "Từ tháng sau, khoản này sẽ tự động được thêm vào — không cần nhập lại."
+                    : ""}
+              </p>
+            </div>
           )}
           <div className="grid gap-1">
             <Label>Ghi chú</Label>

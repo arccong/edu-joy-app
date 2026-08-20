@@ -124,6 +124,23 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Trình duyệt (đặc biệt Chrome/Safari) tự vẽ ô input đã autofill (tài khoản đã lưu) bằng style riêng
+     của nó — thường kèm NỀN VÀNG và có thể khác cả font-size/font-family so với CSS của trang, cho tới
+     khi có tương tác nào đó trên trang thì mới "nhường" lại đúng theo CSS thật. Ép font-size/font-family
+     đúng ngay từ đầu, và dùng chiêu "box-shadow inset" để vô hiệu hóa nền vàng mặc định của trình duyệt
+     (transition cực dài để trình duyệt không tự chuyển nền lại khi vừa autofill xong). */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    font-size: inherit !important;
+    font-family: inherit !important;
+    -webkit-text-fill-color: var(--color-foreground);
+    -webkit-box-shadow: 0 0 0px 1000px var(--color-card) inset;
+    box-shadow: 0 0 0px 1000px var(--color-card) inset;
+    transition: background-color 600000s ease-in-out 0s;
+  }
+
   /* Scrollbar mỏng, gọn, hiện đại hơn mặc định của trình duyệt — áp dụng toàn app */
   * {
     scrollbar-width: thin;

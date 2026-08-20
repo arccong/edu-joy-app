@@ -103,15 +103,18 @@ function AuthPage() {
             }
           />
           {(!hideTitle || setupMode) && (
-            <h1 className="text-lg font-semibold text-foreground">
+            <h1
+              className="text-lg font-semibold text-foreground"
+              style={{ fontFamily: `"${t("app.font")}", var(--font-sans)` }}
+            >
               {setupMode ? "Tạo tài khoản Quản lý đầu tiên" : t("auth.title")}
             </h1>
           )}
-          <p className="text-sm text-muted-foreground">
-            {setupMode
-              ? "Hệ thống chưa có tài khoản Quản lý. Hãy tạo tài khoản chủ trung tâm."
-              : t("auth.subtitle")}
-          </p>
+          {setupMode && (
+            <p className="text-sm text-muted-foreground">
+              Hệ thống chưa có tài khoản Quản lý. Hãy tạo tài khoản chủ trung tâm.
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -129,7 +132,7 @@ function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@vidu.com"
-              className="bg-card"
+              className="h-16 bg-card sm:h-[46px]"
             />
           </div>
           <div className="grid gap-1">
@@ -144,7 +147,7 @@ function AuthPage() {
                   if (e.key === "Enter" && !pending) (setupMode ? setup : login).mutate();
                 }}
                 placeholder="••••••"
-                className="bg-card pr-10"
+                className="h-16 bg-card pr-10 sm:h-[46px]"
               />
               <button
                 type="button"
@@ -167,7 +170,7 @@ function AuthPage() {
             Ghi nhớ đăng nhập trên thiết bị này
           </label>
           <Button
-            className="w-full rounded-full"
+            className="h-16 w-full rounded-full sm:h-[46px]"
             disabled={pending || !email || password.length < 6}
             onClick={() => (setupMode ? setup : login).mutate()}
           >

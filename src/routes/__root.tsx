@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Cormorant+Garamond:wght@600;700&family=Lora:wght@600;700&family=Merriweather:wght@700&family=Bitter:wght@600;700&family=Roboto+Slab:wght@600;700&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Cormorant+Garamond:wght@600;700&family=Lora:wght@600;700&family=Merriweather:wght@700&family=Bitter:wght@600;700&family=Roboto+Slab:wght@600;700&family=Fraunces:wght@600;700&family=Libre+Baskerville:wght@400;700&display=swap" },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.png", type: "image/png", sizes: "64x64" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },

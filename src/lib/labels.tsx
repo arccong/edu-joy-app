@@ -39,6 +39,8 @@ export const APP_FONTS = [
   { value: "Merriweather", label: "Merriweather (vintage, chắc chắn)" },
   { value: "Bitter", label: "Bitter (vintage, máy chữ)" },
   { value: "Roboto Slab", label: "Roboto Slab (slab hiện đại)" },
+  { value: "Fraunces", label: "Fraunces (serif ấm, tối giản hiện đại)" },
+  { value: "Libre Baskerville", label: "Libre Baskerville (cổ điển, dễ đọc)" },
 ] as const;
 
 export const labelsKey = ["ui-labels"] as const;

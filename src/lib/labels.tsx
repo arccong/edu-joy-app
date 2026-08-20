@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -45,6 +46,10 @@ export const APP_FONTS = [
 
 export const labelsKey = ["ui-labels"] as const;
 
+// useLayoutEffect báo lỗi console khi chạy trên server (SSR không có gì để "đo trước khi vẽ" cả) —
+// dùng useEffect thường ở server, useLayoutEffect (chạy sớm hơn, trước khi trình duyệt vẽ) ở client.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 const LABELS_CACHE_KEY = "ui-labels-cache-v1";
 
 function readCachedLabels(): UiLabel[] | undefined {
@@ -75,22 +80,31 @@ export async function fetchLabels(): Promise<UiLabel[]> {
 }
 
 export function useLabels() {
-  return useQuery({
-    queryKey: labelsKey,
-    queryFn: fetchLabels,
-    staleTime: 60_000,
-    // Đọc nhãn đã lưu từ lần tải trước (localStorage) làm dữ liệu ban đầu — để lần render ĐẦU TIÊN sau
-    // khi reload trang đã hiển thị đúng nhãn đã tùy chỉnh (vd: "Hoạt động trung tâm") thay vì chữ mặc
-    // định ("Đăng nhập") rồi mới đổi lại khi fetch xong. Dữ liệu thật vẫn được refetch ngầm phía sau.
-    initialData: readCachedLabels,
-  });
+  // KHÔNG dùng initialData đọc localStorage ở đây — app này chạy SSR (TanStack Start), và trên server
+  // không có localStorage. Nếu initialData trả về khác nhau giữa server (không có cache) và client (có
+  // cache), React sẽ bị lệch hydration (nội dung client tính ra khác với HTML server đã gửi), gây lỗi
+  // và không thực sự sửa được hiện tượng nháy chữ. Xem useLabel() bên dưới để biết cách áp cache đúng.
+  return useQuery({ queryKey: labelsKey, queryFn: fetchLabels, staleTime: 60_000 });
 }
 
-/** Trả về hàm t(key) đọc nhãn (có fallback) */
+/**
+ * Trả về hàm t(key) đọc nhãn (có fallback). Ưu tiên: dữ liệu THẬT đã fetch xong > nhãn cache từ lần
+ * trước (localStorage) > giá trị mặc định cứng (LABEL_FALLBACKS).
+ *
+ * Nhãn cache được áp bằng useLayoutEffect — luôn bắt đầu ở trạng thái "chưa có" (undefined) giống hệt
+ * lúc server render (không lỗi hydration mismatch), rồi cập nhật NGAY lập tức ngay sau khi trang được
+ * gắn vào DOM ở client — TRƯỚC khi trình duyệt kịp vẽ khung hình kế tiếp — nên gần như không thấy nháy
+ * chữ (khác với cách chờ query fetch xong, vốn phải đợi cả một lượt gọi mạng tới Supabase).
+ */
 export function useLabel() {
   const { data } = useLabels();
+  const [cached, setCached] = useState<UiLabel[] | undefined>(undefined);
+  useIsomorphicLayoutEffect(() => {
+    setCached(readCachedLabels());
+  }, []);
+  const rows = data ?? cached;
   return (key: string) => {
-    const row = data?.find((l) => l.key === key);
+    const row = rows?.find((l) => l.key === key);
     const v = (row?.value || "").trim();
     return v || row?.default_value || LABEL_FALLBACKS[key] || key;
   };

@@ -5,11 +5,16 @@ import { cn } from "@/lib/utils";
  * Bộ chọn giờ TỰ XÂY DỰNG HOÀN TOÀN, không dùng <input type="time"> gốc của trình duyệt nữa (icon đồng
  * hồ mặc định của trình duyệt nằm sát khung nhập, không chỉnh được bằng CSS, nhìn không đồng bộ thiết
  * kế). Gồm 2 ô số riêng — Giờ (0-23) và Phút (0-59) — mỗi ô có thể:
- * - Gõ số trực tiếp bằng bàn phím.
- * - Lăn chuột giữa (wheel) khi đang trỏ vào ô để tăng/giảm từng đơn vị — lăn lên = tăng, lăn xuống =
- *   giảm. Dùng listener "wheel" gắn trực tiếp (không phải qua React onWheel) với { passive: false } để
- *   preventDefault() chặn được việc cuộn cả trang, vì React tự gắn onWheel ở chế độ passive mặc định
- *   nên gọi preventDefault() trong đó sẽ không có tác dụng chặn cuộn trang.
+ * - Gõ số trực tiếp bằng bàn phím (chạm nhẹ để focus rồi gõ, như input thường).
+ * - Desktop: trỏ chuột vào ô rồi lăn chuột giữa (wheel) để tăng/giảm — lăn lên = tăng, lăn xuống = giảm.
+ * - Mobile: CHẠM VÀ VUỐT dọc trên ô để tăng/giảm — vuốt lên = tăng, vuốt xuống = giảm (mỗi ~18px vuốt
+ *   được 1 đơn vị). Phân biệt với "chạm nhẹ để gõ số": chỉ khi ngón tay di chuyển vượt quá một ngưỡng
+ *   nhỏ mới coi là đang vuốt chỉnh số; chạm rồi nhấc tay ngay (không di chuyển) vẫn focus ô để gõ bàn
+ *   phím bình thường.
+ *
+ * Cả 2 cơ chế wheel và touch đều dùng listener gắn trực tiếp (không phải qua props onWheel/onTouchMove
+ * của React) với { passive: false }, vì React tự gắn các listener này ở chế độ passive mặc định nên
+ * gọi preventDefault() bên trong sẽ không chặn được việc cuộn/vuốt cả trang.
  *
  * Giữ nguyên "giao diện lập trình" y hệt input cũ (value: chuỗi "HH:MM", onChange nhận {target:{value}})
  * để không phải sửa lại nơi gọi.
@@ -23,8 +28,14 @@ export type TimeInputProps = {
   disabled?: boolean;
 };
 
+const PX_PER_STEP = 18; // số px vuốt dọc cần để đổi 1 đơn vị
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
+}
+
+function wrap(n: number, count: number) {
+  return ((n % count) + count) % count;
 }
 
 function parseHM(value?: string | null): [number, number] {
@@ -66,19 +77,51 @@ function TimeUnit({
     setText(String(clamped).padStart(2, "0"));
   };
 
+  // Lăn chuột giữa (Desktop)
   React.useEffect(() => {
     const el = ref.current;
     if (!el || disabled) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
       const dir = e.deltaY < 0 ? 1 : -1; // lăn lên -> tăng, lăn xuống -> giảm
-      let next = valueRef.current + dir;
-      if (next > max) next = 0;
-      if (next < 0) next = max;
-      onChange(next);
+      onChange(wrap(valueRef.current + dir, max + 1));
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
+  }, [max, disabled, onChange]);
+
+  // Chạm và vuốt dọc (Mobile)
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || disabled) return;
+    let startY = 0;
+    let startValue = 0;
+    let lastSteps = 0;
+    let dragging = false;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+      startValue = valueRef.current;
+      lastSteps = 0;
+      dragging = false;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const delta = startY - e.touches[0].clientY; // dương = vuốt lên
+      if (!dragging && Math.abs(delta) < 6) return; // chưa vượt ngưỡng -> vẫn coi là chạm để gõ, không chặn gì
+      dragging = true;
+      e.preventDefault();
+      const steps = Math.trunc(delta / PX_PER_STEP);
+      if (steps !== lastSteps) {
+        lastSteps = steps;
+        onChange(wrap(startValue + steps, max + 1));
+      }
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+    };
   }, [max, disabled, onChange]);
 
   return (
@@ -106,7 +149,8 @@ function TimeUnit({
         }
       }}
       className={cn(
-        "h-9 w-10 rounded-md border border-input bg-transparent text-center text-sm tabular-nums shadow-sm",
+        "h-9 w-10 select-none rounded-md border border-input bg-transparent text-center text-sm tabular-nums shadow-sm",
+        "touch-none", // ngăn trình duyệt tự cuộn/zoom trang khi đang vuốt trên ô này
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-50",
       )}

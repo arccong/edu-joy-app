@@ -735,6 +735,15 @@ export function RecordPaymentDialog({
   const perWeek = weeklySessions(form.schedule_slots);
   const slotDays = new Set(form.schedule_slots.map((s) => s.day));
 
+  // Tính lại giờ kết thúc cho TẤT CẢ khung giờ theo đúng số lượng khung hiện có: chỉ 1 khung (1 buổi/
+  // tuần) thì +2 giờ, từ 2 khung trở lên (>=2 buổi/tuần) thì +1 giờ — mỗi khung vẫn giữ nguyên giờ bắt
+  // đầu của riêng nó, chỉ giờ kết thúc được tính lại. Dùng khi số lượng khung THAY ĐỔI (thêm/xóa), vì
+  // lúc đó quy tắc +1/+2 giờ áp dụng cho MỌI khung đang có, không chỉ khung vừa thêm/sửa.
+  const recalcSlotEnds = (slots: ScheduleSlot[]): ScheduleSlot[] => {
+    const hours = slots.length <= 1 ? 2 : 1;
+    return slots.map((s) => ({ ...s, end: shiftTime(s.start, hours) }));
+  };
+
   const setSlotField = (idx: number, patch: Partial<ScheduleSlot>) =>
     setForm((f) => {
       const arr = f.schedule_slots.slice();
@@ -747,9 +756,10 @@ export function RecordPaymentDialog({
       arr[idx] = next;
       return { ...f, schedule_slots: arr };
     });
-  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));
+  const addSlot = () =>
+    setForm((f) => ({ ...f, schedule_slots: recalcSlotEnds(withDefaultSlotAdded(f.schedule_slots)) }));
   const removeSlot = (idx: number) =>
-    setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
+    setForm((f) => ({ ...f, schedule_slots: recalcSlotEnds(f.schedule_slots.filter((_, i) => i !== idx)) }));
 
   const mut = useMutation({
     mutationFn: async () => {

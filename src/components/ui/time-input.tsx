@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,6 +11,13 @@ import { cn } from "@/lib/utils";
  * - Mobile: CHẠM VÀ VUỐT dọc trên ô để tăng/giảm — vuốt lên = tăng, vuốt xuống = giảm. Trong lúc vuốt,
  *   hiện 1 "bong bóng" số to nổi phía TRÊN điểm chạm (position: fixed) để thấy rõ giá trị đang chọn,
  *   tránh bị chính ngón tay che mất ô — cách làm quen thuộc ở các thanh trượt (slider) trên mobile.
+ *
+ * Bong bóng được render qua Portal thẳng ra document.body (không nằm trong cây DOM của TimeInput) — bắt
+ * buộc phải làm vậy vì "position: fixed" chỉ neo đúng theo VIEWPORT khi KHÔNG có ancestor nào dùng CSS
+ * transform; mà các Dialog trong app đều dùng transform để căn giữa màn hình, nên nếu bong bóng nằm bên
+ * trong Dialog thì tọa độ fixed của nó bị tính theo khung Dialog (containing block bị đổi) thay vì theo
+ * màn hình thật, dẫn đến lệch khác nhau tùy Dialog đó to/nhỏ/nằm đâu. Render ra ngoài body thì luôn định
+ * vị đúng theo tọa độ chạm thực tế trên màn hình, nhất quán ở mọi nơi.
  *
  * Cơ chế wheel và touch đều dùng listener gắn trực tiếp (không phải qua props onWheel/onTouchMove của
  * React) với { passive: false }, vì React tự gắn các listener này ở chế độ passive mặc định nên gọi
@@ -28,7 +36,7 @@ export type TimeInputProps = {
 };
 
 const PX_PER_STEP = 18; // số px vuốt/lăn dọc cần để đổi 1 đơn vị
-const BUBBLE_OFFSET_Y = 64; // bong bóng số nổi cách điểm chạm bao nhiêu px phía trên
+const BUBBLE_OFFSET_Y = 72; // bong bóng số nổi cách điểm chạm bao nhiêu px phía trên
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -49,17 +57,16 @@ function parseHM(value?: string | null): [number, number] {
 }
 
 function DragBubble({ x, y, text }: { x: number; y: number; text: string }) {
-  return (
-    <div
-      className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full"
-      style={{ left: x, top: y }}
-    >
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full" style={{ left: x, top: y }}>
       <div className="flex min-w-14 items-center justify-center rounded-lg bg-primary px-3 py-2 text-xl font-bold tabular-nums text-primary-foreground shadow-lg">
         {text}
       </div>
       {/* Mũi tên nhỏ chỉ xuống điểm chạm, cho rõ bong bóng đang gắn với ngón tay nào */}
       <div className="mx-auto h-2 w-2 -translate-y-1 rotate-45 bg-primary" />
-    </div>
+    </div>,
+    document.body,
   );
 }
 

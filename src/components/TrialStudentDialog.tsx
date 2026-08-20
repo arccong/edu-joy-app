@@ -62,12 +62,11 @@ export function TrialStudentDialog({ trial, trigger }: { trial?: TrialStudent; t
             <Input type="date" value={form.trial_date} onChange={(e) => setForm({ ...form, trial_date: e.target.value })} />
             <p className="text-xs text-muted-foreground">Chỉ 1 buổi học thử duy nhất, không lặp lại theo tuần.</p>
           </div>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Giờ bắt đầu</Label>
               <TimeInput value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
             </div>
-            <span className="pb-2 text-muted-foreground">–</span>
             <div className="grid gap-2">
               <Label>Giờ kết thúc</Label>
               <TimeInput value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />

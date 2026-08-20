@@ -27,7 +27,6 @@ export const LABEL_FALLBACKS: Record<string, string> = {
   "btn.payment": "Ghi nhận học phí",
   "btn.new_student": "Học thử",
   "btn.finance": "Thu / Chi",
-  "auth.title": "Đăng nhập",
   "auth.subtitle": "Quản lý học sinh · Piano · Múa · Vẽ",
 };
 

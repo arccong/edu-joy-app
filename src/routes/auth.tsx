@@ -107,7 +107,7 @@ function AuthPage() {
               className="text-lg font-semibold text-foreground"
               style={{ fontFamily: `"${t("app.font")}", var(--font-sans)` }}
             >
-              {setupMode ? "Tạo tài khoản Quản lý đầu tiên" : t("auth.title")}
+              {setupMode ? "Tạo tài khoản Quản lý đầu tiên" : "Hoạt động trung tâm"}
             </h1>
           )}
           {setupMode && (

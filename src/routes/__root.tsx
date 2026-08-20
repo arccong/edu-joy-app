@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BrandingProvider, BRAND_INLINE_SCRIPT } from "../lib/branding";
 import { PwaManager } from "../components/PwaManager";
+import { FontRepaintFix } from "../components/FontRepaintFix";
 
 function NotFoundComponent() {
   return (
@@ -133,6 +134,7 @@ function RootComponent() {
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         <PwaManager />
+        <FontRepaintFix />
       </BrandingProvider>
     </QueryClientProvider>
   );

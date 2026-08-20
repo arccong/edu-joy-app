@@ -977,7 +977,7 @@ export function RecordPaymentDialog({
               {form.schedule_slots.map((sl, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2"
+                  className="grid grid-cols-[1fr_auto_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2"
                 >
                   <div className="grid gap-1">
                     <Label className="text-xs">Thứ</Label>
@@ -997,6 +997,12 @@ export function RecordPaymentDialog({
                   <div className="grid gap-1">
                     <Label className="text-xs">Bắt đầu</Label>
                     <TimeInput value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} />
+                  </div>
+                  {/* Placeholder ẩn cùng chiều cao Label phía trên -> dấu gạch ngang thẳng hàng với 2 ô
+                      giờ (không lệch lên do có Label), tách biệt rõ Bắt đầu / Kết thúc. */}
+                  <div className="grid gap-1">
+                    <span className="text-xs opacity-0">·</span>
+                    <span className="flex h-9 items-center text-muted-foreground">–</span>
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Kết thúc</Label>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -19,6 +20,7 @@ import {
   fmtDate,
   formatMoney,
   parseMoney,
+  shiftTime,
   toLocalISO,
   weeklySessions,
   withDefaultSlotAdded,
@@ -72,15 +74,31 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
   );
   const perWeek = weeklySessions(form.schedule_slots);
 
+  // Tính lại giờ kết thúc cho TẤT CẢ khung giờ theo đúng số lượng khung hiện có: chỉ 1 khung (1 buổi/
+  // tuần) thì +2 giờ, từ 2 khung trở lên (>=2 buổi/tuần) thì +1 giờ — mỗi khung vẫn giữ nguyên giờ bắt
+  // đầu của riêng nó, chỉ giờ kết thúc được tính lại. Dùng khi số lượng khung THAY ĐỔI (thêm/xóa).
+  const recalcSlotEnds = (slots: ScheduleSlot[]): ScheduleSlot[] => {
+    const hours = slots.length <= 1 ? 2 : 1;
+    return slots.map((s) => ({ ...s, end: shiftTime(s.start, hours) }));
+  };
+
   const setSlotField = (idx: number, patch: Partial<ScheduleSlot>) => {
     setForm((f) => {
       const arr = f.schedule_slots.slice();
-      arr[idx] = { ...arr[idx], ...patch };
+      const next = { ...arr[idx], ...patch };
+      // Đổi giờ bắt đầu -> tự động nhảy giờ kết thúc theo: chỉ 1 khung ngày học (1 buổi/tuần) thì +2
+      // giờ, từ 2 khung trở lên (>=2 buổi/tuần) thì +1 giờ — khớp quy tắc mặc định khi thêm khung mới.
+      if (patch.start !== undefined) {
+        next.end = shiftTime(patch.start, f.schedule_slots.length <= 1 ? 2 : 1);
+      }
+      arr[idx] = next;
       return { ...f, schedule_slots: arr };
     });
   };
-  const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));
-  const removeSlot = (idx: number) => setForm((f) => ({ ...f, schedule_slots: f.schedule_slots.filter((_, i) => i !== idx) }));
+  const addSlot = () =>
+    setForm((f) => ({ ...f, schedule_slots: recalcSlotEnds(withDefaultSlotAdded(f.schedule_slots)) }));
+  const removeSlot = (idx: number) =>
+    setForm((f) => ({ ...f, schedule_slots: recalcSlotEnds(f.schedule_slots.filter((_, i) => i !== idx)) }));
 
   const startDow = dayOfWeekOf(form.start_date);
   const endDow = dayOfWeekOf(form.end_date);
@@ -203,7 +221,7 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
             )}
             <div className="space-y-2">
               {form.schedule_slots.map((sl, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2">
+                <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-end gap-2 rounded-md border bg-muted/30 p-2">
                   <div className="grid gap-1">
                     <Label className="text-xs">Thứ</Label>
                     <Select value={String(sl.day)} onValueChange={(v) => setSlotField(idx, { day: Number(v) })}>
@@ -213,11 +231,15 @@ export function StudentDialog({ student, trigger }: { student?: Student; trigger
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Bắt đầu</Label>
-                    <Input type="time" step={900} value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} className="w-[110px]" />
+                    <TimeInput value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1">
+                    <span className="text-xs opacity-0">·</span>
+                    <span className="flex h-9 items-center text-muted-foreground">–</span>
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Kết thúc</Label>
-                    <Input type="time" step={900} value={sl.end} onChange={(e) => setSlotField(idx, { end: e.target.value })} className="w-[110px]" />
+                    <TimeInput value={sl.end} onChange={(e) => setSlotField(idx, { end: e.target.value })} />
                   </div>
                   <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => removeSlot(idx)}>
                     <Trash2 className="h-4 w-4" />

@@ -9,6 +9,7 @@ import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -37,6 +38,7 @@ import {
   type MakeupEntry,
   type ScheduleChange,
   withDefaultSlotAdded,
+  shiftTime,
   hhmm,
   type ScheduleSlot,
   type Student,
@@ -826,7 +828,18 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label>Lịch học mới</Label>
-              <Button type="button" size="sm" variant="outline" onClick={() => setSlots((a) => withDefaultSlotAdded(a))}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setSlots((a) => {
+                    const next = withDefaultSlotAdded(a);
+                    const hours = next.length <= 1 ? 2 : 1;
+                    return next.map((s) => ({ ...s, end: shiftTime(s.start, hours) }));
+                  })
+                }
+              >
                 <Plus className="mr-1 h-4 w-4" />Thêm ca
               </Button>
             </div>
@@ -837,9 +850,29 @@ function ChangeScheduleDialog({ students }: { students: Student[] }) {
                   <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
                   <SelectContent>{DAYS_ORDER.map((d) => <SelectItem key={d} value={String(d)}>{DAYS[d]}</SelectItem>)}</SelectContent>
                 </Select>
-                <Input type="time" value={sl.start} className="w-[110px]" onChange={(e) => setSlots((a) => a.map((x, ix) => ix === i ? { ...x, start: e.target.value } : x))} />
-                <Input type="time" value={sl.end} className="w-[110px]" onChange={(e) => setSlots((a) => a.map((x, ix) => ix === i ? { ...x, end: e.target.value } : x))} />
-                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setSlots((a) => a.filter((_, ix) => ix !== i))}>
+                <TimeInput
+                  value={sl.start}
+                  onChange={(e) =>
+                    setSlots((a) => {
+                      const hours = a.length <= 1 ? 2 : 1;
+                      return a.map((x, ix) => (ix === i ? { ...x, start: e.target.value, end: shiftTime(e.target.value, hours) } : x));
+                    })
+                  }
+                />
+                <span className="text-muted-foreground">–</span>
+                <TimeInput value={sl.end} onChange={(e) => setSlots((a) => a.map((x, ix) => ix === i ? { ...x, end: e.target.value } : x))} />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() =>
+                    setSlots((a) => {
+                      const next = a.filter((_, ix) => ix !== i);
+                      const hours = next.length <= 1 ? 2 : 1;
+                      return next.map((s) => ({ ...s, end: shiftTime(s.start, hours) }));
+                    })
+                  }
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

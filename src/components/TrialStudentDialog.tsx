@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
@@ -61,14 +62,15 @@ export function TrialStudentDialog({ trial, trigger }: { trial?: TrialStudent; t
             <Input type="date" value={form.trial_date} onChange={(e) => setForm({ ...form, trial_date: e.target.value })} />
             <p className="text-xs text-muted-foreground">Chỉ 1 buổi học thử duy nhất, không lặp lại theo tuần.</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
             <div className="grid gap-2">
               <Label>Giờ bắt đầu</Label>
-              <Input type="time" step={900} value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+              <TimeInput value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
             </div>
+            <span className="pb-2 text-muted-foreground">–</span>
             <div className="grid gap-2">
               <Label>Giờ kết thúc</Label>
-              <Input type="time" step={900} value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+              <TimeInput value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
             </div>
           </div>
           <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">

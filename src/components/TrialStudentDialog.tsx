@@ -9,7 +9,7 @@ import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
-import { hhmm, toLocalISO, type ClassType, type TrialStudent } from "@/lib/shared";
+import { hhmm, shiftTime, toLocalISO, type ClassType, type TrialStudent } from "@/lib/shared";
 import { upsertTrialStudent } from "@/lib/trials.functions";
 
 export function TrialStudentDialog({ trial, trigger }: { trial?: TrialStudent; trigger: React.ReactNode }) {
@@ -65,7 +65,10 @@ export function TrialStudentDialog({ trial, trigger }: { trial?: TrialStudent; t
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label>Giờ bắt đầu</Label>
-              <TimeInput value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+              <TimeInput
+                value={form.start_time}
+                onChange={(e) => setForm({ ...form, start_time: e.target.value, end_time: shiftTime(e.target.value, 1) })}
+              />
             </div>
             <div className="grid gap-2">
               <Label>Giờ kết thúc</Label>

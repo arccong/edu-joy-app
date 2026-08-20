@@ -1,20 +1,24 @@
 import * as React from "react";
+import { Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 /**
  * Bộ chọn giờ TỰ XÂY DỰNG HOÀN TOÀN, không dùng <input type="time"> gốc của trình duyệt nữa (icon đồng
  * hồ mặc định của trình duyệt nằm sát khung nhập, không chỉnh được bằng CSS, nhìn không đồng bộ thiết
- * kế). Gồm 2 ô số riêng — Giờ (0-23) và Phút (0-59) — mỗi ô có thể:
- * - Gõ số trực tiếp bằng bàn phím (chạm nhẹ để focus rồi gõ, như input thường).
- * - Desktop: trỏ chuột vào ô rồi lăn chuột giữa (wheel) để tăng/giảm — lăn lên = tăng, lăn xuống = giảm.
- * - Mobile: CHẠM VÀ VUỐT dọc trên ô để tăng/giảm — vuốt lên = tăng, vuốt xuống = giảm (mỗi ~18px vuốt
- *   được 1 đơn vị). Phân biệt với "chạm nhẹ để gõ số": chỉ khi ngón tay di chuyển vượt quá một ngưỡng
- *   nhỏ mới coi là đang vuốt chỉnh số; chạm rồi nhấc tay ngay (không di chuyển) vẫn focus ô để gõ bàn
- *   phím bình thường.
+ * kế). Gồm 2 phần:
+ * 1) Hai ô số riêng — Giờ (0-23) và Phút (0-59) — để chỉnh nhanh:
+ *    - Gõ số trực tiếp bằng bàn phím (chạm nhẹ để focus rồi gõ, như input thường).
+ *    - Desktop: trỏ chuột vào ô rồi lăn chuột giữa (wheel) để tăng/giảm — lăn lên = tăng, lăn xuống =
+ *      giảm.
+ *    - Mobile: CHẠM VÀ VUỐT dọc trên ô để tăng/giảm — vuốt lên = tăng, vuốt xuống = giảm.
+ * 2) Nút mở BẢNG DANH SÁCH (2 cột Giờ / Phút cuộn được, bấm chọn trực tiếp) — tiện hơn trên mobile so
+ *    với gõ/vuốt từng đơn vị, đặc biệt khi cần đổi giờ nhảy xa (vd từ 08:00 sang 14:30).
  *
- * Cả 2 cơ chế wheel và touch đều dùng listener gắn trực tiếp (không phải qua props onWheel/onTouchMove
- * của React) với { passive: false }, vì React tự gắn các listener này ở chế độ passive mặc định nên
- * gọi preventDefault() bên trong sẽ không chặn được việc cuộn/vuốt cả trang.
+ * Cơ chế wheel và touch trên 2 ô số đều dùng listener gắn trực tiếp (không phải qua props onWheel/
+ * onTouchMove của React) với { passive: false }, vì React tự gắn các listener này ở chế độ passive mặc
+ * định nên gọi preventDefault() bên trong sẽ không chặn được việc cuộn/vuốt cả trang.
  *
  * Giữ nguyên "giao diện lập trình" y hệt input cũ (value: chuỗi "HH:MM", onChange nhận {target:{value}})
  * để không phải sửa lại nơi gọi.
@@ -28,7 +32,7 @@ export type TimeInputProps = {
   disabled?: boolean;
 };
 
-const PX_PER_STEP = 18; // số px vuốt dọc cần để đổi 1 đơn vị
+const PX_PER_STEP = 18; // số px vuốt/lăn dọc cần để đổi 1 đơn vị
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -36,6 +40,10 @@ function clamp(n: number, min: number, max: number) {
 
 function wrap(n: number, count: number) {
   return ((n % count) + count) % count;
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
 }
 
 function parseHM(value?: string | null): [number, number] {
@@ -58,23 +66,23 @@ function TimeUnit({
   ariaLabel: string;
 }) {
   const ref = React.useRef<HTMLInputElement>(null);
-  const [text, setText] = React.useState(String(value).padStart(2, "0"));
+  const [text, setText] = React.useState(pad2(value));
   const valueRef = React.useRef(value);
   valueRef.current = value;
 
   React.useEffect(() => {
-    setText(String(value).padStart(2, "0"));
+    setText(pad2(value));
   }, [value]);
 
   const commit = (raw: string) => {
     const n = parseInt(raw, 10);
     if (Number.isNaN(n)) {
-      setText(String(value).padStart(2, "0"));
+      setText(pad2(value));
       return;
     }
     const clamped = clamp(n, 0, max);
     onChange(clamped);
-    setText(String(clamped).padStart(2, "0"));
+    setText(pad2(clamped));
   };
 
   // Lăn chuột giữa (Desktop)
@@ -107,7 +115,7 @@ function TimeUnit({
     };
     const onTouchMove = (e: TouchEvent) => {
       const delta = startY - e.touches[0].clientY; // dương = vuốt lên
-      if (!dragging && Math.abs(delta) < 6) return; // chưa vượt ngưỡng -> vẫn coi là chạm để gõ, không chặn gì
+      if (!dragging && Math.abs(delta) < 6) return; // chưa vượt ngưỡng -> vẫn coi là chạm để gõ
       dragging = true;
       e.preventDefault();
       const steps = Math.trunc(delta / PX_PER_STEP);
@@ -158,16 +166,73 @@ function TimeUnit({
   );
 }
 
+/** 1 cột số cuộn được trong bảng danh sách (dùng chung cho cả cột Giờ và cột Phút). */
+function PickerColumn({
+  max,
+  value,
+  onSelect,
+  ariaLabel,
+}: {
+  max: number;
+  value: number;
+  onSelect: (v: number) => void;
+  ariaLabel: string;
+}) {
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-value="${value}"]`);
+    el?.scrollIntoView({ block: "center" });
+    // Chỉ cuộn tới khi danh sách vừa mở (mount) — không cuộn lại mỗi lần value đổi do người dùng đang
+    // cuộn tay, tránh giật.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={listRef} aria-label={ariaLabel} className="h-56 w-14 overflow-y-auto rounded-md border">
+      {Array.from({ length: max + 1 }, (_, n) => (
+        <button
+          key={n}
+          type="button"
+          data-value={n}
+          onClick={() => onSelect(n)}
+          className={cn(
+            "block w-full py-1.5 text-center text-sm tabular-nums hover:bg-muted",
+            n === value && "bg-primary/10 font-semibold text-primary",
+          )}
+        >
+          {pad2(n)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const TimeInput = React.forwardRef<HTMLDivElement, TimeInputProps>(({ value, onChange, className, disabled }, ref) => {
+  const [open, setOpen] = React.useState(false);
   const [h, m] = parseHM(value);
   const emit = (nh: number, nm: number) => {
-    onChange?.({ target: { value: `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}` } });
+    onChange?.({ target: { value: `${pad2(nh)}:${pad2(nm)}` } });
   };
   return (
     <div ref={ref} className={cn("flex items-center gap-1", className)}>
       <TimeUnit value={h} max={23} disabled={disabled} ariaLabel="Giờ" onChange={(nh) => emit(nh, m)} />
       <span className="text-sm text-muted-foreground">:</span>
       <TimeUnit value={m} max={59} disabled={disabled} ariaLabel="Phút" onChange={(nm) => emit(h, nm)} />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="outline" size="icon" disabled={disabled} className="h-9 w-9 shrink-0" title="Chọn từ danh sách">
+            <Clock className="h-4 w-4 opacity-60" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2" align="start">
+          <div className="mb-1.5 text-center text-xs text-muted-foreground">Chạm để chọn giờ / phút</div>
+          <div className="flex gap-1.5">
+            <PickerColumn max={23} value={h} ariaLabel="Danh sách giờ" onSelect={(nh) => emit(nh, m)} />
+            <PickerColumn max={59} value={m} ariaLabel="Danh sách phút" onSelect={(nm) => emit(h, nm)} />
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 });

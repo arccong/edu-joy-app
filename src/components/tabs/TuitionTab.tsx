@@ -986,19 +986,11 @@ export function RecordPaymentDialog({
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Bắt đầu</Label>
-                    <TimeInput
-                      value={sl.start}
-                      onChange={(e) => setSlotField(idx, { start: e.target.value })}
-                      className="w-[110px]"
-                    />
+                    <TimeInput value={sl.start} onChange={(e) => setSlotField(idx, { start: e.target.value })} />
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Kết thúc</Label>
-                    <TimeInput
-                      value={sl.end}
-                      onChange={(e) => setSlotField(idx, { end: e.target.value })}
-                      className="w-[110px]"
-                    />
+                    <TimeInput value={sl.end} onChange={(e) => setSlotField(idx, { end: e.target.value })} />
                   </div>
                   <Button
                     type="button"

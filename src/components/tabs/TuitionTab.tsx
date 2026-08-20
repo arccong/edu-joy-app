@@ -31,6 +31,7 @@ import {
   monthKey,
   nextScheduledDate,
   parseMoney,
+  shiftTime,
   toLocalISO,
   weeklySessions,
   withDefaultSlotAdded,
@@ -737,7 +738,13 @@ export function RecordPaymentDialog({
   const setSlotField = (idx: number, patch: Partial<ScheduleSlot>) =>
     setForm((f) => {
       const arr = f.schedule_slots.slice();
-      arr[idx] = { ...arr[idx], ...patch };
+      const next = { ...arr[idx], ...patch };
+      // Đổi giờ bắt đầu -> tự động nhảy giờ kết thúc theo: chỉ 1 khung ngày học (1 buổi/tuần) thì +2
+      // giờ, từ 2 khung trở lên (>=2 buổi/tuần) thì +1 giờ — khớp quy tắc mặc định khi thêm khung mới.
+      if (patch.start !== undefined) {
+        next.end = shiftTime(patch.start, f.schedule_slots.length <= 1 ? 2 : 1);
+      }
+      arr[idx] = next;
       return { ...f, schedule_slots: arr };
     });
   const addSlot = () => setForm((f) => ({ ...f, schedule_slots: withDefaultSlotAdded(f.schedule_slots) }));

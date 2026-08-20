@@ -9,6 +9,7 @@ import { exportXlsx } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -978,9 +979,7 @@ export function RecordPaymentDialog({
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Bắt đầu</Label>
-                    <Input
-                      type="time"
-                      step={900}
+                    <TimeInput
                       value={sl.start}
                       onChange={(e) => setSlotField(idx, { start: e.target.value })}
                       className="w-[110px]"
@@ -988,9 +987,7 @@ export function RecordPaymentDialog({
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">Kết thúc</Label>
-                    <Input
-                      type="time"
-                      step={900}
+                    <TimeInput
                       value={sl.end}
                       onChange={(e) => setSlotField(idx, { end: e.target.value })}
                       className="w-[110px]"

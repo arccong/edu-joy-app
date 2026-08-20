@@ -132,7 +132,7 @@ function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@vidu.com"
-              className="h-16 bg-card sm:h-[46px]"
+              className="h-[46px] bg-card"
             />
           </div>
           <div className="grid gap-1">
@@ -147,7 +147,7 @@ function AuthPage() {
                   if (e.key === "Enter" && !pending) (setupMode ? setup : login).mutate();
                 }}
                 placeholder="••••••"
-                className="h-16 bg-card pr-10 sm:h-[46px]"
+                className="h-[46px] bg-card pr-10"
               />
               <button
                 type="button"
@@ -170,7 +170,7 @@ function AuthPage() {
             Ghi nhớ đăng nhập trên thiết bị này
           </label>
           <Button
-            className="h-16 w-full rounded-full sm:h-[46px]"
+            className="h-[46px] w-full rounded-full"
             disabled={pending || !email || password.length < 6}
             onClick={() => (setupMode ? setup : login).mutate()}
           >

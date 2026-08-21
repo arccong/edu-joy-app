@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { IdCard, Loader2, Pencil, Phone, Mail, Plus, Star, Trash2, Wallet, Sparkles } from "lucide-react";
+import { IdCard, Loader2, Pencil, Phone, Mail, Plus, Star, Trash2, Wallet, Sparkles, Rows, Columns2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateInput } from "@/components/ui/date-input";
+import { BirthDateInput } from "@/components/ui/birth-date-input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { NameSearchInput } from "@/components/NameSearchInput";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   addScheduledDays,
   coursePrefix,
@@ -50,6 +51,8 @@ import {
 } from "@/lib/student-profile.functions";
 
 const RELATIONSHIPS: GuardianRelationship[] = ["Bố", "Mẹ", "Ông nội", "Bà nội", "Ông ngoại", "Bà ngoại", "Khác"];
+const PAGE_SIZE = 20;
+const VIEW_MODE_KEY = "student-profile-view-mode";
 
 function calcAge(birthDateISO: string | null | undefined, fallback: number): number {
   if (!birthDateISO) return fallback;
@@ -63,6 +66,21 @@ function calcAge(birthDateISO: string | null | undefined, fallback: number): num
 }
 
 export function StudentProfileTab() {
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState<"popup" | "split">(() => {
+    if (typeof window === "undefined") return "popup";
+    return (localStorage.getItem(VIEW_MODE_KEY) as "popup" | "split") || "popup";
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    } catch {
+      /* ignore */
+    }
+  }, [viewMode]);
+  // Mobile luôn hiện dạng popup bất kể lựa chọn đã lưu — chỉ Desktop mới có 2 chế độ.
+  const effectiveMode: "popup" | "split" = isMobile ? "popup" : viewMode;
+
   const fetchStudents = useServerFn(listStudents);
   const fetchAttRange = useServerFn(listAttendanceRange);
   const fetchProfiles = useServerFn(listPeopleProfiles);
@@ -147,120 +165,209 @@ export function StudentProfileTab() {
     });
   }, [groups, nameSearch, profileById]);
 
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [nameSearch]);
+  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / PAGE_SIZE));
+  const pageGroups = filteredGroups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const activeGroup = filteredGroups.find((g) => g.key === openKey) ?? groups.find((g) => g.key === openKey) ?? null;
+  const activeGroup = groups.find((g) => g.key === openKey) ?? null;
+
+  const buildDetailProps = (g: PersonGroup): DetailProps => ({
+    group: g,
+    profile: g.courses[0]?.person_id ? profileById.get(g.courses[0].person_id) : undefined,
+    allPaymentsByStudentId: paymentsByStudentId,
+    guardians: g.courses[0]?.person_id ? guardiansByPersonId.get(g.courses[0].person_id) ?? [] : [],
+    trial: g.courses.map((c) => trialByStudentId.get(c.id)).find(Boolean) ?? null,
+    statusOf,
+  });
+
+  const listCard = (
+    <Card className="flex max-h-[75vh] flex-col overflow-hidden shadow-card">
+      <CardHeader className="shrink-0">
+        <CardTitle>Hồ sơ học sinh</CardTitle>
+        <CardDescription>Thông tin cố định, phụ huynh và tổng quan hoạt động của từng học sinh.</CardDescription>
+        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <NameSearchInput value={nameSearch} onChange={setNameSearch} names={groups.map((g) => g.name)} className="w-full sm:w-[260px]" />
+          {!isMobile && (
+            <div className="flex gap-1 rounded-md border p-0.5">
+              <Button size="sm" variant={viewMode === "popup" ? "default" : "ghost"} className="h-7 px-2" onClick={() => setViewMode("popup")}>
+                <Rows className="mr-1 h-3.5 w-3.5" />
+                Popup
+              </Button>
+              <Button size="sm" variant={viewMode === "split" ? "default" : "ghost"} className="h-7 px-2" onClick={() => setViewMode("split")}>
+                <Columns2 className="mr-1 h-3.5 w-3.5" />
+                2 cột
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Đang tải...
+          </div>
+        ) : pageGroups.length === 0 ? (
+          <EmptyState text="Chưa có học sinh nào." />
+        ) : effectiveMode === "split" ? (
+          <div className="space-y-1">
+            {pageGroups.map((g) => {
+              const realId = g.courses[0]?.person_id ?? null;
+              const profile = realId ? profileById.get(realId) : undefined;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => setOpenKey(g.key)}
+                  className={`flex w-full items-center justify-between rounded-md border p-2.5 text-left text-sm transition-colors hover:bg-muted ${
+                    openKey === g.key ? "border-primary/40 bg-primary/5" : ""
+                  }`}
+                >
+                  <div>
+                    <p className="font-medium">{g.name}</p>
+                    <p className="text-xs text-muted-foreground">{profile?.student_code ?? "—"}</p>
+                  </div>
+                  <IdCard className="h-4 w-4 text-muted-foreground" />
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="-mx-4 overflow-x-auto sm:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã học sinh</TableHead>
+                  <TableHead>Họ tên</TableHead>
+                  <TableHead>Tuổi</TableHead>
+                  <TableHead>Giới tính</TableHead>
+                  <TableHead>Lớp đang học</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageGroups.map((g) => {
+                  const realId = g.courses[0]?.person_id ?? null;
+                  const profile = realId ? profileById.get(realId) : undefined;
+                  const currentCourses = g.courses.filter((c) => statusOf(c) === "Đang học" || statusOf(c) === "Chuẩn bị");
+                  const classesNow = Array.from(new Set(currentCourses.map((c) => c.class_type)));
+                  const overallStatus: StudentStatus = currentCourses.some((c) => statusOf(c) === "Đang học")
+                    ? "Đang học"
+                    : statusOf(g.courses[g.courses.length - 1]);
+                  return (
+                    <TableRow key={g.key} className="cursor-pointer" onClick={() => setOpenKey(g.key)}>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{profile?.student_code ?? "—"}</TableCell>
+                      <TableCell className="font-medium">{g.name}</TableCell>
+                      <TableCell>{calcAge(profile?.birth_date, g.age)}</TableCell>
+                      <TableCell>{profile?.gender ?? "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {classesNow.length ? classesNow.map((c) => <span key={c}>{classChip(c)}</span>) : <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statusBadge(overallStatus)}>
+                          {overallStatus}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+      {totalPages > 1 && (
+        <div className="flex shrink-0 items-center justify-between border-t p-3 text-sm">
+          <span className="text-muted-foreground">
+            Trang {page}/{totalPages} · {filteredGroups.length} học sinh
+          </span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+
+  if (effectiveMode === "split") {
+    return (
+      <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+        {listCard}
+        <Card className="max-h-[75vh] overflow-y-auto shadow-card">
+          <CardContent className="p-5">
+            {activeGroup ? (
+              <StudentProfileDetailContent {...buildDetailProps(activeGroup)} standalone />
+            ) : (
+              <EmptyState text="Chọn một học sinh bên trái để xem chi tiết." />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <Card className="shadow-card">
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Hồ sơ học sinh</CardTitle>
-            <CardDescription>Thông tin cố định, phụ huynh và tổng quan hoạt động của từng học sinh.</CardDescription>
-          </div>
-          <NameSearchInput value={nameSearch} onChange={setNameSearch} names={groups.map((g) => g.name)} className="w-full sm:w-[260px]" />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-10 text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Đang tải...
-            </div>
-          ) : filteredGroups.length === 0 ? (
-            <EmptyState text="Chưa có học sinh nào." />
-          ) : (
-            <div className="-mx-4 overflow-x-auto sm:mx-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã học sinh</TableHead>
-                    <TableHead>Họ tên</TableHead>
-                    <TableHead>Tuổi</TableHead>
-                    <TableHead>Giới tính</TableHead>
-                    <TableHead>Lớp đang học</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredGroups.map((g) => {
-                    const realId = g.courses[0]?.person_id ?? null;
-                    const profile = realId ? profileById.get(realId) : undefined;
-                    const currentCourses = g.courses.filter((c) => statusOf(c) === "Đang học" || statusOf(c) === "Chuẩn bị");
-                    const classesNow = Array.from(new Set(currentCourses.map((c) => c.class_type)));
-                    const overallStatus: StudentStatus = currentCourses.some((c) => statusOf(c) === "Đang học")
-                      ? "Đang học"
-                      : statusOf(g.courses[g.courses.length - 1]);
-                    return (
-                      <TableRow key={g.key} className="cursor-pointer" onClick={() => setOpenKey(g.key)}>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{profile?.student_code ?? "—"}</TableCell>
-                        <TableCell className="font-medium">{g.name}</TableCell>
-                        <TableCell>{calcAge(profile?.birth_date, g.age)}</TableCell>
-                        <TableCell>{profile?.gender ?? "—"}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {classesNow.length ? classesNow.map((c) => <span key={c}>{classChip(c)}</span>) : <span className="text-xs text-muted-foreground">—</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={statusBadge(overallStatus)}>
-                            {overallStatus}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setOpenKey(g.key); }}>
-                            <IdCard className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {activeGroup && (
-        <StudentProfileDialog
-          key={activeGroup.key}
-          group={activeGroup}
-          profile={activeGroup.courses[0]?.person_id ? profileById.get(activeGroup.courses[0].person_id) : undefined}
-          allPaymentsByStudentId={paymentsByStudentId}
-          guardians={activeGroup.courses[0]?.person_id ? guardiansByPersonId.get(activeGroup.courses[0].person_id) ?? [] : []}
-          trial={activeGroup.courses.map((c) => trialByStudentId.get(c.id)).find(Boolean) ?? null}
-          statusOf={statusOf}
-          remainOf={remainOf}
-          open={!!activeGroup}
-          onOpenChange={(v) => !v && setOpenKey(null)}
-        />
-      )}
+      {listCard}
+      {activeGroup && <StudentProfileDialog {...buildDetailProps(activeGroup)} open={!!activeGroup} onOpenChange={(v) => !v && setOpenKey(null)} />}
     </div>
   );
 }
 
-function StudentProfileDialog({
-  group,
-  profile,
-  allPaymentsByStudentId,
-  guardians,
-  trial,
-  statusOf,
-  remainOf,
-  open,
-  onOpenChange,
-}: {
+type DetailProps = {
   group: PersonGroup;
   profile: PersonProfile | undefined;
   allPaymentsByStudentId: Map<string, any[]>;
   guardians: GuardianLink[];
   trial: TrialStudent | null;
   statusOf: (s: Student) => StudentStatus;
-  remainOf: (s: Student) => number;
+};
+
+function StudentProfileDialog({
+  open,
+  onOpenChange,
+  ...detailProps
+}: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-}) {
+} & DetailProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            {detailProps.group.name}
+            {detailProps.profile?.student_code && (
+              <Badge variant="outline" className="font-mono text-xs font-normal">
+                {detailProps.profile.student_code}
+              </Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+        <StudentProfileDetailContent {...detailProps} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StudentProfileDetailContent({
+  group,
+  profile,
+  allPaymentsByStudentId,
+  guardians,
+  trial,
+  statusOf,
+  standalone,
+}: DetailProps & { standalone?: boolean }) {
   const qc = useQueryClient();
   const ensurePersonIdFn = useServerFn(ensurePersonId);
   const updateProfileFn = useServerFn(updatePersonProfile);
@@ -306,251 +413,198 @@ function StudentProfileDialog({
     });
   }, [classesInvolved, group, allPayments]);
 
-  // Lớp đang học hiện tại + lịch học
-  const activeCourses = useMemo(() => group.courses.filter((c) => statusOf(c) === "Đang học"), [group, statusOf]);
-  const prepCourses = useMemo(() => group.courses.filter((c) => statusOf(c) === "Chuẩn bị"), [group, statusOf]);
-
   // Lịch sử khóa học — mới nhất trước
   const history = useMemo(() => group.courses.slice().reverse(), [group]);
 
   const [guardianFormOpen, setGuardianFormOpen] = useState<Guardian | "new" | null>(null);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
-            {group.name}
-            {profile?.student_code && (
-              <Badge variant="outline" className="font-mono text-xs font-normal">
-                {profile.student_code}
-              </Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
+    <div className="space-y-5">
+      {standalone && (
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-lg font-semibold">{group.name}</h3>
+          {profile?.student_code && (
+            <Badge variant="outline" className="font-mono text-xs font-normal">
+              {profile.student_code}
+            </Badge>
+          )}
+        </div>
+      )}
 
-        <div className="space-y-5">
-          {!realPersonId ? (
-            <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-              Học sinh này chưa có hồ sơ liên kết ổn định (dữ liệu cũ) — cần khởi tạo trước khi sửa thông tin hoặc thêm phụ huynh.
-              <Button size="sm" className="ml-2" onClick={() => initMut.mutate()} disabled={initMut.isPending}>
-                {initMut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                Khởi tạo hồ sơ
+      {!realPersonId ? (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          Học sinh này chưa có hồ sơ liên kết ổn định (dữ liệu cũ) — cần khởi tạo trước khi sửa thông tin hoặc thêm phụ huynh.
+          <Button size="sm" className="ml-2" onClick={() => initMut.mutate()} disabled={initMut.isPending}>
+            {initMut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Khởi tạo hồ sơ
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-md border p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold">Thông tin cơ bản</p>
+            {!editing && (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                <Pencil className="mr-1 h-3.5 w-3.5" />
+                Sửa
               </Button>
+            )}
+          </div>
+          {editing ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <Label className="text-xs">Ngày sinh</Label>
+                <BirthDateInput value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-xs">Giới tính</Label>
+                <Select value={gender || undefined} onValueChange={(v) => setGender(v as "Nam" | "Nữ")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Nam">Nam</SelectItem>
+                    <SelectItem value="Nữ">Nữ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 sm:col-span-2">
+                <Button size="sm" onClick={() => saveProfileMut.mutate()} disabled={saveProfileMut.isPending}>
+                  {saveProfileMut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                  Lưu
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                  Hủy
+                </Button>
+              </div>
             </div>
           ) : (
-            <div className="rounded-md border p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold">Thông tin cơ bản</p>
-                {!editing && (
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-                    <Pencil className="mr-1 h-3.5 w-3.5" />
-                    Sửa
-                  </Button>
-                )}
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Tuổi</p>
+                <p>{calcAge(profile?.birth_date, group.age)}</p>
               </div>
-              {editing ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="grid gap-1">
-                    <Label className="text-xs">Ngày sinh</Label>
-                    <DateInput value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label className="text-xs">Giới tính</Label>
-                    <Select value={gender || undefined} onValueChange={(v) => setGender(v as "Nam" | "Nữ")}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn giới tính" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Nam">Nam</SelectItem>
-                        <SelectItem value="Nữ">Nữ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2 sm:col-span-2">
-                    <Button size="sm" onClick={() => saveProfileMut.mutate()} disabled={saveProfileMut.isPending}>
-                      {saveProfileMut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                      Lưu
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                      Hủy
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tuổi</p>
-                    <p>{calcAge(profile?.birth_date, group.age)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Ngày sinh</p>
-                    <p>{profile?.birth_date ? fmtDate(profile.birth_date) : "Chưa có"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Giới tính</p>
-                    <p>{profile?.gender ?? "Chưa có"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Mã học sinh</p>
-                    <p className="font-mono">{profile?.student_code ?? "—"}</p>
-                  </div>
-                </div>
-              )}
+              <div>
+                <p className="text-xs text-muted-foreground">Ngày sinh</p>
+                <p>{profile?.birth_date ? fmtDate(profile.birth_date) : "Chưa có"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Giới tính</p>
+                <p>{profile?.gender ?? "Chưa có"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Mã học sinh</p>
+                <p className="font-mono">{profile?.student_code ?? "—"}</p>
+              </div>
             </div>
           )}
-
-          {trial && (
-            <p className="text-xs text-muted-foreground">
-              Đã học thử ngày {fmtDate(trial.trial_date)} ({trial.class_type}) trước khi đăng ký học chính thức.
-            </p>
-          )}
-
-          {/* Lớp đang học + lịch học hiện tại */}
-          <div>
-            <p className="mb-2 text-sm font-semibold">Đang diễn ra</p>
-            {activeCourses.length === 0 && prepCourses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Hiện không có khóa nào đang học/chuẩn bị.</p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {activeCourses.map((c) => (
-                  <div key={c.id} className="rounded-md border p-3">
-                    <div className="mb-1 flex items-center gap-2">
-                      {classChip(c.class_type)}
-                      <span className="text-xs text-muted-foreground">
-                        {coursePrefix(c.class_type)}
-                        {c.course_index}
-                      </span>
-                      <Badge variant="outline" className={statusBadge("Đang học")}>
-                        Đang học
-                      </Badge>
-                    </div>
-                    <p className="text-sm">{describeSlots(c.schedule_slots)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Còn {remainOf(c)}/{c.total_sessions} buổi — {fmtDate(c.start_date)} → {fmtDate(c.end_date)}
-                    </p>
-                  </div>
-                ))}
-                {prepCourses.map((c) => (
-                  <div key={c.id} className="rounded-md border border-dashed p-3">
-                    <div className="mb-1 flex items-center gap-2">
-                      {classChip(c.class_type)}
-                      <span className="text-xs text-muted-foreground">
-                        {coursePrefix(c.class_type)}
-                        {c.course_index}
-                      </span>
-                      <Badge variant="outline" className={statusBadge("Chuẩn bị")}>
-                        Chuẩn bị
-                      </Badge>
-                    </div>
-                    <p className="text-sm">{describeSlots(c.schedule_slots)}</p>
-                    <p className="text-xs text-muted-foreground">Bắt đầu {fmtDate(c.start_date)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Tổng học phí */}
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-              <Wallet className="h-4 w-4" />
-              Tổng học phí đã đóng
-            </p>
-            <p className="text-2xl font-bold" style={{ color: "#9c5f35" }}>
-              {formatMoney(totalPaid)}đ
-            </p>
-            {classesInvolved.length > 1 && (
-              <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                {paidByClass.map(({ cls, sum }) => (
-                  <span key={cls}>
-                    {cls}: <span className="font-medium text-foreground">{formatMoney(sum)}đ</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Lịch sử khóa học */}
-          <div>
-            <p className="mb-2 text-sm font-semibold">Lịch sử các khóa đã học</p>
-            <div className="-mx-4 overflow-x-auto sm:mx-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Khóa</TableHead>
-                    <TableHead>Lớp</TableHead>
-                    <TableHead>Bắt đầu</TableHead>
-                    <TableHead>Kết thúc</TableHead>
-                    <TableHead>Số buổi</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>
-                        {coursePrefix(c.class_type)}
-                        {c.course_index}
-                      </TableCell>
-                      <TableCell>{classChip(c.class_type)}</TableCell>
-                      <TableCell className="text-sm">{fmtDate(c.start_date)}</TableCell>
-                      <TableCell className="text-sm">{fmtDate(c.end_date)}</TableCell>
-                      <TableCell>{c.total_sessions}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={statusBadge(statusOf(c))}>
-                          {statusOf(c)}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {/* Phụ huynh */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold">Phụ huynh</p>
-              {realPersonId && (
-                <Button size="sm" variant="outline" onClick={() => setGuardianFormOpen("new")}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Thêm phụ huynh
-                </Button>
-              )}
-            </div>
-            {guardians.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có thông tin phụ huynh.</p>
-            ) : (
-              <div className="space-y-2">
-                {guardians.map((l) => (
-                  <GuardianRow key={l.id} link={l} personId={realPersonId!} onEdit={() => setGuardianFormOpen(l.guardian)} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Placeholder — tính năng sau này */}
-          <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Tài khoản xem nhật ký học tập</p>
-            <p className="mt-0.5 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5" />
-              Sắp ra mắt — phụ huynh sẽ đăng nhập xem nhật ký học tập bằng hình ảnh của con tại đây.
-            </p>
-          </div>
         </div>
+      )}
 
-        {realPersonId && guardianFormOpen && (
-          <GuardianFormDialog
-            personId={realPersonId}
-            existing={guardianFormOpen === "new" ? undefined : guardianFormOpen}
-            open={!!guardianFormOpen}
-            onOpenChange={(v) => !v && setGuardianFormOpen(null)}
-          />
+      {trial && (
+        <p className="text-xs text-muted-foreground">
+          Đã học thử ngày {fmtDate(trial.trial_date)} ({trial.class_type}) trước khi đăng ký học chính thức.
+        </p>
+      )}
+
+      {/* Tổng học phí */}
+      <div>
+        <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+          <Wallet className="h-4 w-4" />
+          Tổng học phí đã đóng
+        </p>
+        <p className="text-2xl font-bold" style={{ color: "#9c5f35" }}>
+          {formatMoney(totalPaid)}đ
+        </p>
+        {classesInvolved.length > 1 && (
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+            {paidByClass.map(({ cls, sum }) => (
+              <span key={cls}>
+                {cls}: <span className="font-medium text-foreground">{formatMoney(sum)}đ</span>
+              </span>
+            ))}
+          </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {/* Lịch sử khóa học */}
+      <div>
+        <p className="mb-2 text-sm font-semibold">Lịch sử các khóa đã học</p>
+        <div className="-mx-4 overflow-x-auto sm:mx-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Khóa</TableHead>
+                <TableHead>Lớp</TableHead>
+                <TableHead>Lịch học</TableHead>
+                <TableHead>Bắt đầu</TableHead>
+                <TableHead>Kết thúc</TableHead>
+                <TableHead>Trạng thái</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>
+                    {coursePrefix(c.class_type)}
+                    {c.course_index}
+                  </TableCell>
+                  <TableCell>{classChip(c.class_type)}</TableCell>
+                  <TableCell className="text-sm">{describeSlots(c.schedule_slots)}</TableCell>
+                  <TableCell className="text-sm">{fmtDate(c.start_date)}</TableCell>
+                  <TableCell className="text-sm">{fmtDate(c.end_date)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={statusBadge(statusOf(c))}>
+                      {statusOf(c)}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Phụ huynh */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-semibold">Phụ huynh</p>
+          {realPersonId && (
+            <Button size="sm" variant="outline" onClick={() => setGuardianFormOpen("new")}>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Thêm phụ huynh
+            </Button>
+          )}
+        </div>
+        {guardians.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Chưa có thông tin phụ huynh.</p>
+        ) : (
+          <div className="space-y-2">
+            {guardians.map((l) => (
+              <GuardianRow key={l.id} link={l} personId={realPersonId!} onEdit={() => setGuardianFormOpen(l.guardian)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Placeholder — tính năng sau này */}
+      <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">Tài khoản xem nhật ký học tập</p>
+        <p className="mt-0.5 flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" />
+          Sắp ra mắt — phụ huynh sẽ đăng nhập xem nhật ký học tập bằng hình ảnh của con tại đây.
+        </p>
+      </div>
+
+      {realPersonId && guardianFormOpen && (
+        <GuardianFormDialog
+          personId={realPersonId}
+          existing={guardianFormOpen === "new" ? undefined : guardianFormOpen}
+          open={!!guardianFormOpen}
+          onOpenChange={(v) => !v && setGuardianFormOpen(null)}
+        />
+      )}
+    </div>
   );
 }
 

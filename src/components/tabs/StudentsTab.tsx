@@ -26,6 +26,7 @@ import {
   nextScheduledDate,
   computeEndDate,
   slotsPerDayMap,
+  toLocalISO,
   groupByPerson,
 
   type ClassType,
@@ -80,8 +81,12 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
   const today = new Date();
   const from = new Date(today); from.setFullYear(from.getFullYear() - 2);
   const to = new Date(today);
-  const fromISO = from.toISOString().slice(0, 10);
-  const toISO = to.toISOString().slice(0, 10);
+  // Dùng toLocalISO (giờ địa phương) chứ KHÔNG dùng .toISOString() (giờ UTC) — Việt Nam là UTC+7, nên
+  // vào khoảng nửa đêm tới 7h sáng, toISOString() sẽ cho ra NGÀY HÔM QUA thay vì hôm nay, khiến buổi
+  // điểm danh hôm nay bị bỏ sót khỏi phạm vi tính "buổi đã học", làm lệch số liệu so với DashboardTab
+  // (vốn đã dùng đúng toLocalISO từ đầu).
+  const fromISO = toLocalISO(from);
+  const toISO = toLocalISO(to);
   const { data: attendedRows = [] } = useQuery<AttendanceRow[]>({
     queryKey: ["attendance-range", fromISO, toISO],
     queryFn: () => fetchAttRange({ data: { from: fromISO, to: toISO } }) as any,

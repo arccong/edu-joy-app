@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
+import { GraduationCap, Users, CalendarDays, ClipboardCheck, Bell, Settings as SettingsIcon, Wallet, Loader2, Send, BookOpen, Coins, LayoutDashboard, LogOut, UserPlus, Trash2, ShieldCheck, Crown, Repeat, KeyRound, Eye, EyeOff, Camera, IdCard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ import { type TrialStudent } from "@/lib/shared";
 import Cropper from "react-easy-crop";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
+import { StudentProfileTab } from "@/components/tabs/StudentProfileTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";
 import { AttendanceTab } from "@/components/tabs/AttendanceTab";
 import { TuitionTab } from "@/components/tabs/TuitionTab";
@@ -57,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/")({
 const ALL_TABS = [
   { value: "dashboard", label: "Tổng quan", labelKey: "tab.dashboard", Icon: LayoutDashboard },
   { value: "students", label: "Học sinh", labelKey: "tab.students", Icon: Users },
+  { value: "profile", label: "Hồ sơ học sinh", labelKey: null, Icon: IdCard, managerOnly: true },
   { value: "schedule", label: "Lịch học", labelKey: "tab.schedule", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", labelKey: "tab.attendance", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", labelKey: "tab.learning", Icon: BookOpen },
@@ -444,6 +446,9 @@ function App() {
                 setTab("tuition");
               }}
             />
+          </TabsContent>
+          <TabsContent value="profile" forceMount className={tab === "profile" ? "" : "hidden"}>
+            <StudentProfileTab />
           </TabsContent>
           <TabsContent value="schedule" forceMount className={tab === "schedule" ? "" : "hidden"}><ScheduleTab /></TabsContent>
           <TabsContent value="attendance" forceMount className={tab === "attendance" ? "" : "hidden"}><AttendanceTab /></TabsContent>

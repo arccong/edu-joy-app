@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Trash2, Users, UserCheck, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
+import { Loader2, Pencil, Trash2, Users, Music, Sparkles, Palette, Columns3, PlusCircle, Download } from "lucide-react";
 import { exportXlsx } from "@/lib/export";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
@@ -188,21 +188,21 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
   }, [students, filter, statusFilter, attendedByStudent]);
 
 
-  // "Đang học": học sinh (gộp theo người, không phải theo từng dòng khóa học) đang có 1 khóa ở trạng
-  // thái "Đang học" TẠI THỜI ĐIỂM HIỆN TẠI — không tính khóa "Chuẩn bị" (khóa tiếp theo đã tạo sẵn
-  // trong lúc khóa hiện tại vẫn đang học, KHÔNG phải một học sinh khác/trạng thái khác — học sinh đó
-  // vẫn đang được tính là "Đang học" qua khóa hiện tại của họ).
-  // "Đã đăng ký": học sinh có trạng thái MỚI NHẤT (khóa gần đây nhất) là "Đang học", "Hoàn thành" hoặc
-  // "Kết thúc" — không tính "Bảo lưu" và "Chuẩn bị".
-  const stats = useMemo(() => {
-    const list = students as Student[];
-    const groups = groupByPerson(list);
-
-    let dangHoc = 0;
-    let daDangKy = 0;
+  // Với MỖI lớp (Piano/Múa/Vẽ) riêng biệt: gộp các dòng khóa học của lớp đó theo TỪNG NGƯỜI (groupByPerson)
+  // rồi xác định trạng thái hiện tại của người đó, để không đếm trùng khi 1 học sinh có nhiều dòng khóa
+  // học (khóa cũ đã Hoàn thành/Kết thúc, khóa hiện tại Đang học, khóa kế tiếp Chuẩn bị...).
+  // - "Đang học": người có 1 khóa đang ở trạng thái "Đang học" tại thời điểm hiện tại. Khóa "Chuẩn bị"
+  //   (khóa kế tiếp tạo sẵn trong lúc khóa hiện tại vẫn đang học) không được xét riêng — người đó vẫn
+  //   được tính "Đang học" qua khóa hiện tại của họ.
+  // - "Đã đăng ký": người có trạng thái khóa MỚI NHẤT là "Đang học", "Hoàn thành" hoặc "Kết thúc" (không
+  //   tính "Bảo lưu" và "Chuẩn bị").
+  // Thẻ "Tổng học sinh" = tổng cộng của 3 thẻ lớp (1 người học đồng thời nhiều lớp sẽ được tính ở mỗi
+  // lớp riêng, và cộng dồn vào Tổng).
+  const classStats = (rows: Student[]) => {
+    const groups = groupByPerson(rows);
+    let active = 0;
+    let registered = 0;
     for (const g of groups) {
-      // Bỏ "Chuẩn bị" khỏi việc xác định trạng thái hiện tại — nó không đại diện cho học sinh, chỉ là
-      // khóa kế tiếp đã tạo sẵn.
       const nonPrep = g.courses.filter((c) => c.status !== "Chuẩn bị");
       const effectives = nonPrep.map((c) => statusOf(c));
       let current: StudentStatus;
@@ -215,29 +215,35 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
         // Chỉ toàn "Chuẩn bị" (trường hợp hiếm) -> bản chất sắp học chính thức, coi như đang học.
         current = "Đang học";
       }
-      if (current === "Đang học") dangHoc++;
-      if (current === "Đang học" || current === "Hoàn thành" || current === "Kết thúc") daDangKy++;
+      if (current === "Đang học") active++;
+      if (current === "Đang học" || current === "Hoàn thành" || current === "Kết thúc") registered++;
     }
+    return { active, registered };
+  };
 
+  const stats = useMemo(() => {
+    const list = students as Student[];
+    const piano = classStats(list.filter((s) => s.class_type === "Piano"));
+    const mua = classStats(list.filter((s) => s.class_type === "Múa"));
+    const ve = classStats(list.filter((s) => s.class_type === "Vẽ"));
     return {
-      dangHoc,
-      daDangKy,
-      piano: list.filter((s) => s.class_type === "Piano").length,
-      mua: list.filter((s) => s.class_type === "Múa").length,
-      ve: list.filter((s) => s.class_type === "Vẽ").length,
+      total: { active: piano.active + mua.active + ve.active, registered: piano.registered + mua.registered + ve.registered },
+      piano,
+      mua,
+      ve,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [students, attendedByStudent]);
 
   const show = (k: ColKey) => visible.has(k);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Đang học" value={stats.dangHoc} icon={<UserCheck className="h-4 w-4" />} />
-        <StatCard label="Đã đăng ký" value={stats.daDangKy} icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Piano" value={stats.piano} icon={<Music className="h-4 w-4" />} tint="piano" />
-        <StatCard label="Múa" value={stats.mua} icon={<Sparkles className="h-4 w-4" />} tint="mua" />
-        <StatCard label="Vẽ" value={stats.ve} icon={<Palette className="h-4 w-4" />} tint="ve" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Tổng học sinh" active={stats.total.active} registered={stats.total.registered} icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Piano" active={stats.piano.active} registered={stats.piano.registered} icon={<Music className="h-4 w-4" />} tint="piano" />
+        <StatCard label="Múa" active={stats.mua.active} registered={stats.mua.registered} icon={<Sparkles className="h-4 w-4" />} tint="mua" />
+        <StatCard label="Vẽ" active={stats.ve.active} registered={stats.ve.registered} icon={<Palette className="h-4 w-4" />} tint="ve" />
       </div>
 
       <Card className="shadow-card">
@@ -471,14 +477,30 @@ function DeleteStudentButton({ id, name }: { id: string; name: string }) {
   );
 }
 
-function StatCard({ label, value, icon, tint }: { label: string; value: number; icon: React.ReactNode; tint?: "piano" | "mua" | "ve" }) {
+function StatCard({
+  label,
+  active,
+  registered,
+  icon,
+  tint,
+}: {
+  label: string;
+  active: number;
+  registered: number;
+  icon: React.ReactNode;
+  tint?: "piano" | "mua" | "ve";
+}) {
   const tintCls = tint === "piano" ? "bg-piano/10 text-piano" : tint === "mua" ? "bg-mua/10 text-mua" : tint === "ve" ? "bg-ve/20 text-[color:var(--ve-foreground)]" : "bg-primary/10 text-primary";
   return (
     <Card className="shadow-card">
       <CardContent className="flex items-center justify-between p-4">
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
+          <p className="text-2xl font-bold">
+            {active}
+            <span className="text-muted-foreground">/{registered}</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground">Đang học / Đã đăng ký</p>
         </div>
         <div className={`rounded-lg p-2 ${tintCls}`}>{icon}</div>
       </CardContent>

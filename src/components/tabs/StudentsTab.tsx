@@ -215,6 +215,10 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
   //   được tính "Đang học" qua khóa hiện tại của họ.
   // - "Đã đăng ký": người có trạng thái khóa MỚI NHẤT là "Đang học", "Hoàn thành" hoặc "Kết thúc" (không
   //   tính "Bảo lưu" và "Chuẩn bị").
+  // - Nếu MỘT NHÓM chỉ toàn khóa "Chuẩn bị" (không có khóa nào khác) -> KHÔNG đếm vào đâu cả (bỏ qua).
+  //   Trường hợp này gần như luôn là do 1 học sinh có khóa "Đang học" bị TÁCH NHẦM ra thành 2 "người"
+  //   khác nhau (personKey dùng tên+tuổi khi thiếu person_id — nếu tuổi bị nhập lệch giữa các lần tạo
+  //   khóa, hệ thống hiểu nhầm là 2 người) — nếu đếm nhóm rỗng này là "Đang học" sẽ bị đếm dư 1 người.
   // Thẻ "Tổng học sinh" = tổng cộng của 3 thẻ lớp (1 người học đồng thời nhiều lớp sẽ được tính ở mỗi
   // lớp riêng, và cộng dồn vào Tổng).
   const classStats = (rows: Student[]) => {
@@ -223,17 +227,12 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
     let registered = 0;
     for (const g of groups) {
       const nonPrep = g.courses.filter((c) => c.status !== "Chuẩn bị");
+      if (nonPrep.length === 0) continue; // chỉ toàn "Chuẩn bị" -> bỏ qua, không đếm
       const effectives = nonPrep.map((c) => statusOf(c));
-      let current: StudentStatus;
-      if (effectives.includes("Đang học")) {
-        current = "Đang học";
-      } else if (nonPrep.length > 0) {
+      const current: StudentStatus = effectives.includes("Đang học")
+        ? "Đang học"
         // g.courses đã sắp xếp tăng dần theo start_date -> khóa cuối cùng là khóa gần đây nhất.
-        current = statusOf(nonPrep[nonPrep.length - 1]);
-      } else {
-        // Chỉ toàn "Chuẩn bị" (trường hợp hiếm) -> bản chất sắp học chính thức, coi như đang học.
-        current = "Đang học";
-      }
+        : statusOf(nonPrep[nonPrep.length - 1]);
       if (current === "Đang học") active++;
       if (current === "Đang học" || current === "Hoàn thành" || current === "Kết thúc") registered++;
     }

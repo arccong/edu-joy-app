@@ -63,7 +63,7 @@ export function StudentsTab({ onRegisterTrial }: { onRegisterTrial?: (t: TrialSt
   const { data: students = [], isLoading } = useQuery({ queryKey: ["students"], queryFn: () => fetchList() });
 
   const [filter, setFilter] = useState<ClassType>("Piano");
-  const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Tất cả");
+  const [statusFilter, setStatusFilter] = useState<"Tất cả" | StudentStatus>("Đang học");
   const [nameSearch, setNameSearch] = useState("");
   const [visible, setVisible] = useState<Set<ColKey>>(() => {
     if (typeof window === "undefined") return new Set(DEFAULT_COLS);
@@ -496,9 +496,9 @@ function StatCard({
       <CardContent className="flex items-center justify-between p-4">
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">
-            {active}
-            <span className="text-muted-foreground">/{registered}</span>
+          <p className="flex items-baseline gap-0.5 font-bold" style={{ color: "#9c5f35" }}>
+            <span className="text-[24px]">{active}</span>
+            <span className="text-[18px]">/{registered}</span>
           </p>
           <p className="text-[11px] text-muted-foreground">Đang học / Đã đăng ký</p>
         </div>

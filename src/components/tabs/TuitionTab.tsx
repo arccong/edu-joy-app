@@ -42,7 +42,7 @@ import {
   type TrialStudent,
   groupByPerson,
 } from "@/lib/shared";
-import { listStudents, upsertStudent } from "@/lib/students.functions";
+import { ensurePersonId, listStudents, upsertStudent } from "@/lib/students.functions";
 import { deletePayment, listPayments, upsertPayment } from "@/lib/tuition.functions";
 import { markTrialRegistered } from "@/lib/trials.functions";
 
@@ -601,6 +601,7 @@ export function RecordPaymentDialog({
   const qc = useQueryClient();
   const savePayment = useServerFn(upsertPayment);
   const saveStudent = useServerFn(upsertStudent);
+  const ensurePersonIdFn = useServerFn(ensurePersonId);
   const markRegistered = useServerFn(markTrialRegistered);
 
   const [mode, setMode] = useState<"next" | "class" | "new">("next");
@@ -766,6 +767,19 @@ export function RecordPaymentDialog({
       const endDate = form.end_date || autoEnd || "";
       // Khóa tiếp theo mà khóa hiện tại vẫn đang học → "Chuẩn bị"
       const status = mode === "next" && base && base.status === "Đang học" ? "Chuẩn bị" : "Đang học";
+
+      // "Khóa tiếp theo"/"Học lớp mới": LUÔN lấy person_id THẬT của khóa gốc trước khi tạo khóa mới —
+      // không để trống rồi trông chờ server tự đoán qua tên+tuổi (fragile: nếu tuổi học sinh đổi giữa
+      // các lần tạo khóa, vd lớn thêm 1 tuổi, việc đoán qua tên+tuổi sẽ tách nhầm thành 2 người khác
+      // nhau, khiến các thống kê theo người bị đếm sai). Nếu khóa gốc là hồ sơ cũ chưa từng có person_id
+      // (legacy), ensurePersonId sẽ tạo mới và gán luôn cho khóa gốc, đảm bảo từ nay các khóa liên quan
+      // đều nối đúng qua person_id thay vì đoán.
+      let personId: string | null = mode === "new" ? null : (base?.person_id ?? null);
+      if (mode !== "new" && base && !personId) {
+        const r: any = await ensurePersonIdFn({ data: { student_id: base.id } });
+        personId = r?.person_id ?? null;
+      }
+
       const res: any = await saveStudent({
         data: {
           name: form.name.trim(),
@@ -779,7 +793,7 @@ export function RecordPaymentDialog({
           total_sessions: Number(form.total_sessions),
           course_index: Number(form.course_index),
           schedule_slots: form.schedule_slots,
-          person_id: mode === "new" ? null : (base?.person_id ?? null),
+          person_id: personId,
         } as any,
       });
       const newId = res?.id as string;

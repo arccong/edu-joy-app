@@ -99,6 +99,40 @@ export const upsertStudent = createServerFn({ method: "POST" }).middleware([requ
     return { ok: true, id: row?.id as string };
   });
 
+/**
+ * Đảm bảo 1 học sinh (khóa GỐC) đã có person_id ổn định — nếu chưa có (hồ sơ cũ/legacy), tạo mới 1 dòng
+ * trong bảng "people" và gán ngay vào khóa đó, rồi trả về person_id để nơi gọi dùng TRỰC TIẾP cho khóa
+ * MỚI (khóa tiếp theo/lớp mới) thay vì để trống rồi để server tự đoán qua tên+tuổi (fragile — nếu tuổi
+ * học sinh đổi giữa các lần tạo khóa, ví dụ lớn thêm 1 tuổi, việc đoán qua tên+tuổi sẽ tách nhầm thành
+ * 2 người khác nhau, dẫn tới đếm sai ở các thống kê theo người).
+ */
+export const ensurePersonId = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ student_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as any;
+    const { data: row, error: eFetch } = await sb
+      .from("students")
+      .select("id, person_id, name, age")
+      .eq("id", data.student_id)
+      .maybeSingle();
+    if (eFetch) throw new Error(eFetch.message);
+    if (!row) throw new Error("Không tìm thấy học sinh");
+    if (row.person_id) return { person_id: row.person_id as string };
+
+    const { data: created, error: pe } = await sb
+      .from("people")
+      .insert({ name: row.name, age: row.age })
+      .select("id")
+      .single();
+    if (pe) throw new Error(pe.message);
+    const personId = created.id as string;
+
+    const { error: eUpd } = await sb.from("students").update({ person_id: personId }).eq("id", data.student_id);
+    if (eUpd) throw new Error(eUpd.message);
+
+    return { person_id: personId };
+  });
+
 export const deleteStudent = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {

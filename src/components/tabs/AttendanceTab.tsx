@@ -352,13 +352,23 @@ function TrialAttendanceCard({ date, classFilter }: { date: string; classFilter:
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        {rows.map((t) => (
-          <TrialAttendanceRow
-            key={t.id}
-            trial={t}
-            onChange={(status) => mut.mutate({ id: t.id, status, note: null, makeup_date: null })}
-          />
-        ))}
+        {rows.map((t) => {
+          const now = new Date();
+          const todayISO = toLocalISO(now);
+          let presentAllowed = t.trial_date < todayISO;
+          if (t.trial_date === todayISO) {
+            const [sh, sm] = t.start_time.split(":").map(Number);
+            presentAllowed = now.getHours() * 60 + now.getMinutes() >= sh * 60 + sm - 20;
+          }
+          return (
+            <TrialAttendanceRow
+              key={t.id}
+              trial={t}
+              presentAllowed={presentAllowed}
+              onChange={(status) => mut.mutate({ id: t.id, status, note: null, makeup_date: null })}
+            />
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -366,9 +376,11 @@ function TrialAttendanceCard({ date, classFilter }: { date: string; classFilter:
 
 function TrialAttendanceRow({
   trial,
+  presentAllowed = true,
   onChange,
 }: {
   trial: TrialStudent;
+  presentAllowed?: boolean;
   onChange: (status: "Đi học" | "Nghỉ không phép") => void;
 }) {
   const current = trial.attendance_status ?? null;
@@ -402,17 +414,22 @@ function TrialAttendanceRow({
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {opts.map((o) => (
-            <Button
-              key={o.v}
-              size="sm"
-              variant={current === o.v ? "default" : "outline"}
-              className={current === o.v ? o.cls : ""}
-              onClick={() => onChange(o.v)}
-            >
-              {o.label}
-            </Button>
-          ))}
+          {opts.map((o) => {
+            const blocked = o.v === "Đi học" && !presentAllowed;
+            return (
+              <Button
+                key={o.v}
+                size="sm"
+                variant={current === o.v ? "default" : "outline"}
+                className={current === o.v ? o.cls : ""}
+                disabled={blocked}
+                title={blocked ? "Chỉ được điểm danh 'Đi học' từ 20 phút trước giờ học" : undefined}
+                onClick={() => onChange(o.v)}
+              >
+                {o.label}
+              </Button>
+            );
+          })}
         </div>
       </div>
       {history.length > 0 && (

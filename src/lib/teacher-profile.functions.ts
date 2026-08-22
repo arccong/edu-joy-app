@@ -99,8 +99,16 @@ export const listClassScheduleTeachers = createServerFn({ method: "GET" }).middl
   return data ?? [];
 });
 
+const AssignSlotInput = z.object({
+  class_type: z.enum(["Piano", "Múa", "Vẽ"]),
+  day_of_week: z.number().int().min(0).max(6),
+  start_time: z.string(),
+  end_time: z.string(),
+  teacher_id: z.string().uuid(),
+});
+
 export const assignClassScheduleTeacher = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ class_schedule_id: z.string().uuid(), teacher_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => AssignSlotInput.parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as any;
     const { error } = await sb.from("class_schedule_teachers").insert(data);

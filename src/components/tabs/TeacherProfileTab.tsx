@@ -50,7 +50,7 @@ import {
   type ClassType,
   type Student,
 } from "@/lib/shared";
-import { listAttendanceRange, listSchedule, listStudents } from "@/lib/students.functions";
+import { listAttendanceRange, listStudents } from "@/lib/students.functions";
 import {
   assignClassScheduleTeacher,
   deleteTeacherLeave,
@@ -71,11 +71,15 @@ import {
 const PAGE_SIZE = 20;
 const VIEW_MODE_KEY = "teacher-profile-view-mode";
 
-type ClassScheduleRow = { id: string; class_type: ClassType; day_of_week: number; start_time: string; end_time: string; location: string | null };
-type ClassScheduleTeacherLink = { id: string; class_schedule_id: string; teacher_id: string };
+type TeacherSlot = { class_type: ClassType; day_of_week: number; start_time: string; end_time: string };
+type ClassScheduleTeacherLink = TeacherSlot & { id: string; teacher_id: string };
 type TeacherLeave = { id: string; teacher_id: string; start_date: string; end_date: string; reason: string | null };
 type TeacherSalaryPayment = { id: string; teacher_id: string; amount: number; paid_date: string; note: string | null };
 type TeacherWithClasses = TeacherProfile & { classes: ClassType[] };
+
+function slotKey(s: TeacherSlot): string {
+  return `${s.class_type}|${s.day_of_week}|${s.start_time}|${s.end_time}`;
+}
 
 function calcAge(birthDateISO: string | null | undefined): number | null {
   if (!birthDateISO) return null;
@@ -136,14 +140,12 @@ export function TeacherProfileTab() {
   const fetchTeachers = useServerFn(listTeachers);
   const fetchStudents = useServerFn(listStudents);
   const fetchAttRange = useServerFn(listAttendanceRange);
-  const fetchSchedule = useServerFn(listSchedule);
   const fetchLinks = useServerFn(listClassScheduleTeachers);
   const fetchLeaves = useServerFn(listTeacherLeaves);
   const fetchSalary = useServerFn(listTeacherSalaryPayments);
 
   const { data: teachers = [], isLoading } = useQuery<TeacherWithClasses[]>({ queryKey: ["teachers"], queryFn: () => fetchTeachers() as any });
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
-  const { data: schedule = [] } = useQuery<ClassScheduleRow[]>({ queryKey: ["class-schedule"], queryFn: () => fetchSchedule() as any });
   const { data: links = [] } = useQuery<ClassScheduleTeacherLink[]>({ queryKey: ["class-schedule-teachers"], queryFn: () => fetchLinks() as any });
   const { data: leaves = [] } = useQuery<TeacherLeave[]>({ queryKey: ["teacher-leaves"], queryFn: () => fetchLeaves() as any });
   const { data: salaryPayments = [] } = useQuery<TeacherSalaryPayment[]>({ queryKey: ["teacher-salary"], queryFn: () => fetchSalary() as any });
@@ -165,6 +167,23 @@ export function TeacherProfileTab() {
     return dateISO >= s.start_date && (!actualEnd || dateISO <= actualEnd);
   };
 
+  // "Ca học" thực tế = tổng hợp (lớp, thứ, giờ bắt đầu-kết thúc) DUY NHẤT từ lịch học của TẤT CẢ học
+  // sinh hiện có — vì thời khóa biểu thật của trung tâm được quản lý theo cách này (không có bảng
+  // "class_schedule" riêng nào được dùng ở nơi khác trong app).
+  const allSlots = useMemo(() => {
+    const map = new Map<string, TeacherSlot>();
+    for (const s of students) {
+      for (const sl of s.schedule_slots ?? []) {
+        const slot: TeacherSlot = { class_type: s.class_type, day_of_week: sl.day, start_time: sl.start, end_time: sl.end };
+        const key = slotKey(slot);
+        if (!map.has(key)) map.set(key, slot);
+      }
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => DAYS_ORDER.indexOf(a.day_of_week) - DAYS_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time),
+    );
+  }, [students]);
+
   const [nameSearch, setNameSearch] = useState("");
   const filteredTeachers = useMemo(() => {
     const q = nameSearch.trim().toLowerCase();
@@ -182,7 +201,7 @@ export function TeacherProfileTab() {
 
   const buildDetailProps = (t: TeacherWithClasses): TeacherDetailProps => ({
     teacher: t,
-    schedule,
+    allSlots,
     links: links.filter((l) => l.teacher_id === t.id),
     leaves: leaves.filter((l) => l.teacher_id === t.id),
     salaryPayments: salaryPayments.filter((p) => p.teacher_id === t.id),
@@ -324,7 +343,7 @@ export function TeacherProfileTab() {
 
 type TeacherDetailProps = {
   teacher: TeacherWithClasses;
-  schedule: ClassScheduleRow[];
+  allSlots: TeacherSlot[];
   links: ClassScheduleTeacherLink[];
   leaves: TeacherLeave[];
   salaryPayments: TeacherSalaryPayment[];
@@ -334,7 +353,7 @@ type TeacherDetailProps = {
   inCourse: (s: Student | undefined, dateISO: string) => boolean;
 };
 
-function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryPayments, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
+function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, salaryPayments, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
   const qc = useQueryClient();
   const ensureCodeFn = useServerFn(ensureTeacherCode);
   const updateProfileFn = useServerFn(updateTeacherProfile);
@@ -362,23 +381,20 @@ function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryP
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Ca dạy trong tuần — các ca (class_schedule) đã gán cho giáo viên này, sắp theo thứ rồi giờ.
-  const myShifts = useMemo(() => {
-    const ids = new Set(links.map((l) => l.class_schedule_id));
-    return schedule
-      .filter((s) => ids.has(s.id))
-      .slice()
-      .sort((a, b) => DAYS_ORDER.indexOf(a.day_of_week) - DAYS_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time));
-  }, [links, schedule]);
+  // Ca dạy trong tuần — chính là các dòng đã gán (links) của giáo viên này, sắp theo thứ rồi giờ.
+  const myShifts = useMemo(
+    () => links.slice().sort((a, b) => DAYS_ORDER.indexOf(a.day_of_week) - DAYS_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time)),
+    [links],
+  );
 
   // Buổi đã dạy = số cặp (ca, ngày) có ít nhất 1 học sinh được điểm danh (tính buổi) đúng vào ca đó.
   const taughtDates = useMemo(() => {
-    const out: { slotId: string; date: string }[] = [];
+    const out: { slotKey: string; date: string }[] = [];
     for (const slot of myShifts) {
-      const start = slot.start_time.slice(0, 5);
-      const end = slot.end_time.slice(0, 5);
       const matchingIds = new Set(
-        students.filter((s) => s.class_type === slot.class_type && (s.schedule_slots ?? []).some((sl) => sl.day === slot.day_of_week && sl.start === start && sl.end === end)).map((s) => s.id),
+        students
+          .filter((s) => s.class_type === slot.class_type && (s.schedule_slots ?? []).some((sl) => sl.day === slot.day_of_week && sl.start === slot.start_time && sl.end === slot.end_time))
+          .map((s) => s.id),
       );
       if (matchingIds.size === 0) continue;
       const seenDates = new Set<string>();
@@ -389,7 +405,7 @@ function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryP
         if (!inCourse(s, r.date)) continue;
         if (new Date(r.date + "T00:00:00").getDay() !== slot.day_of_week) continue;
         seenDates.add(r.date);
-        out.push({ slotId: slot.id, date: r.date });
+        out.push({ slotKey: slotKey(slot), date: r.date });
       }
     }
     return out;
@@ -434,14 +450,15 @@ function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryP
   });
   const [pickSlotId, setPickSlotId] = useState("");
   const availableSlots = useMemo(() => {
-    const assignedIds = new Set(links.map((l) => l.class_schedule_id));
-    return schedule
-      .filter((s) => !assignedIds.has(s.id))
-      .slice()
-      .sort((a, b) => DAYS_ORDER.indexOf(a.day_of_week) - DAYS_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time));
-  }, [schedule, links]);
+    const assignedKeys = new Set(links.map((l) => slotKey(l)));
+    return allSlots.filter((s) => !assignedKeys.has(slotKey(s)));
+  }, [allSlots, links]);
   const assignMut = useMutation({
-    mutationFn: () => assignFn({ data: { class_schedule_id: pickSlotId, teacher_id: teacher.id } }),
+    mutationFn: () => {
+      const slot = availableSlots.find((s) => slotKey(s) === pickSlotId);
+      if (!slot) throw new Error("Vui lòng chọn 1 ca");
+      return assignFn({ data: { ...slot, teacher_id: teacher.id } });
+    },
     onSuccess: () => {
       qcAssign.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
       toast.success("Đã gán ca dạy");
@@ -575,29 +592,24 @@ function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryP
           <p className="text-sm text-muted-foreground">Chưa được gán ca dạy nào.</p>
         ) : (
           <div className="grid gap-1.5 sm:grid-cols-2">
-            {myShifts.map((s) => {
-              const link = links.find((l) => l.class_schedule_id === s.id);
-              return (
-                <div key={s.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {classChip(s.class_type)}
-                    <span>
-                      {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
-                    </span>
-                  </div>
-                  {link && (
-                    <button
-                      type="button"
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      title="Bỏ gán ca này"
-                      onClick={() => confirm("Bỏ gán ca dạy này khỏi giáo viên?") && unassignMut.mutate(link.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+            {myShifts.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <div className="flex items-center gap-2">
+                  {classChip(s.class_type)}
+                  <span>
+                    {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
+                  </span>
                 </div>
-              );
-            })}
+                <button
+                  type="button"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  title="Bỏ gán ca này"
+                  onClick={() => confirm("Bỏ gán ca dạy này khỏi giáo viên?") && unassignMut.mutate(s.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -713,7 +725,7 @@ function TeacherProfileDetailContent({ teacher, schedule, links, leaves, salaryP
                   </SelectTrigger>
                   <SelectContent>
                     {availableSlots.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
+                      <SelectItem key={slotKey(s)} value={slotKey(s)}>
                         {s.class_type} · {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
                       </SelectItem>
                     ))}

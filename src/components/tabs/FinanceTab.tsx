@@ -630,7 +630,10 @@ export function EntryDialog({
   const pickTeacher = (id: string) => {
     setTeacherId(id);
     const t = teachers.find((x) => x.id === id);
-    if (t) setCategory(`Lương giáo viên - ${t.full_name ?? t.email ?? ""}`);
+    if (t) {
+      const [y, m] = month.split("-");
+      setCategory(`Lương giáo viên tháng ${Number(m)}/${y} - ${t.full_name ?? t.email ?? ""}`);
+    }
   };
 
   const pickStudent = (id: string) => {
@@ -823,7 +826,19 @@ export function EntryDialog({
                   <DateInput
                     variant="month"
                     value={month}
-                    onChange={(e) => setMonth(e.target.value)}
+                    onChange={(e) => {
+                      const newMonth = e.target.value;
+                      setMonth(newMonth);
+                      // Nếu đang bật "Chi lương giáo viên" và đã chọn sẵn giáo viên, cập nhật lại tên
+                      // khoản mục theo tháng mới luôn, tránh tên bị lệch với tháng thực sự đã chọn.
+                      if (isSalary && teacherId) {
+                        const t = teachers.find((x) => x.id === teacherId);
+                        if (t) {
+                          const [y, m] = newMonth.split("-");
+                          setCategory(`Lương giáo viên tháng ${Number(m)}/${y} - ${t.full_name ?? t.email ?? ""}`);
+                        }
+                      }
+                    }}
                     className="pr-2"
                   />
                 </div>

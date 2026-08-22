@@ -773,7 +773,7 @@ function TeacherSlotsCell({
   const [open, setOpen] = useState(false);
   // Bước 1: chọn giáo viên. Bước 2 (sau khi chọn): chọn phạm vi áp dụng.
   const [pickedTeacherId, setPickedTeacherId] = useState<string | null>(null);
-  const [scope, setScope] = useState<"past" | "future" | "period">("future");
+  const [scope, setScope] = useState<"all" | "past" | "future" | "period">("all");
   const [period, setPeriod] = useState<"week" | "month">("week");
   const assignFn = useServerFn(assignClassScheduleTeacher);
   const unassignFn = useServerFn(unassignClassScheduleTeacher);
@@ -781,7 +781,7 @@ function TeacherSlotsCell({
 
   const resetPicker = () => {
     setPickedTeacherId(null);
-    setScope("future");
+    setScope("all");
     setPeriod("week");
   };
 
@@ -791,7 +791,10 @@ function TeacherSlotsCell({
       const todayISO = toLocalISO(now);
       let effective_from: string | null = null;
       let effective_to: string | null = null;
-      if (scope === "past") {
+      if (scope === "all") {
+        // Toàn thời gian — áp dụng bất cứ khi nào có ca học của học sinh ở khung giờ này, không giới
+        // hạn quá khứ lẫn tương lai (giống hành vi mặc định trước khi có tùy chọn phạm vi thời gian).
+      } else if (scope === "past") {
         // Áp dụng từ thời điểm bắt đầu (không giới hạn) trở về trước cho tới hôm nay.
         effective_to = todayISO;
       } else if (scope === "future") {
@@ -900,6 +903,10 @@ function TeacherSlotsCell({
           ) : (
             <div className="grid gap-2 p-2">
               <p className="text-xs font-medium">Gán {pickedTeacher?.full_name || pickedTeacher?.email} — áp dụng cho:</p>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="radio" checked={scope === "all"} onChange={() => setScope("all")} />
+                Toàn thời gian (mọi buổi có ca học ở khung giờ này)
+              </label>
               <label className="flex items-center gap-2 text-xs">
                 <input type="radio" checked={scope === "past"} onChange={() => setScope("past")} />
                 Từ thời điểm bắt đầu trở về trước (tới hôm nay)

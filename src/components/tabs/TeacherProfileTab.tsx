@@ -365,12 +365,17 @@ function TeacherProfileDetailContent({ teacher, links, leaves, financeEntries, s
   );
 
   // Buổi đã dạy = số cặp (ca, ngày) có ít nhất 1 học sinh được điểm danh (tính buổi) đúng vào ca đó.
+  // So khớp theo CHỒNG LẤN giờ (không phải trùng khớp tuyệt đối) — vì 1 ca gán cho giáo viên luôn là
+  // khối 1 giờ (theo đúng từng hàng trên Thời khóa biểu), trong khi 1 học sinh có thể vẫn lưu nguyên 1
+  // khối 2 giờ liền (VD 09:00-11:00) trong lịch học của họ; khối 2 giờ đó chồng lấn với CẢ 2 ca 1 giờ
+  // (09:00-10:00 và 10:00-11:00), nên cần tính chồng lấn thay vì đòi khớp y hệt.
   const taughtDates = useMemo(() => {
+    const overlaps = (aStart: string, aEnd: string, bStart: string, bEnd: string) => aStart < bEnd && bStart < aEnd;
     const out: { slotKey: string; date: string }[] = [];
     for (const slot of myShifts) {
       const matchingIds = new Set(
         students
-          .filter((s) => s.class_type === slot.class_type && (s.schedule_slots ?? []).some((sl) => sl.day === slot.day_of_week && sl.start === slot.start_time && sl.end === slot.end_time))
+          .filter((s) => s.class_type === slot.class_type && (s.schedule_slots ?? []).some((sl) => sl.day === slot.day_of_week && overlaps(sl.start, sl.end, slot.start_time, slot.end_time)))
           .map((s) => s.id),
       );
       if (matchingIds.size === 0) continue;

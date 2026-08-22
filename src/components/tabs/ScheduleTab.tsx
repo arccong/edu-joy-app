@@ -239,16 +239,6 @@ export function ScheduleTab() {
             <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
             <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-          {access.isManager && (
-            <div className="flex gap-1">
-              <Button size="sm" variant={viewBy === "student" ? "default" : "ghost"} onClick={() => setViewBy("student")}>
-                Học sinh
-              </Button>
-              <Button size="sm" variant={viewBy === "teacher" ? "default" : "ghost"} onClick={() => setViewBy("teacher")}>
-                Giáo viên
-              </Button>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Input
               placeholder="Tìm theo tên học sinh..."
@@ -271,17 +261,29 @@ export function ScheduleTab() {
         </div>
       </CardHeader>
       <CardContent>
-        {myClasses.length > 1 ? (
-          <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
-            <TabsList className="mb-4">
-              {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
-            </TabsList>
-          </Tabs>
-        ) : null}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          {myClasses.length > 1 ? (
+            <Tabs value={cls} onValueChange={(v) => { setCls(v as ClassType); setStudentFilter("all"); setNameSearch(""); }}>
+              <TabsList>
+                {myClasses.map((c) => <TabsTrigger key={c} value={c}>{c}</TabsTrigger>)}
+              </TabsList>
+            </Tabs>
+          ) : (
+            <div />
+          )}
+          {access.isManager && (
+            <Tabs value={viewBy} onValueChange={(v) => setViewBy(v as "student" | "teacher")}>
+              <TabsList>
+                <TabsTrigger value="student">Học sinh</TabsTrigger>
+                <TabsTrigger value="teacher">Giáo viên</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
 
         <div ref={frameRef} className="rounded-lg border bg-white p-4">
           <div className="mb-3 text-center">
-            <h3 className="text-lg font-bold">Thời khóa biểu lớp {cls}</h3>
+            <h3 className="text-lg font-bold">{viewBy === "teacher" ? `Thời khóa biểu của giáo viên lớp ${cls}` : `Thời khóa biểu lớp ${cls}`}</h3>
             <p className="text-xs text-muted-foreground">Tuần từ {fmtDate(fromISO)} đến {fmtDate(toISO)}{studentFilter !== "all" ? ` · ${people.find((p) => p.key === studentFilter)?.name ?? ""}` : ""}</p>
           </div>
           <div className="overflow-x-auto">
@@ -352,7 +354,7 @@ export function ScheduleTab() {
                             <td key={dow} className="border p-1 align-top">
                               {viewBy === "teacher" ? (
                                 <TeacherSlotsCell
-                                  slots={Array.from(new Map(cellStudents.map((cs) => [`${cs.slot.start}|${cs.slot.end}`, cs.slot])).values())}
+                                  slots={cellStudents.length > 0 ? [{ day: dow, start: row.start, end: row.end }] : []}
                                   classType={cls}
                                   dayOfWeek={dow}
                                   teacherLinks={teacherLinks}
@@ -811,7 +813,6 @@ function TeacherSlotChip({
 
   return (
     <div className="group relative rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight">
-      <div className="font-medium text-muted-foreground">{slot.start}–{slot.end}</div>
       {links.length === 0 ? (
         <div className="italic text-muted-foreground">Chưa có giáo viên</div>
       ) : (
@@ -832,10 +833,10 @@ function TeacherSlotChip({
           <button
             type="button"
             title="Thêm giáo viên cho ca này"
-            className="pointer-events-none absolute -right-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
+            className="pointer-events-none absolute inset-0 m-auto flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
             style={{ backgroundColor: "rgba(232, 211, 188, 0.6)" }}
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-4 w-4" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-1" align="start">

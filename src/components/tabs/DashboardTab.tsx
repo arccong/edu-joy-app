@@ -67,6 +67,7 @@ import { setTrialAttendance } from "@/lib/trials.functions";
 import { listPayments } from "@/lib/tuition.functions";
 import { listLearningLogs } from "@/lib/learning.functions";
 import { listExpenseCategories } from "@/lib/finance.functions";
+import { listTeachers, type TeacherProfile } from "@/lib/teacher-profile.functions";
 
 type TodayItem = { s: Student; slot: ScheduleSlot };
 type TodayRow =
@@ -140,6 +141,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   const fetchChanges = useServerFn(listScheduleChanges);
   const fetchLogs = useServerFn(listLearningLogs);
   const fetchCats = useServerFn(listExpenseCategories);
+  const fetchTeachersDash = useServerFn(listTeachers);
   const setAtt = useServerFn(setAttendance);
   const setTrialAtt = useServerFn(setTrialAttendance);
   const saveStudent = useServerFn(upsertStudent);
@@ -179,6 +181,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
   });
   const { data: logs = [] } = useQuery<any[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLogs() as any });
   const { data: cats = [] } = useQuery<any[]>({ queryKey: ["expense-cats"], queryFn: () => fetchCats() as any });
+  const { data: dashTeachers = [] } = useQuery<(TeacherProfile & { classes: any[] })[]>({ queryKey: ["teachers"], queryFn: () => fetchTeachersDash() as any });
   const { data: trials = [] } = useTrialStudents();
 
   const activeStudents = useMemo(() => students.filter((s) => s.status !== "Kết thúc"), [students]);
@@ -528,6 +531,7 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
             <FinanceEntryDialog
               cats={cats}
               students={students}
+              teachers={dashTeachers}
               defaultMonth={todayISO.slice(0, 7)}
               defaultClass={null}
               trigger={

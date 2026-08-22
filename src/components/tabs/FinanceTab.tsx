@@ -451,7 +451,7 @@ export function FinanceTab() {
                 <TrendingUp className="h-4 w-4 text-[color:var(--success)]" />
                 Thu khác
               </h3>
-              <EntryTable rows={otherEntries} cats={cats} students={students} />
+              <EntryTable rows={otherEntries} cats={cats} students={students} teachers={teachers} />
             </div>
           )}
 
@@ -463,7 +463,7 @@ export function FinanceTab() {
             {expenseEntries.length === 0 ? (
               <EmptyState text="Chưa có khoản chi nào." />
             ) : (
-              <EntryTable rows={expenseEntries} cats={cats} students={students} />
+              <EntryTable rows={expenseEntries} cats={cats} students={students} teachers={teachers} />
             )}
           </div>
         </CardContent>
@@ -472,7 +472,7 @@ export function FinanceTab() {
   );
 }
 
-function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[]; students: Student[] }) {
+function EntryTable({ rows, cats, students, teachers }: { rows: Entry[]; cats: Category[]; students: Student[]; teachers: (TeacherProfile & { classes: ClassType[] })[] }) {
   return (
     <div className="-mx-4 overflow-x-auto sm:mx-0">
       <Table>

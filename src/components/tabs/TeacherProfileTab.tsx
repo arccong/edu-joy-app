@@ -180,7 +180,6 @@ export function TeacherProfileTab() {
 
   const buildDetailProps = (t: TeacherWithClasses): TeacherDetailProps => ({
     teacher: t,
-    allSlots,
     links: links.filter((l) => l.teacher_id === t.id),
     leaves: leaves.filter((l) => l.teacher_id === t.id),
     financeEntries: financeEntries.filter((e: any) => e.teacher_id === t.id && e.kind === "chi"),
@@ -322,7 +321,6 @@ export function TeacherProfileTab() {
 
 type TeacherDetailProps = {
   teacher: TeacherWithClasses;
-  allSlots: TeacherSlot[];
   links: ClassScheduleTeacherLink[];
   leaves: TeacherLeave[];
   financeEntries: any[];
@@ -332,7 +330,7 @@ type TeacherDetailProps = {
   inCourse: (s: Student | undefined, dateISO: string) => boolean;
 };
 
-function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, financeEntries, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
+function TeacherProfileDetailContent({ teacher, links, leaves, financeEntries, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
   const qc = useQueryClient();
   const ensureCodeFn = useServerFn(ensureTeacherCode);
   const updateProfileFn = useServerFn(updateTeacherProfile);

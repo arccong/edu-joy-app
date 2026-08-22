@@ -832,10 +832,10 @@ function TeacherSlotChip({
           <button
             type="button"
             title="Thêm giáo viên cho ca này"
-            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full group-hover:flex"
+            className="pointer-events-none absolute -right-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
             style={{ backgroundColor: "rgba(232, 211, 188, 0.6)" }}
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="h-6 w-6" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-48 p-1" align="start">

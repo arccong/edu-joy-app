@@ -366,7 +366,7 @@ export function ScheduleTab() {
                                   {cellTrials.map((t) => (
                                     <div
                                       key={t.id}
-                                      className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                      className="rounded border-l-2 px-1.5 py-1 text-xs leading-tight"
                                       style={{ borderLeftColor: "var(--trial, #4AA09E)", backgroundColor: "color-mix(in srgb, var(--trial, #4AA09E) 12%, transparent)", color: "var(--trial, #4AA09E)" }}
                                     >
                                       <div className="font-medium">{t.name} (HT)</div>
@@ -375,14 +375,14 @@ export function ScheduleTab() {
                                   {cellMakeups.map((m) => (
                                     <div
                                       key={m.attendanceId}
-                                      className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                      className="rounded border-l-2 px-1.5 py-1 text-xs leading-tight"
                                       style={{ borderLeftColor: "var(--warning, #B45309)", backgroundColor: "color-mix(in srgb, var(--warning, #B45309) 12%, transparent)", color: "var(--warning, #B45309)" }}
                                     >
                                       <div className="font-medium">{m.student.name} (Bù)</div>
                                     </div>
                                   ))}
                                   {cellStudents.map(({ s, dim, suffix }, idx) => (
-                                    <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
+                                    <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-xs leading-tight ${dim ? "opacity-50" : ""}`}>
                                       <div className="font-medium">{s.name}{suffix}</div>
                                     </div>
                                   ))}
@@ -752,43 +752,13 @@ function TeacherSlotsCell({
   teacherById: Map<string, { id: string; full_name: string | null; email: string | null }>;
   teachers: { id: string; full_name: string | null; email: string | null; classes: ClassType[] }[];
 }) {
-  if (slots.length === 0) return null;
-  return (
-    <div className="space-y-1">
-      {slots.map((slot) => (
-        <TeacherSlotChip
-          key={`${slot.start}-${slot.end}`}
-          slot={slot}
-          classType={classType}
-          dayOfWeek={dayOfWeek}
-          links={teacherLinks.filter((l) => l.class_type === classType && l.day_of_week === dayOfWeek && l.start_time === slot.start && l.end_time === slot.end)}
-          teacherById={teacherById}
-          teachersInClass={teachers.filter((t) => t.classes.includes(classType))}
-        />
-      ))}
-    </div>
-  );
-}
-
-function TeacherSlotChip({
-  slot,
-  classType,
-  dayOfWeek,
-  links,
-  teacherById,
-  teachersInClass,
-}: {
-  slot: ScheduleSlot;
-  classType: ClassType;
-  dayOfWeek: number;
-  links: { id: string; teacher_id: string }[];
-  teacherById: Map<string, { id: string; full_name: string | null; email: string | null }>;
-  teachersInClass: { id: string; full_name: string | null; email: string | null }[];
-}) {
+  // Luôn gọi hook trước, không được return sớm trước khi gọi hết hook (Rules of Hooks) — slots có thể
+  // rỗng (không có ca nào ở ô này), dùng slot "rỗng" tạm khi đó, code bên dưới sẽ return null sau.
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const assignFn = useServerFn(assignClassScheduleTeacher);
   const unassignFn = useServerFn(unassignClassScheduleTeacher);
+  const slot = slots[0] ?? { day: dayOfWeek, start: "", end: "" };
 
   const assignMut = useMutation({
     mutationFn: (teacherId: string) =>
@@ -808,18 +778,25 @@ function TeacherSlotChip({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  if (slots.length === 0) return null;
+
+  const links = teacherLinks.filter((l) => l.class_type === classType && l.day_of_week === dayOfWeek && l.start_time === slot.start && l.end_time === slot.end);
+  const teachersInClass = teachers.filter((t) => t.classes.includes(classType));
   const assignedIds = new Set(links.map((l) => l.teacher_id));
   const availableTeachers = teachersInClass.filter((t) => !assignedIds.has(t.id));
 
   return (
-    <div className="group relative rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight">
+    // Mỗi giáo viên hiện trong 1 THẺ RIÊNG (giống hệt cách mỗi học sinh có 1 thẻ riêng ở chế độ Học
+    // sinh) — thay vì gộp nhiều giáo viên chung 1 thẻ như trước, nhìn đồng bộ và rõ ràng hơn khi 1 ca có
+    // từ 2 giáo viên trở lên. Nút "+" (thêm giáo viên) áp dụng cho CẢ Ô, đặt giữa ô, hiện khi di chuột.
+    <div className="group relative space-y-1">
       {links.length === 0 ? (
-        <div className="italic text-muted-foreground">Chưa có giáo viên</div>
+        <div className="text-xs italic text-muted-foreground">Chưa có giáo viên</div>
       ) : (
         links.map((l) => {
           const t = teacherById.get(l.teacher_id);
           return (
-            <div key={l.id} className="flex items-center justify-between gap-1">
+            <div key={l.id} className="flex items-center justify-between gap-1 rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-xs leading-tight">
               <span className="font-medium">{t?.full_name || t?.email || "?"}</span>
               <button type="button" className="shrink-0 text-muted-foreground hover:text-destructive" title="Bỏ gán" onClick={() => unassignMut.mutate(l.id)}>
                 <X className="h-2.5 w-2.5" />

@@ -877,25 +877,16 @@ function AvatarPickerDialog({
     return out;
   }, [journalImages]);
 
-  const chooseMut = useMutation({
-    mutationFn: (url: string) => setAvatarFn({ data: { person_id: personId, avatar_url: url } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["people-profiles"] });
-      toast.success("Đã cập nhật ảnh đại diện.");
-      onOpenChange(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  // Trạng thái cho tab "Tải ảnh lên" — cùng cơ chế crop tròn với ảnh đại diện tài khoản nhân viên.
+  // Trạng thái crop tròn dùng CHUNG cho cả 2 nguồn ảnh (chọn từ nhật ký hoặc tải lên máy) — chọn ảnh
+  // nào cũng đều phải qua bước cắt tròn trước khi lưu, để tự chọn đúng vùng muốn hiển thị, tránh bị tự
+  // động cắt giữa (object-cover) không như ý.
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [pixelCrop, setPixelCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  const resetUpload = () => {
-    if (imgUrl) URL.revokeObjectURL(imgUrl);
+  const resetCrop = () => {
     setImgUrl(null);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
@@ -919,7 +910,7 @@ function AvatarPickerDialog({
     }
   };
 
-  const uploadMut = useMutation({
+  const saveMut = useMutation({
     mutationFn: async () => {
       if (!imgUrl || !pixelCrop) throw new Error("Vui lòng chọn và cắt ảnh trước.");
       const blob = await cropImageToBlob(imgUrl, pixelCrop, 320);
@@ -929,7 +920,7 @@ function AvatarPickerDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-profiles"] });
       toast.success("Đã cập nhật ảnh đại diện.");
-      resetUpload();
+      resetCrop();
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message || "Cập nhật ảnh đại diện thất bại."),
@@ -940,7 +931,7 @@ function AvatarPickerDialog({
       open={open}
       onOpenChange={(v) => {
         onOpenChange(v);
-        if (!v) resetUpload();
+        if (!v) resetCrop();
       }}
     >
       <DialogContent className="max-w-md">
@@ -951,42 +942,7 @@ function AvatarPickerDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-1">
-          <Button size="sm" variant={tab === "journal" ? "default" : "ghost"} onClick={() => setTab("journal")}>
-            <Images className="mr-1 h-3.5 w-3.5" />
-            Từ nhật ký
-          </Button>
-          <Button size="sm" variant={tab === "upload" ? "default" : "ghost"} onClick={() => setTab("upload")}>
-            <Upload className="mr-1 h-3.5 w-3.5" />
-            Tải ảnh lên
-          </Button>
-        </div>
-
-        {tab === "journal" ? (
-          uniqueImages.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Chưa có ảnh nào trong nhật ký học tập của học sinh này.</p>
-          ) : (
-            <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto">
-              {uniqueImages.map((img) => (
-                <button
-                  key={img.url}
-                  type="button"
-                  className="aspect-square overflow-hidden rounded-md border transition-opacity hover:opacity-80 disabled:opacity-50"
-                  disabled={chooseMut.isPending}
-                  onClick={() => chooseMut.mutate(img.url)}
-                >
-                  <img src={img.url} alt={img.label ?? ""} className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )
-        ) : !imgUrl ? (
-          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed p-6 text-sm text-muted-foreground hover:bg-muted/40">
-            {loadingFile ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-            <span>Chọn ảnh từ điện thoại/máy tính</span>
-            <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-          </label>
-        ) : (
+        {imgUrl ? (
           <div className="grid gap-3">
             <div className="relative h-64 w-full overflow-hidden rounded-md bg-muted">
               <Cropper
@@ -1006,15 +962,53 @@ function AvatarPickerDialog({
               <input type="range" min={1} max={3} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-full" />
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={resetUpload}>
+              <Button variant="ghost" size="sm" onClick={resetCrop}>
                 Chọn ảnh khác
               </Button>
-              <Button size="sm" className="ml-auto" onClick={() => uploadMut.mutate()} disabled={uploadMut.isPending}>
-                {uploadMut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              <Button size="sm" className="ml-auto" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                 Lưu
               </Button>
             </div>
           </div>
+        ) : (
+          <>
+            <div className="flex gap-1">
+              <Button size="sm" variant={tab === "journal" ? "default" : "ghost"} onClick={() => setTab("journal")}>
+                <Images className="mr-1 h-3.5 w-3.5" />
+                Từ nhật ký
+              </Button>
+              <Button size="sm" variant={tab === "upload" ? "default" : "ghost"} onClick={() => setTab("upload")}>
+                <Upload className="mr-1 h-3.5 w-3.5" />
+                Tải ảnh lên
+              </Button>
+            </div>
+
+            {tab === "journal" ? (
+              uniqueImages.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Chưa có ảnh nào trong nhật ký học tập của học sinh này.</p>
+              ) : (
+                <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto">
+                  {uniqueImages.map((img) => (
+                    <button
+                      key={img.url}
+                      type="button"
+                      className="aspect-square overflow-hidden rounded-md border transition-opacity hover:opacity-80"
+                      onClick={() => setImgUrl(img.url)}
+                    >
+                      <img src={img.url} alt={img.label ?? ""} className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed p-6 text-sm text-muted-foreground hover:bg-muted/40">
+                {loadingFile ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+                <span>Chọn ảnh từ điện thoại/máy tính</span>
+                <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+              </label>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>

@@ -34,6 +34,7 @@ import {
   upsertFinanceEntry,
 } from "@/lib/finance.functions";
 import { exportXlsx } from "@/lib/export";
+import { listTeachers, type TeacherProfile } from "@/lib/teacher-profile.functions";
 
 type Entry = {
   id: string;
@@ -53,11 +54,12 @@ type Entry = {
   paid_date: string | null;
   quantity?: number | null;
   unit_amount?: number | null;
+  teacher_id?: string | null;
 };
 
 type Category = { id: string; name: string; default_amount: number; sort_order: number; active: boolean };
 
-const DEFAULT_EXPENSES = ["Tiền điện", "Tiền nước", "Lương giáo viên", "Tiền thuế"];
+const DEFAULT_EXPENSES = ["Tiền điện", "Tiền nước", "Tiền thuế"];
 
 export function FinanceTab() {
   const fetchPayments = useServerFn(listPayments);
@@ -77,6 +79,11 @@ export function FinanceTab() {
   const { data: students = [] } = useQuery<Student[]>({
     queryKey: ["students"],
     queryFn: () => fetchStudents() as any,
+  });
+  const fetchTeachers = useServerFn(listTeachers);
+  const { data: teachers = [] } = useQuery<(TeacherProfile & { classes: ClassType[] })[]>({
+    queryKey: ["teachers"],
+    queryFn: () => fetchTeachers() as any,
   });
 
   const now = new Date();
@@ -291,6 +298,7 @@ export function FinanceTab() {
             <EntryDialog
               cats={cats}
               students={students}
+              teachers={teachers}
               defaultMonth={view === "month" ? month : `${year}-01`}
               defaultClass={cls === "Tất cả" ? null : cls}
               trigger={
@@ -416,6 +424,7 @@ export function FinanceTab() {
                             <EntryDialog
                               cats={cats}
                               students={students}
+                              teachers={teachers}
                               defaultMonth={e.month.slice(0, 7)}
                               defaultClass={null}
                               existing={e}
@@ -498,6 +507,7 @@ function EntryTable({ rows, cats, students }: { rows: Entry[]; cats: Category[];
                   <EntryDialog
                     cats={cats}
                     students={students}
+                    teachers={teachers}
                     defaultMonth={e.month.slice(0, 7)}
                     defaultClass={null}
                     existing={e}
@@ -561,6 +571,7 @@ type FormKind = "hoc_phi" | "thu_khac" | "chi";
 export function EntryDialog({
   cats,
   students,
+  teachers,
   defaultMonth,
   defaultClass,
   existing,
@@ -568,6 +579,7 @@ export function EntryDialog({
 }: {
   cats: Category[];
   students: Student[];
+  teachers: (TeacherProfile & { classes: ClassType[] })[];
   defaultMonth: string;
   defaultClass: ClassType | null;
   existing?: Entry;
@@ -602,12 +614,24 @@ export function EntryDialog({
   const [termStart, setTermStart] = useState(existing?.term_start ?? "");
   const [termEnd, setTermEnd] = useState(existing?.term_end ?? "");
   const [paidDate, setPaidDate] = useState(existing?.paid_date ?? "");
+  const [isSalary, setIsSalary] = useState(!!existing?.teacher_id);
+  const [teacherId, setTeacherId] = useState(existing?.teacher_id ?? "");
 
   const classStudents = useMemo(
     () =>
       students.filter((s) => (classType === "Chung" ? true : s.class_type === classType) && s.status !== "Hoàn thành"),
     [students, classType],
   );
+
+  const teachersInClass = useMemo(
+    () => (classType && classType !== "Chung" ? teachers.filter((t) => t.classes.includes(classType as ClassType)) : []),
+    [teachers, classType],
+  );
+  const pickTeacher = (id: string) => {
+    setTeacherId(id);
+    const t = teachers.find((x) => x.id === id);
+    if (t) setCategory(`Lương giáo viên - ${t.full_name ?? t.email ?? ""}`);
+  };
 
   const pickStudent = (id: string) => {
     setStudentId(id);
@@ -647,6 +671,7 @@ export function EntryDialog({
           term_start: isTuition ? termStart : null,
           term_end: isTuition ? termEnd : null,
           paid_date: isTuition ? paidDate : null,
+          teacher_id: formKind === "chi" && isSalary ? teacherId || null : null,
         } as any,
       });
     },
@@ -804,7 +829,13 @@ export function EntryDialog({
                 </div>
                 <div className="grid gap-1">
                   <Label>Lớp</Label>
-                  <Select value={classType} onValueChange={setClassType}>
+                  <Select
+                    value={classType}
+                    onValueChange={(v) => {
+                      setClassType(v);
+                      setTeacherId("");
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -819,14 +850,50 @@ export function EntryDialog({
                   </Select>
                 </div>
               </div>
+              {formKind === "chi" && (
+                <div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={isSalary}
+                      onChange={(e) => {
+                        setIsSalary(e.target.checked);
+                        if (!e.target.checked) setTeacherId("");
+                      }}
+                    />
+                    <span>Chi lương giáo viên</span>
+                  </label>
+                  {isSalary && (
+                    <div className="mt-2 grid gap-1">
+                      <Label className="text-xs">Giáo viên (theo lớp {classType === "Chung" ? "— chọn 1 lớp cụ thể ở trên" : classType})</Label>
+                      <Select value={teacherId} onValueChange={pickTeacher} disabled={classType === "Chung"}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn giáo viên" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teachersInClass.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">Chưa có giáo viên nào phụ trách lớp này</div>
+                          ) : (
+                            teachersInClass.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.full_name || t.email}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="grid gap-1">
                 <Label>Khoản mục</Label>
                 <Input
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  placeholder={formKind === "chi" ? "Vd: Lương giáo viên" : "Vd: Đồng phục múa"}
+                  placeholder={formKind === "chi" ? "Vd: Tiền điện" : "Vd: Đồng phục múa"}
                 />
-                {formKind === "chi" && (
+                {formKind === "chi" && !isSalary && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {expenseChips.map((c) => (
                       <button

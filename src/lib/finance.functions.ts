@@ -96,6 +96,7 @@ const EntryInput = z.object({
   term_start: z.string().nullable().optional(),
   term_end: z.string().nullable().optional(),
   paid_date: z.string().nullable().optional(),
+  teacher_id: z.string().uuid().nullable().optional(),
 });
 
 export const upsertFinanceEntry = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -183,6 +184,7 @@ export const upsertFinanceEntry = createServerFn({ method: "POST" }).middleware(
       term_start: data.term_start || null,
       term_end: data.term_end || null,
       paid_date: data.paid_date || null,
+      teacher_id: data.teacher_id || null,
       recurring_expense_id: recurringId,
     };
 

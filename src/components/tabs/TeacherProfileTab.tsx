@@ -49,22 +49,19 @@ import {
   type AttendanceRow,
   type ClassType,
   type Student,
+  fmtMonth,
 } from "@/lib/shared";
 import { listAttendanceRange, listStudents } from "@/lib/students.functions";
+import { listFinanceEntries } from "@/lib/finance.functions";
 import {
-  assignClassScheduleTeacher,
   deleteTeacherLeave,
-  deleteTeacherSalaryPayment,
   ensureTeacherCode,
   listClassScheduleTeachers,
   listTeacherLeaves,
-  listTeacherSalaryPayments,
   listTeachers,
   setTeacherAvatar,
-  unassignClassScheduleTeacher,
   updateTeacherProfile,
   upsertTeacherLeave,
-  upsertTeacherSalaryPayment,
   type TeacherProfile,
 } from "@/lib/teacher-profile.functions";
 
@@ -74,7 +71,6 @@ const VIEW_MODE_KEY = "teacher-profile-view-mode";
 type TeacherSlot = { class_type: ClassType; day_of_week: number; start_time: string; end_time: string };
 type ClassScheduleTeacherLink = TeacherSlot & { id: string; teacher_id: string };
 type TeacherLeave = { id: string; teacher_id: string; start_date: string; end_date: string; reason: string | null };
-type TeacherSalaryPayment = { id: string; teacher_id: string; amount: number; paid_date: string; note: string | null };
 type TeacherWithClasses = TeacherProfile & { classes: ClassType[] };
 
 function slotKey(s: TeacherSlot): string {
@@ -142,13 +138,13 @@ export function TeacherProfileTab() {
   const fetchAttRange = useServerFn(listAttendanceRange);
   const fetchLinks = useServerFn(listClassScheduleTeachers);
   const fetchLeaves = useServerFn(listTeacherLeaves);
-  const fetchSalary = useServerFn(listTeacherSalaryPayments);
+  const fetchFinanceEntries = useServerFn(listFinanceEntries);
 
   const { data: teachers = [], isLoading } = useQuery<TeacherWithClasses[]>({ queryKey: ["teachers"], queryFn: () => fetchTeachers() as any });
   const { data: students = [] } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: links = [] } = useQuery<ClassScheduleTeacherLink[]>({ queryKey: ["class-schedule-teachers"], queryFn: () => fetchLinks() as any });
   const { data: leaves = [] } = useQuery<TeacherLeave[]>({ queryKey: ["teacher-leaves"], queryFn: () => fetchLeaves() as any });
-  const { data: salaryPayments = [] } = useQuery<TeacherSalaryPayment[]>({ queryKey: ["teacher-salary"], queryFn: () => fetchSalary() as any });
+  const { data: financeEntries = [] } = useQuery<any[]>({ queryKey: ["finance-entries"], queryFn: () => fetchFinanceEntries() as any });
 
   const today = new Date();
   const from = new Date(today);
@@ -166,23 +162,6 @@ export function TeacherProfileTab() {
     const actualEnd = addScheduledDays(s.end_date, s.schedule_slots ?? [], s.reserve_days ?? 0);
     return dateISO >= s.start_date && (!actualEnd || dateISO <= actualEnd);
   };
-
-  // "Ca học" thực tế = tổng hợp (lớp, thứ, giờ bắt đầu-kết thúc) DUY NHẤT từ lịch học của TẤT CẢ học
-  // sinh hiện có — vì thời khóa biểu thật của trung tâm được quản lý theo cách này (không có bảng
-  // "class_schedule" riêng nào được dùng ở nơi khác trong app).
-  const allSlots = useMemo(() => {
-    const map = new Map<string, TeacherSlot>();
-    for (const s of students) {
-      for (const sl of s.schedule_slots ?? []) {
-        const slot: TeacherSlot = { class_type: s.class_type, day_of_week: sl.day, start_time: sl.start, end_time: sl.end };
-        const key = slotKey(slot);
-        if (!map.has(key)) map.set(key, slot);
-      }
-    }
-    return Array.from(map.values()).sort(
-      (a, b) => DAYS_ORDER.indexOf(a.day_of_week) - DAYS_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time),
-    );
-  }, [students]);
 
   const [nameSearch, setNameSearch] = useState("");
   const filteredTeachers = useMemo(() => {
@@ -204,7 +183,7 @@ export function TeacherProfileTab() {
     allSlots,
     links: links.filter((l) => l.teacher_id === t.id),
     leaves: leaves.filter((l) => l.teacher_id === t.id),
-    salaryPayments: salaryPayments.filter((p) => p.teacher_id === t.id),
+    financeEntries: financeEntries.filter((e: any) => e.teacher_id === t.id && e.kind === "chi"),
     students,
     attendedRows,
     studentById,
@@ -346,14 +325,14 @@ type TeacherDetailProps = {
   allSlots: TeacherSlot[];
   links: ClassScheduleTeacherLink[];
   leaves: TeacherLeave[];
-  salaryPayments: TeacherSalaryPayment[];
+  financeEntries: any[];
   students: Student[];
   attendedRows: AttendanceRow[];
   studentById: Map<string, Student>;
   inCourse: (s: Student | undefined, dateISO: string) => boolean;
 };
 
-function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, salaryPayments, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
+function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, financeEntries, students, attendedRows, studentById, inCourse }: TeacherDetailProps) {
   const qc = useQueryClient();
   const ensureCodeFn = useServerFn(ensureTeacherCode);
   const updateProfileFn = useServerFn(updateTeacherProfile);
@@ -436,44 +415,11 @@ function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, salaryP
   };
 
   const [leaveFormOpen, setLeaveFormOpen] = useState<TeacherLeave | "new" | null>(null);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const qcAssign = useQueryClient();
-  const assignFn = useServerFn(assignClassScheduleTeacher);
-  const unassignFn = useServerFn(unassignClassScheduleTeacher);
-  const unassignMut = useMutation({
-    mutationFn: (linkId: string) => unassignFn({ data: { id: linkId } }),
-    onSuccess: () => {
-      qcAssign.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
-      toast.success("Đã bỏ gán ca dạy");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const [pickSlotId, setPickSlotId] = useState("");
-  const availableSlots = useMemo(() => {
-    const assignedKeys = new Set(links.map((l) => slotKey(l)));
-    return allSlots.filter((s) => !assignedKeys.has(slotKey(s)));
-  }, [allSlots, links]);
-  const assignMut = useMutation({
-    mutationFn: () => {
-      const slot = availableSlots.find((s) => slotKey(s) === pickSlotId);
-      if (!slot) throw new Error("Vui lòng chọn 1 ca");
-      return assignFn({ data: { ...slot, teacher_id: teacher.id } });
-    },
-    onSuccess: () => {
-      qcAssign.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
-      toast.success("Đã gán ca dạy");
-      setPickSlotId("");
-      setAssignOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
-  // Tổng lương đã nhận — theo khoảng ngày tự chọn.
-  const [salaryFrom, setSalaryFrom] = useState(`${yearPrefix}-01-01`);
-  const [salaryTo, setSalaryTo] = useState(todayISO);
-  const salaryInRange = salaryPayments.filter((p) => p.paid_date >= salaryFrom && p.paid_date <= salaryTo);
-  const salaryTotal = salaryInRange.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const [salaryFormOpen, setSalaryFormOpen] = useState<TeacherSalaryPayment | "new" | null>(null);
+  // Tổng lương đã nhận — từ finance_entries (khoản "Chi lương" nhập ở Tab Tài chính), hiển thị lại ở
+  // đây, không nhập liệu tại Hồ sơ.
+  const salaryTotal = financeEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const salaryRows = financeEntries.slice().sort((a, b) => String(b.month).localeCompare(String(a.month)));
 
   return (
     <div className="space-y-5">
@@ -578,36 +524,20 @@ function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, salaryP
 
       {/* Ca dạy trong tuần */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-semibold">
-            <CalendarDays className="h-4 w-4" />
-            Ca dạy trong tuần
-          </p>
-          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Gán ca dạy
-          </Button>
-        </div>
+        <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+          <CalendarDays className="h-4 w-4" />
+          Ca dạy trong tuần
+        </p>
         {myShifts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa được gán ca dạy nào.</p>
+          <p className="text-sm text-muted-foreground">Chưa được gán ca dạy nào — vào Tab Lịch học, chọn xem theo "Giáo viên" để gán.</p>
         ) : (
           <div className="grid gap-1.5 sm:grid-cols-2">
             {myShifts.map((s) => (
-              <div key={s.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                <div className="flex items-center gap-2">
-                  {classChip(s.class_type)}
-                  <span>
-                    {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
-                  title="Bỏ gán ca này"
-                  onClick={() => confirm("Bỏ gán ca dạy này khỏi giáo viên?") && unassignMut.mutate(s.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+              <div key={s.id} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                {classChip(s.class_type)}
+                <span>
+                  {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
+                </span>
               </div>
             ))}
           </div>
@@ -674,86 +604,37 @@ function TeacherProfileDetailContent({ teacher, allSlots, links, leaves, salaryP
         <div className="mb-2 flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
             <Wallet className="h-4 w-4" />
-            Lương thưởng
+            Lương đã nhận
           </p>
-          <Button size="sm" variant="outline" onClick={() => setSalaryFormOpen("new")}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Ghi nhận trả lương
-          </Button>
+          <p className="text-2xl font-bold" style={{ color: "#9c5f35" }}>
+            {formatMoney(salaryTotal)}đ
+          </p>
         </div>
-        <div className="mb-2 flex flex-wrap items-end gap-2">
-          <div className="grid gap-1">
-            <Label className="text-xs">Từ ngày</Label>
-            <DateInput value={salaryFrom} onChange={(e) => setSalaryFrom(e.target.value)} className="w-[150px]" />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Đến ngày</Label>
-            <DateInput value={salaryTo} onChange={(e) => setSalaryTo(e.target.value)} className="w-[150px]" />
-          </div>
-          <div className="ml-auto text-right">
-            <p className="text-xs text-muted-foreground">Tổng đã nhận trong khoảng</p>
-            <p className="text-2xl font-bold" style={{ color: "#9c5f35" }}>
-              {formatMoney(salaryTotal)}đ
-            </p>
-          </div>
-        </div>
-        {salaryInRange.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có lần trả lương nào trong khoảng đã chọn.</p>
+        <p className="mb-2 text-xs text-muted-foreground">Ghi nhận trả lương thực hiện ở Tab Tài chính (khoản "Chi lương giáo viên") — mục này chỉ hiển thị lại.</p>
+        {salaryRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Chưa có khoản chi lương nào.</p>
         ) : (
           <div className="space-y-1.5">
-            {salaryInRange.map((p) => (
-              <TeacherSalaryRow key={p.id} payment={p} onEdit={() => setSalaryFormOpen(p)} />
+            {salaryRows.map((e) => (
+              <div key={e.id} className="rounded-md border p-2.5 text-sm">
+                <p className="font-medium">{formatMoney(e.amount)}đ</p>
+                <p className="text-xs text-muted-foreground">
+                  {fmtMonth(e.month)}
+                  {e.note ? ` · ${e.note}` : ""}
+                </p>
+              </div>
             ))}
           </div>
         )}
       </div>
 
       {avatarPickerOpen && <TeacherAvatarPickerDialog teacherId={teacher.id} open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen} />}
-      {assignOpen && (
-        <Dialog open={assignOpen} onOpenChange={(v) => { setAssignOpen(v); if (!v) setPickSlotId(""); }}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Gán ca dạy</DialogTitle>
-            </DialogHeader>
-            {availableSlots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Không còn ca nào để gán (hoặc chưa có ca nào trên thời khóa biểu).</p>
-            ) : (
-              <div className="grid gap-3">
-                <Select value={pickSlotId} onValueChange={setPickSlotId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn ca trên thời khóa biểu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSlots.map((s) => (
-                      <SelectItem key={slotKey(s)} value={slotKey(s)}>
-                        {s.class_type} · {DAYS[s.day_of_week]}, {hhmm(s.start_time)}–{hhmm(s.end_time)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={() => assignMut.mutate()} disabled={!pickSlotId || assignMut.isPending}>
-                  {assignMut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-                  Gán
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
       {leaveFormOpen && (
         <TeacherLeaveFormDialog
           teacherId={teacher.id}
           existing={leaveFormOpen === "new" ? undefined : leaveFormOpen}
           open={!!leaveFormOpen}
           onOpenChange={(v) => !v && setLeaveFormOpen(null)}
-        />
-      )}
-      {salaryFormOpen && (
-        <TeacherSalaryFormDialog
-          teacherId={teacher.id}
-          existing={salaryFormOpen === "new" ? undefined : salaryFormOpen}
-          open={!!salaryFormOpen}
-          onOpenChange={(v) => !v && setSalaryFormOpen(null)}
         />
       )}
     </div>
@@ -840,99 +721,6 @@ function TeacherLeaveFormDialog({
             <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="VD: nghỉ ốm, việc gia đình..." />
           </div>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending || endDate < startDate}>
-            {mut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-            Lưu
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TeacherSalaryRow({ payment, onEdit }: { payment: TeacherSalaryPayment; onEdit: () => void }) {
-  const qc = useQueryClient();
-  const deleteFn = useServerFn(deleteTeacherSalaryPayment);
-  const delMut = useMutation({
-    mutationFn: () => deleteFn({ data: { id: payment.id } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["teacher-salary"] });
-      toast.success("Đã xóa bản ghi trả lương");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  return (
-    <div className="flex items-center justify-between rounded-md border p-2.5 text-sm">
-      <div>
-        <p className="font-medium">{formatMoney(payment.amount)}đ</p>
-        <p className="text-xs text-muted-foreground">
-          {fmtDate(payment.paid_date)}
-          {payment.note ? ` · ${payment.note}` : ""}
-        </p>
-      </div>
-      <div className="flex gap-1">
-        <Button size="icon" variant="ghost" onClick={onEdit}>
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => confirm("Xóa bản ghi trả lương này?") && delMut.mutate()}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function TeacherSalaryFormDialog({
-  teacherId,
-  existing,
-  open,
-  onOpenChange,
-}: {
-  teacherId: string;
-  existing?: TeacherSalaryPayment;
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-}) {
-  const qc = useQueryClient();
-  const saveFn = useServerFn(upsertTeacherSalaryPayment);
-  const [amountStr, setAmountStr] = useState(existing ? formatMoney(existing.amount) : "");
-  const [paidDate, setPaidDate] = useState(existing?.paid_date ?? toLocalISO(new Date()));
-  const [note, setNote] = useState(existing?.note ?? "");
-
-  const mut = useMutation({
-    mutationFn: () => saveFn({ data: { id: existing?.id, teacher_id: teacherId, amount: parseMoney(amountStr), paid_date: paidDate, note: note || null } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["teacher-salary"] });
-      toast.success(existing ? "Đã cập nhật" : "Đã ghi nhận trả lương");
-      onOpenChange(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{existing ? "Sửa lần trả lương" : "Ghi nhận trả lương"}</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid gap-1">
-            <Label>Số tiền</Label>
-            <Input
-              inputMode="numeric"
-              value={amountStr}
-              onChange={(e) => setAmountStr(formatMoney(parseMoney(e.target.value)))}
-              placeholder="0"
-            />
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Ngày trả</Label>
-            <DateInput value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
-          </div>
-          <div className="grid gap-1">
-            <Label>Ghi chú</Label>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: lương tháng 8/2026" />
-          </div>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || parseMoney(amountStr) <= 0}>
             {mut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
             Lưu
           </Button>

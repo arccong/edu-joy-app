@@ -3,7 +3,7 @@ import { ClassSelect, useMyClasses } from "@/lib/class-scope";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toPng } from "html-to-image";
-import { CalendarDays, ChevronLeft, ChevronRight, Download, History, Loader2, PauseCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Download, History, Loader2, PauseCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  assignClassScheduleTeacher,
+  listClassScheduleTeachers,
+  listTeachers,
+  unassignClassScheduleTeacher,
+  type TeacherProfile,
+} from "@/lib/teacher-profile.functions";
 
 import {
   DAYS,
@@ -97,6 +105,7 @@ function buildTimeRows(slots: { start: string; end: string }[]): TimeRow[] {
 }
 
 export function ScheduleTab() {
+  const access = useAccess();
   const fetchList = useServerFn(listStudents);
   const fetchAtt = useServerFn(listAttendanceRange);
   const fetchChanges = useServerFn(listScheduleChanges);
@@ -104,6 +113,23 @@ export function ScheduleTab() {
   const { data: changes = [] } = useQuery<ScheduleChange[]>({ queryKey: ["schedule-changes"], queryFn: () => fetchChanges() as any });
   const fetchTrials = useServerFn(listTrialStudents);
   const { data: trials = [] } = useQuery<TrialStudent[]>({ queryKey: ["trial-students"], queryFn: () => fetchTrials() as any });
+
+  // "Xem theo: Học sinh / Giáo viên" — chỉ Quản lý/Owner mới thấy và gán được (là nơi thao tác gán ca
+  // dạy cho giáo viên, thay vì làm ở Hồ sơ giáo viên).
+  const [viewBy, setViewBy] = useState<"student" | "teacher">("student");
+  const fetchTeachers = useServerFn(listTeachers);
+  const fetchLinks = useServerFn(listClassScheduleTeachers);
+  const { data: teachers = [] } = useQuery<(TeacherProfile & { classes: ClassType[] })[]>({
+    queryKey: ["teachers"],
+    queryFn: () => fetchTeachers() as any,
+    enabled: access.isManager,
+  });
+  const { data: teacherLinks = [] } = useQuery<{ id: string; class_type: ClassType; day_of_week: number; start_time: string; end_time: string; teacher_id: string }[]>({
+    queryKey: ["class-schedule-teachers"],
+    queryFn: () => fetchLinks() as any,
+    enabled: access.isManager,
+  });
+  const teacherById = useMemo(() => new Map(teachers.map((t) => [t.id, t])), [teachers]);
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const myClasses = useMyClasses();
@@ -213,6 +239,16 @@ export function ScheduleTab() {
             <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date()))}>Tuần này</Button>
             <Button variant="outline" size="icon" onClick={() => setWeekStart((d) => addDays(d, 7))}><ChevronRight className="h-4 w-4" /></Button>
           </div>
+          {access.isManager && (
+            <div className="flex gap-1">
+              <Button size="sm" variant={viewBy === "student" ? "default" : "ghost"} onClick={() => setViewBy("student")}>
+                Học sinh
+              </Button>
+              <Button size="sm" variant={viewBy === "teacher" ? "default" : "ghost"} onClick={() => setViewBy("teacher")}>
+                Giáo viên
+              </Button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Input
               placeholder="Tìm theo tên học sinh..."
@@ -314,31 +350,42 @@ export function ScheduleTab() {
                           );
                           return (
                             <td key={dow} className="border p-1 align-top">
-                              <div className="space-y-1">
-                                {cellTrials.map((t) => (
-                                  <div
-                                    key={t.id}
-                                    className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
-                                    style={{ borderLeftColor: "var(--trial, #4AA09E)", backgroundColor: "color-mix(in srgb, var(--trial, #4AA09E) 12%, transparent)", color: "var(--trial, #4AA09E)" }}
-                                  >
-                                    <div className="font-medium">{t.name} (HT)</div>
-                                  </div>
-                                ))}
-                                {cellMakeups.map((m) => (
-                                  <div
-                                    key={m.attendanceId}
-                                    className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
-                                    style={{ borderLeftColor: "var(--warning, #B45309)", backgroundColor: "color-mix(in srgb, var(--warning, #B45309) 12%, transparent)", color: "var(--warning, #B45309)" }}
-                                  >
-                                    <div className="font-medium">{m.student.name} (Bù)</div>
-                                  </div>
-                                ))}
-                                {cellStudents.map(({ s, dim, suffix }, idx) => (
-                                  <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
-                                    <div className="font-medium">{s.name}{suffix}</div>
-                                  </div>
-                                ))}
-                              </div>
+                              {viewBy === "teacher" ? (
+                                <TeacherSlotsCell
+                                  slots={Array.from(new Map(cellStudents.map((cs) => [`${cs.slot.start}|${cs.slot.end}`, cs.slot])).values())}
+                                  classType={cls}
+                                  dayOfWeek={dow}
+                                  teacherLinks={teacherLinks}
+                                  teacherById={teacherById}
+                                  teachers={teachers}
+                                />
+                              ) : (
+                                <div className="space-y-1">
+                                  {cellTrials.map((t) => (
+                                    <div
+                                      key={t.id}
+                                      className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                      style={{ borderLeftColor: "var(--trial, #4AA09E)", backgroundColor: "color-mix(in srgb, var(--trial, #4AA09E) 12%, transparent)", color: "var(--trial, #4AA09E)" }}
+                                    >
+                                      <div className="font-medium">{t.name} (HT)</div>
+                                    </div>
+                                  ))}
+                                  {cellMakeups.map((m) => (
+                                    <div
+                                      key={m.attendanceId}
+                                      className="rounded border-l-2 px-1.5 py-1 text-[11px] leading-tight"
+                                      style={{ borderLeftColor: "var(--warning, #B45309)", backgroundColor: "color-mix(in srgb, var(--warning, #B45309) 12%, transparent)", color: "var(--warning, #B45309)" }}
+                                    >
+                                      <div className="font-medium">{m.student.name} (Bù)</div>
+                                    </div>
+                                  ))}
+                                  {cellStudents.map(({ s, dim, suffix }, idx) => (
+                                    <div key={idx} className={`rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight ${dim ? "opacity-50" : ""}`}>
+                                      <div className="font-medium">{s.name}{suffix}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                           );
                         })}
@@ -683,6 +730,134 @@ function ReserveRowActions({ student, dates }: { student: Student; dates: string
       >
         <Trash2 className="h-4 w-4" />
       </Button>}
+    </div>
+  );
+}
+
+/** ================= Xem theo Giáo viên: hiện giáo viên phụ trách từng ca + gán/bỏ gán ================= */
+function TeacherSlotsCell({
+  slots,
+  classType,
+  dayOfWeek,
+  teacherLinks,
+  teacherById,
+  teachers,
+}: {
+  slots: ScheduleSlot[];
+  classType: ClassType;
+  dayOfWeek: number;
+  teacherLinks: { id: string; class_type: ClassType; day_of_week: number; start_time: string; end_time: string; teacher_id: string }[];
+  teacherById: Map<string, { id: string; full_name: string | null; email: string | null }>;
+  teachers: { id: string; full_name: string | null; email: string | null; classes: ClassType[] }[];
+}) {
+  if (slots.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      {slots.map((slot) => (
+        <TeacherSlotChip
+          key={`${slot.start}-${slot.end}`}
+          slot={slot}
+          classType={classType}
+          dayOfWeek={dayOfWeek}
+          links={teacherLinks.filter((l) => l.class_type === classType && l.day_of_week === dayOfWeek && l.start_time === slot.start && l.end_time === slot.end)}
+          teacherById={teacherById}
+          teachersInClass={teachers.filter((t) => t.classes.includes(classType))}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TeacherSlotChip({
+  slot,
+  classType,
+  dayOfWeek,
+  links,
+  teacherById,
+  teachersInClass,
+}: {
+  slot: ScheduleSlot;
+  classType: ClassType;
+  dayOfWeek: number;
+  links: { id: string; teacher_id: string }[];
+  teacherById: Map<string, { id: string; full_name: string | null; email: string | null }>;
+  teachersInClass: { id: string; full_name: string | null; email: string | null }[];
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const assignFn = useServerFn(assignClassScheduleTeacher);
+  const unassignFn = useServerFn(unassignClassScheduleTeacher);
+
+  const assignMut = useMutation({
+    mutationFn: (teacherId: string) =>
+      assignFn({ data: { class_type: classType, day_of_week: dayOfWeek, start_time: slot.start, end_time: slot.end, teacher_id: teacherId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
+      toast.success("Đã gán giáo viên cho ca này");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const unassignMut = useMutation({
+    mutationFn: (linkId: string) => unassignFn({ data: { id: linkId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
+      toast.success("Đã bỏ gán giáo viên khỏi ca này");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assignedIds = new Set(links.map((l) => l.teacher_id));
+  const availableTeachers = teachersInClass.filter((t) => !assignedIds.has(t.id));
+
+  return (
+    <div className="group relative rounded border-l-2 border-primary bg-primary/5 px-1.5 py-1 text-[11px] leading-tight">
+      <div className="font-medium text-muted-foreground">{slot.start}–{slot.end}</div>
+      {links.length === 0 ? (
+        <div className="italic text-muted-foreground">Chưa có giáo viên</div>
+      ) : (
+        links.map((l) => {
+          const t = teacherById.get(l.teacher_id);
+          return (
+            <div key={l.id} className="flex items-center justify-between gap-1">
+              <span className="font-medium">{t?.full_name || t?.email || "?"}</span>
+              <button type="button" className="shrink-0 text-muted-foreground hover:text-destructive" title="Bỏ gán" onClick={() => unassignMut.mutate(l.id)}>
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          );
+        })
+      )}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            title="Thêm giáo viên cho ca này"
+            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full group-hover:flex"
+            style={{ backgroundColor: "rgba(232, 211, 188, 0.6)" }}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="start">
+          {availableTeachers.length === 0 ? (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">Không còn giáo viên nào phụ trách lớp này để thêm.</p>
+          ) : (
+            availableTeachers.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  assignMut.mutate(t.id);
+                  setOpen(false);
+                }}
+              >
+                {t.full_name || t.email}
+              </button>
+            ))
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

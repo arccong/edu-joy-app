@@ -25,7 +25,7 @@ import { type TrialStudent } from "@/lib/shared";
 import Cropper from "react-easy-crop";
 
 import { StudentsTab } from "@/components/tabs/StudentsTab";
-import { StudentProfileTab } from "@/components/tabs/StudentProfileTab";
+import { ProfileTab } from "@/components/tabs/ProfileTab";
 import { ScheduleTab } from "@/components/tabs/ScheduleTab";
 import { AttendanceTab } from "@/components/tabs/AttendanceTab";
 import { TuitionTab } from "@/components/tabs/TuitionTab";
@@ -62,7 +62,7 @@ const ALL_TABS = [
   { value: "attendance", label: "Điểm danh", labelKey: "tab.attendance", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", labelKey: "tab.learning", Icon: BookOpen },
   { value: "tuition", label: "Học phí", labelKey: "tab.tuition", Icon: Wallet },
-  { value: "profile", label: "Hồ sơ học sinh", labelKey: null, Icon: IdCard, managerOnly: true },
+  { value: "profile", label: "Hồ sơ", labelKey: null, Icon: IdCard, managerOnly: true },
   { value: "finance", label: "Tài chính", labelKey: null, Icon: Coins, managerOnly: true },
   { value: "notifications", label: "Thông báo", labelKey: "tab.notifications", Icon: Bell },
   { value: "settings", label: "Cài đặt", labelKey: null, Icon: SettingsIcon, managerOnly: true },
@@ -457,7 +457,7 @@ function App() {
             />
           </TabsContent>
           <TabsContent value="profile" forceMount className={tab === "profile" ? "" : "hidden"}>
-            <StudentProfileTab />
+            <ProfileTab />
           </TabsContent>
           <TabsContent value="finance"><FinanceTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>

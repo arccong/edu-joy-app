@@ -13,6 +13,7 @@ export interface PersonProfile {
   birth_date: string | null;
   gender: "Nam" | "Nữ" | null;
   student_code: string;
+  avatar_url: string | null;
   note: string | null;
 }
 
@@ -62,6 +63,16 @@ export const updatePersonProfile = createServerFn({ method: "POST" }).middleware
     return { ok: true };
   });
 
+/** Đặt/xóa ảnh đại diện học sinh — chọn từ ảnh có sẵn trong Nhật ký học tập, hoặc từ ảnh mới tải lên. */
+export const setPersonAvatar = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ person_id: z.string().uuid(), avatar_url: z.string().nullable() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as any;
+    const { error } = await sb.from("people").update({ avatar_url: data.avatar_url }).eq("id", data.person_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /** Toàn bộ liên kết học sinh-phụ huynh kèm thông tin phụ huynh (embed), dùng để nhóm theo person_id ở client. */
 export const listGuardianLinks = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const sb = context.supabase as any;
@@ -72,7 +83,6 @@ export const listGuardianLinks = createServerFn({ method: "GET" }).middleware([r
   if (error) throw new Error(error.message);
   return data ?? [];
 });
-
 const GuardianInput = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(120),

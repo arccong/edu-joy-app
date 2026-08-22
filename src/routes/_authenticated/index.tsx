@@ -58,11 +58,11 @@ export const Route = createFileRoute("/_authenticated/")({
 const ALL_TABS = [
   { value: "dashboard", label: "Tổng quan", labelKey: "tab.dashboard", Icon: LayoutDashboard },
   { value: "students", label: "Học sinh", labelKey: "tab.students", Icon: Users },
-  { value: "profile", label: "Hồ sơ học sinh", labelKey: null, Icon: IdCard, managerOnly: true },
   { value: "schedule", label: "Lịch học", labelKey: "tab.schedule", Icon: CalendarDays },
   { value: "attendance", label: "Điểm danh", labelKey: "tab.attendance", Icon: ClipboardCheck },
   { value: "learning", label: "Nhật ký học tập", labelKey: "tab.learning", Icon: BookOpen },
   { value: "tuition", label: "Học phí", labelKey: "tab.tuition", Icon: Wallet },
+  { value: "profile", label: "Hồ sơ học sinh", labelKey: null, Icon: IdCard, managerOnly: true },
   { value: "finance", label: "Tài chính", labelKey: null, Icon: Coins, managerOnly: true },
   { value: "notifications", label: "Thông báo", labelKey: "tab.notifications", Icon: Bell },
   { value: "settings", label: "Cài đặt", labelKey: null, Icon: SettingsIcon, managerOnly: true },
@@ -447,9 +447,6 @@ function App() {
               }}
             />
           </TabsContent>
-          <TabsContent value="profile" forceMount className={tab === "profile" ? "" : "hidden"}>
-            <StudentProfileTab />
-          </TabsContent>
           <TabsContent value="schedule" forceMount className={tab === "schedule" ? "" : "hidden"}><ScheduleTab /></TabsContent>
           <TabsContent value="attendance" forceMount className={tab === "attendance" ? "" : "hidden"}><AttendanceTab /></TabsContent>
           <TabsContent value="learning" forceMount className={tab === "learning" ? "" : "hidden"}><LearningTab /></TabsContent>
@@ -458,6 +455,9 @@ function App() {
               pendingTrialRegistration={trialToRegister}
               onConsumePendingTrial={() => setTrialToRegister(null)}
             />
+          </TabsContent>
+          <TabsContent value="profile" forceMount className={tab === "profile" ? "" : "hidden"}>
+            <StudentProfileTab />
           </TabsContent>
           <TabsContent value="finance"><FinanceTab /></TabsContent>
           <TabsContent value="notifications"><NotificationsTab /></TabsContent>

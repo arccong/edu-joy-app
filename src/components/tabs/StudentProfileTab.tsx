@@ -2,7 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { IdCard, Loader2, Pencil, Phone, Mail, Plus, Star, Trash2, Wallet, Sparkles, Rows, Columns2, ChevronLeft, ChevronRight } from "lucide-react";
+import Cropper from "react-easy-crop";
+import {
+  IdCard,
+  Loader2,
+  Pencil,
+  Phone,
+  Mail,
+  Plus,
+  Star,
+  Trash2,
+  Wallet,
+  Sparkles,
+  Maximize2,
+  Columns2,
+  ChevronLeft,
+  ChevronRight,
+  Camera,
+  User,
+  Images,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +35,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { classChip, EmptyState, statusBadge } from "@/components/ui-bits";
 import { NameSearchInput } from "@/components/NameSearchInput";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cropImageToBlob, fileToRenderableUrl, uploadPersonAvatar } from "@/lib/image-upload";
+import { listLearningLogs } from "@/lib/learning.functions";
+import type { LearningLog } from "@/components/tabs/LearningTab";
 import {
   addScheduledDays,
   coursePrefix,
@@ -40,6 +63,7 @@ import {
   deleteGuardian,
   listGuardianLinks,
   listPeopleProfiles,
+  setPersonAvatar,
   setPrimaryGuardian,
   unlinkGuardian,
   updatePersonProfile,
@@ -87,12 +111,14 @@ export function StudentProfileTab() {
   const fetchPayments = useServerFn(listPayments);
   const fetchGuardianLinks = useServerFn(listGuardianLinks);
   const fetchTrials = useServerFn(listTrialStudents);
+  const fetchLearningLogs = useServerFn(listLearningLogs);
 
   const { data: students = [], isLoading } = useQuery<Student[]>({ queryKey: ["students"], queryFn: () => fetchStudents() as any });
   const { data: profiles = [] } = useQuery<PersonProfile[]>({ queryKey: ["people-profiles"], queryFn: () => fetchProfiles() as any });
   const { data: payments = [] } = useQuery<any[]>({ queryKey: ["payments"], queryFn: () => fetchPayments() as any });
   const { data: guardianLinks = [] } = useQuery<GuardianLink[]>({ queryKey: ["guardian-links"], queryFn: () => fetchGuardianLinks() as any });
   const { data: trials = [] } = useQuery<TrialStudent[]>({ queryKey: ["trial-students"], queryFn: () => fetchTrials() as any });
+  const { data: learningLogs = [] } = useQuery<LearningLog[]>({ queryKey: ["learning-logs"], queryFn: () => fetchLearningLogs() as any });
 
   // Buổi đã học / trạng thái hiện tại — cùng công thức với StudentsTab (toLocalISO, không dùng
   // .toISOString() để tránh lệch múi giờ UTC/VN đã gặp trước đây).
@@ -151,6 +177,19 @@ export function StudentProfileTab() {
     for (const t of trials) if (t.converted_student_id) m.set(t.converted_student_id, t);
     return m;
   }, [trials]);
+  // Ảnh (attachments kind="image") trong nhật ký học tập, nhóm theo course row (student_id) — để tổng
+  // hợp lại theo TỪNG NGƯỜI (gộp qua các course id của người đó) khi mở bộ chọn ảnh đại diện.
+  const journalImagesByStudentId = useMemo(() => {
+    const m = new Map<string, { url: string; label: string | null; date: string }[]>();
+    for (const log of learningLogs) {
+      if (!log.student_id) continue;
+      const imgs = (log.attachments ?? []).filter((a) => a.kind === "image").map((a) => ({ url: a.url, label: a.label ?? null, date: log.date }));
+      if (imgs.length === 0) continue;
+      if (!m.has(log.student_id)) m.set(log.student_id, []);
+      m.get(log.student_id)!.push(...imgs);
+    }
+    return m;
+  }, [learningLogs]);
 
   const groups = useMemo(() => groupByPerson(students), [students]);
 
@@ -179,6 +218,7 @@ export function StudentProfileTab() {
     allPaymentsByStudentId: paymentsByStudentId,
     guardians: g.courses[0]?.person_id ? guardiansByPersonId.get(g.courses[0].person_id) ?? [] : [],
     trial: g.courses.map((c) => trialByStudentId.get(c.id)).find(Boolean) ?? null,
+    journalImages: g.courses.flatMap((c) => journalImagesByStudentId.get(c.id) ?? []),
     statusOf,
   });
 
@@ -190,10 +230,10 @@ export function StudentProfileTab() {
         <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <NameSearchInput value={nameSearch} onChange={setNameSearch} names={groups.map((g) => g.name)} className="w-full sm:w-[260px]" />
           {!isMobile && (
-            <div className="flex gap-1 rounded-md border p-0.5">
+            <div className="flex gap-1">
               <Button size="sm" variant={viewMode === "popup" ? "default" : "ghost"} className="h-7 px-2" onClick={() => setViewMode("popup")}>
-                <Rows className="mr-1 h-3.5 w-3.5" />
-                Popup
+                <Maximize2 className="mr-1 h-3.5 w-3.5" />
+                Full
               </Button>
               <Button size="sm" variant={viewMode === "split" ? "default" : "ghost"} className="h-7 px-2" onClick={() => setViewMode("split")}>
                 <Columns2 className="mr-1 h-3.5 w-3.5" />
@@ -225,11 +265,14 @@ export function StudentProfileTab() {
                     openKey === g.key ? "border-primary/40 bg-primary/5" : ""
                   }`}
                 >
-                  <div>
-                    <p className="font-medium">{g.name}</p>
-                    <p className="text-xs text-muted-foreground">{profile?.student_code ?? "—"}</p>
+                  <div className="flex items-center gap-2">
+                    <StudentAvatar url={profile?.avatar_url} name={g.name} size={32} />
+                    <div>
+                      <p className="font-medium">{g.name}</p>
+                      <p className="text-xs text-muted-foreground">{profile?.student_code ?? "—"}</p>
+                    </div>
                   </div>
-                  <IdCard className="h-4 w-4 text-muted-foreground" />
+                  <IdCard className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </button>
               );
             })}
@@ -259,7 +302,12 @@ export function StudentProfileTab() {
                   return (
                     <TableRow key={g.key} className="cursor-pointer" onClick={() => setOpenKey(g.key)}>
                       <TableCell className="font-mono text-xs text-muted-foreground">{profile?.student_code ?? "—"}</TableCell>
-                      <TableCell className="font-medium">{g.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <StudentAvatar url={profile?.avatar_url} name={g.name} size={28} />
+                          {g.name}
+                        </div>
+                      </TableCell>
                       <TableCell>{calcAge(profile?.birth_date, g.age)}</TableCell>
                       <TableCell>{profile?.gender ?? "—"}</TableCell>
                       <TableCell>
@@ -267,11 +315,7 @@ export function StudentProfileTab() {
                           {classesNow.length ? classesNow.map((c) => <span key={c}>{classChip(c)}</span>) : <span className="text-xs text-muted-foreground">—</span>}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={statusBadge(overallStatus)}>
-                          {overallStatus}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>{statusBadge(overallStatus)}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -305,7 +349,7 @@ export function StudentProfileTab() {
         <Card className="max-h-[75vh] overflow-y-auto shadow-card">
           <CardContent className="p-5">
             {activeGroup ? (
-              <StudentProfileDetailContent {...buildDetailProps(activeGroup)} standalone />
+              <StudentProfileDetailContent {...buildDetailProps(activeGroup)} />
             ) : (
               <EmptyState text="Chọn một học sinh bên trái để xem chi tiết." />
             )}
@@ -329,8 +373,31 @@ type DetailProps = {
   allPaymentsByStudentId: Map<string, any[]>;
   guardians: GuardianLink[];
   trial: TrialStudent | null;
+  journalImages: { url: string; label: string | null; date: string }[];
   statusOf: (s: Student) => StudentStatus;
 };
+
+/** Ảnh đại diện học sinh — hình tròn, fallback icon người nếu chưa có ảnh. */
+function StudentAvatar({ url, name, size = 40 }: { url?: string | null; name: string; size?: number }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name}
+        className="shrink-0 rounded-full border object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full border bg-muted text-muted-foreground"
+      style={{ width: size, height: size }}
+    >
+      <User style={{ width: size * 0.5, height: size * 0.5 }} />
+    </div>
+  );
+}
 
 function StudentProfileDialog({
   open,
@@ -343,15 +410,10 @@ function StudentProfileDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+        {/* Tên/mã/avatar đã hiển thị ngay trong nội dung bên dưới — DialogTitle ở đây chỉ phục vụ
+            accessibility (trình đọc màn hình), không hiện lại trùng lặp. */}
         <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
-            {detailProps.group.name}
-            {detailProps.profile?.student_code && (
-              <Badge variant="outline" className="font-mono text-xs font-normal">
-                {detailProps.profile.student_code}
-              </Badge>
-            )}
-          </DialogTitle>
+          <DialogTitle className="sr-only">Hồ sơ học sinh — {detailProps.group.name}</DialogTitle>
         </DialogHeader>
         <StudentProfileDetailContent {...detailProps} />
       </DialogContent>
@@ -365,14 +427,15 @@ function StudentProfileDetailContent({
   allPaymentsByStudentId,
   guardians,
   trial,
+  journalImages,
   statusOf,
-  standalone,
-}: DetailProps & { standalone?: boolean }) {
+}: DetailProps) {
   const qc = useQueryClient();
   const ensurePersonIdFn = useServerFn(ensurePersonId);
   const updateProfileFn = useServerFn(updatePersonProfile);
 
   const realPersonId = group.courses[0]?.person_id ?? null;
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
 
   const initMut = useMutation({
     mutationFn: () => ensurePersonIdFn({ data: { student_id: group.courses[0].id } }),
@@ -420,7 +483,21 @@ function StudentProfileDetailContent({
 
   return (
     <div className="space-y-5">
-      {standalone && (
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="group relative"
+          onClick={() => realPersonId && setAvatarPickerOpen(true)}
+          disabled={!realPersonId}
+          title={realPersonId ? "Đổi ảnh đại diện" : undefined}
+        >
+          <StudentAvatar url={profile?.avatar_url} name={group.name} size={64} />
+          {realPersonId && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera className="h-5 w-5 text-white" />
+            </div>
+          )}
+        </button>
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-lg font-semibold">{group.name}</h3>
           {profile?.student_code && (
@@ -429,7 +506,7 @@ function StudentProfileDetailContent({
             </Badge>
           )}
         </div>
-      )}
+      </div>
 
       {!realPersonId ? (
         <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
@@ -553,11 +630,7 @@ function StudentProfileDetailContent({
                   <TableCell className="text-sm">{describeSlots(c.schedule_slots)}</TableCell>
                   <TableCell className="text-sm">{fmtDate(c.start_date)}</TableCell>
                   <TableCell className="text-sm">{fmtDate(c.end_date)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusBadge(statusOf(c))}>
-                      {statusOf(c)}
-                    </Badge>
-                  </TableCell>
+                  <TableCell>{statusBadge(statusOf(c))}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -602,6 +675,15 @@ function StudentProfileDetailContent({
           existing={guardianFormOpen === "new" ? undefined : guardianFormOpen}
           open={!!guardianFormOpen}
           onOpenChange={(v) => !v && setGuardianFormOpen(null)}
+        />
+      )}
+
+      {realPersonId && avatarPickerOpen && (
+        <AvatarPickerDialog
+          personId={realPersonId}
+          journalImages={journalImages}
+          open={avatarPickerOpen}
+          onOpenChange={setAvatarPickerOpen}
         />
       )}
     </div>
@@ -762,6 +844,178 @@ function GuardianFormDialog({
             Lưu
           </Button>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AvatarPickerDialog({
+  personId,
+  journalImages,
+  open,
+  onOpenChange,
+}: {
+  personId: string;
+  journalImages: { url: string; label: string | null; date: string }[];
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const qc = useQueryClient();
+  const setAvatarFn = useServerFn(setPersonAvatar);
+  const [tab, setTab] = useState<"journal" | "upload">(journalImages.length > 0 ? "journal" : "upload");
+
+  // Ảnh trong nhật ký thường lặp lại giữa các buổi (cùng 1 ảnh gắn nhiều lần) -> lọc trùng theo url,
+  // mới nhất trước.
+  const uniqueImages = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { url: string; label: string | null; date: string }[] = [];
+    for (const img of [...journalImages].reverse()) {
+      if (seen.has(img.url)) continue;
+      seen.add(img.url);
+      out.push(img);
+    }
+    return out;
+  }, [journalImages]);
+
+  const chooseMut = useMutation({
+    mutationFn: (url: string) => setAvatarFn({ data: { person_id: personId, avatar_url: url } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people-profiles"] });
+      toast.success("Đã cập nhật ảnh đại diện.");
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Trạng thái cho tab "Tải ảnh lên" — cùng cơ chế crop tròn với ảnh đại diện tài khoản nhân viên.
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [pixelCrop, setPixelCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const resetUpload = () => {
+    if (imgUrl) URL.revokeObjectURL(imgUrl);
+    setImgUrl(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setPixelCrop(null);
+  };
+
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (!f.type.startsWith("image/") && !/\.(heic|heif)$/i.test(f.name)) {
+      toast.error("Vui lòng chọn 1 file ảnh.");
+      return;
+    }
+    setLoadingFile(true);
+    try {
+      const url = await fileToRenderableUrl(f);
+      setImgUrl(url);
+    } catch {
+      toast.error("Không đọc được ảnh này, thử ảnh khác.");
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  const uploadMut = useMutation({
+    mutationFn: async () => {
+      if (!imgUrl || !pixelCrop) throw new Error("Vui lòng chọn và cắt ảnh trước.");
+      const blob = await cropImageToBlob(imgUrl, pixelCrop, 320);
+      const url = await uploadPersonAvatar(personId, blob);
+      await setAvatarFn({ data: { person_id: personId, avatar_url: url } });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people-profiles"] });
+      toast.success("Đã cập nhật ảnh đại diện.");
+      resetUpload();
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Cập nhật ảnh đại diện thất bại."),
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) resetUpload();
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="h-5 w-5 text-primary" />
+            Ảnh đại diện học sinh
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex gap-1">
+          <Button size="sm" variant={tab === "journal" ? "default" : "ghost"} onClick={() => setTab("journal")}>
+            <Images className="mr-1 h-3.5 w-3.5" />
+            Từ nhật ký
+          </Button>
+          <Button size="sm" variant={tab === "upload" ? "default" : "ghost"} onClick={() => setTab("upload")}>
+            <Upload className="mr-1 h-3.5 w-3.5" />
+            Tải ảnh lên
+          </Button>
+        </div>
+
+        {tab === "journal" ? (
+          uniqueImages.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Chưa có ảnh nào trong nhật ký học tập của học sinh này.</p>
+          ) : (
+            <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto">
+              {uniqueImages.map((img) => (
+                <button
+                  key={img.url}
+                  type="button"
+                  className="aspect-square overflow-hidden rounded-md border transition-opacity hover:opacity-80 disabled:opacity-50"
+                  disabled={chooseMut.isPending}
+                  onClick={() => chooseMut.mutate(img.url)}
+                >
+                  <img src={img.url} alt={img.label ?? ""} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )
+        ) : !imgUrl ? (
+          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed p-6 text-sm text-muted-foreground hover:bg-muted/40">
+            {loadingFile ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+            <span>Chọn ảnh từ điện thoại/máy tính</span>
+            <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          </label>
+        ) : (
+          <div className="grid gap-3">
+            <div className="relative h-64 w-full overflow-hidden rounded-md bg-muted">
+              <Cropper
+                image={imgUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={(_area, areaPixels) => setPixelCrop(areaPixels)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Thu phóng</Label>
+              <input type="range" min={1} max={3} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-full" />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={resetUpload}>
+                Chọn ảnh khác
+              </Button>
+              <Button size="sm" className="ml-auto" onClick={() => uploadMut.mutate()} disabled={uploadMut.isPending}>
+                {uploadMut.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                Lưu
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

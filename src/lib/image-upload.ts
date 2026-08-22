@@ -117,3 +117,22 @@ export async function uploadLearningImage(file: File): Promise<string> {
   if (signErr || !data?.signedUrl) throw new Error(signErr?.message ?? "Không tạo được liên kết ảnh");
   return data.signedUrl;
 }
+
+/**
+ * Ảnh đại diện HỌC SINH (không phải tài khoản đăng nhập) — dùng chung bucket "learning-media" (đã có
+ * policy cho phép Quản lý/Giáo viên upload, khác với bucket "avatars" vốn chỉ cho phép mỗi tài khoản tự
+ * upload ảnh của CHÍNH MÌNH qua thư mục theo auth.uid()). upsert:true vì đổi ảnh đại diện là ghi đè ảnh
+ * cũ của cùng 1 học sinh, không phải thêm ảnh mới.
+ */
+export async function uploadPersonAvatar(personId: string, blob: Blob): Promise<string> {
+  const ext = blob.type === "image/webp" ? "webp" : "jpg";
+  const path = `avatars-hoc-sinh/${personId}.${ext}`;
+  const { error } = await supabase.storage.from("learning-media").upload(path, blob, {
+    contentType: blob.type || "image/jpeg",
+    upsert: true,
+  });
+  if (error) throw new Error(error.message);
+  const { data, error: signErr } = await supabase.storage.from("learning-media").createSignedUrl(path, SIGNED_URL_TTL);
+  if (signErr || !data?.signedUrl) throw new Error(signErr?.message ?? "Không tạo được liên kết ảnh");
+  return data.signedUrl;
+}

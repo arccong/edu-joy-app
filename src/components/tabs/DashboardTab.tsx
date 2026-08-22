@@ -482,8 +482,13 @@ export function DashboardTab({ onNavigate }: { onNavigate: (tab: string) => void
     mutationFn: (v: { student_id: string; status: AttendanceStatus }) =>
       setAtt({ data: { ...v, date: todayISO, note: null, makeup_date: null } as any }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["attendance", todayISO] });
-      qc.invalidateQueries({ queryKey: ["attendance-range", fromISO, todayISO] });
+      // Dùng key RÚT GỌN (không kèm fromISO/todayISO cụ thể) để invalidate MỌI query "attendance"/
+      // "attendance-range" đang có trong cache, bất kể khoảng ngày cụ thể của từng trang — trước đây
+      // dùng key ĐẦY ĐỦ khớp đúng tham số của riêng Dashboard, nên không khớp với query của trang "Lịch
+      // học" (Thời khóa biểu, dùng khoảng ngày theo TUẦN đang xem, khác với khoảng 2 năm của Dashboard),
+      // khiến Thời khóa biểu không thấy cập nhật sau khi điểm danh từ Tổng quan.
+      qc.invalidateQueries({ queryKey: ["attendance"] });
+      qc.invalidateQueries({ queryKey: ["attendance-range"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

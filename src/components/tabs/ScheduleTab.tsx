@@ -124,7 +124,7 @@ export function ScheduleTab() {
     queryFn: () => fetchTeachers() as any,
     enabled: access.isManager,
   });
-  const { data: teacherLinks = [] } = useQuery<{ id: string; class_type: ClassType; day_of_week: number; start_time: string; end_time: string; teacher_id: string }[]>({
+  const { data: teacherLinks = [] } = useQuery<TeacherLink[]>({
     queryKey: ["class-schedule-teachers"],
     queryFn: () => fetchLinks() as any,
     enabled: access.isManager,
@@ -357,6 +357,7 @@ export function ScheduleTab() {
                                   slots={cellStudents.length > 0 ? [{ day: dow, start: row.start, end: row.end }] : []}
                                   classType={cls}
                                   dayOfWeek={dow}
+                                  dateISO={dateISO}
                                   teacherLinks={teacherLinks}
                                   teacherById={teacherById}
                                   teachers={teachers}
@@ -737,10 +738,22 @@ function ReserveRowActions({ student, dates }: { student: Student; dates: string
 }
 
 /** ================= Xem theo Giáo viên: hiện giáo viên phụ trách từng ca + gán/bỏ gán ================= */
+type TeacherLink = {
+  id: string;
+  class_type: ClassType;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  teacher_id: string;
+  effective_from: string | null;
+  effective_to: string | null;
+};
+
 function TeacherSlotsCell({
   slots,
   classType,
   dayOfWeek,
+  dateISO,
   teacherLinks,
   teacherById,
   teachers,
@@ -748,7 +761,9 @@ function TeacherSlotsCell({
   slots: ScheduleSlot[];
   classType: ClassType;
   dayOfWeek: number;
-  teacherLinks: { id: string; class_type: ClassType; day_of_week: number; start_time: string; end_time: string; teacher_id: string }[];
+  /** Ngày cụ thể (của tuần đang xem) mà ô này đại diện — dùng để biết lượt gán nào đang CÒN HIỆU LỰC. */
+  dateISO: string;
+  teacherLinks: TeacherLink[];
   teacherById: Map<string, { id: string; full_name: string | null; email: string | null }>;
   teachers: { id: string; full_name: string | null; email: string | null; classes: ClassType[] }[];
 }) {
@@ -756,16 +771,49 @@ function TeacherSlotsCell({
   // rỗng (không có ca nào ở ô này), dùng slot "rỗng" tạm khi đó, code bên dưới sẽ return null sau.
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  // Bước 1: chọn giáo viên. Bước 2 (sau khi chọn): chọn phạm vi áp dụng.
+  const [pickedTeacherId, setPickedTeacherId] = useState<string | null>(null);
+  const [scope, setScope] = useState<"past" | "future" | "period">("future");
+  const [period, setPeriod] = useState<"week" | "month">("week");
   const assignFn = useServerFn(assignClassScheduleTeacher);
   const unassignFn = useServerFn(unassignClassScheduleTeacher);
   const slot = slots[0] ?? { day: dayOfWeek, start: "", end: "" };
 
+  const resetPicker = () => {
+    setPickedTeacherId(null);
+    setScope("future");
+    setPeriod("week");
+  };
+
   const assignMut = useMutation({
-    mutationFn: (teacherId: string) =>
-      assignFn({ data: { class_type: classType, day_of_week: dayOfWeek, start_time: slot.start, end_time: slot.end, teacher_id: teacherId } }),
+    mutationFn: () => {
+      const now = new Date();
+      const todayISO = toLocalISO(now);
+      let effective_from: string | null = null;
+      let effective_to: string | null = null;
+      if (scope === "past") {
+        // Áp dụng từ thời điểm bắt đầu (không giới hạn) trở về trước cho tới hôm nay.
+        effective_to = todayISO;
+      } else if (scope === "future") {
+        // Áp dụng từ hôm nay trở về sau (không giới hạn).
+        effective_from = todayISO;
+      } else if (period === "week") {
+        const ws = startOfWeek(now);
+        effective_from = toLocalISO(ws);
+        effective_to = toLocalISO(addDays(ws, 6));
+      } else {
+        effective_from = toLocalISO(new Date(now.getFullYear(), now.getMonth(), 1));
+        effective_to = toLocalISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      }
+      return assignFn({
+        data: { class_type: classType, day_of_week: dayOfWeek, start_time: slot.start, end_time: slot.end, teacher_id: pickedTeacherId as string, effective_from, effective_to },
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["class-schedule-teachers"] });
       toast.success("Đã gán giáo viên cho ca này");
+      resetPicker();
+      setOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -780,10 +828,21 @@ function TeacherSlotsCell({
 
   if (slots.length === 0) return null;
 
-  const links = teacherLinks.filter((l) => l.class_type === classType && l.day_of_week === dayOfWeek && l.start_time === slot.start && l.end_time === slot.end);
+  // Chỉ lấy các lượt gán CÒN HIỆU LỰC tại đúng ngày đang xem (dateISO) — 1 giáo viên có thể chỉ được
+  // gán "tuần này"/"tháng này" hoặc chỉ từ 1 mốc thời gian trở đi/trở về trước.
+  const links = teacherLinks.filter(
+    (l) =>
+      l.class_type === classType &&
+      l.day_of_week === dayOfWeek &&
+      l.start_time === slot.start &&
+      l.end_time === slot.end &&
+      (!l.effective_from || dateISO >= l.effective_from) &&
+      (!l.effective_to || dateISO <= l.effective_to),
+  );
   const teachersInClass = teachers.filter((t) => t.classes.includes(classType));
   const assignedIds = new Set(links.map((l) => l.teacher_id));
   const availableTeachers = teachersInClass.filter((t) => !assignedIds.has(t.id));
+  const pickedTeacher = pickedTeacherId ? teachersInClass.find((t) => t.id === pickedTeacherId) : null;
 
   return (
     // Mỗi giáo viên hiện trong 1 THẺ RIÊNG (giống hệt cách mỗi học sinh có 1 thẻ riêng ở chế độ Học
@@ -805,7 +864,13 @@ function TeacherSlotsCell({
           );
         })
       )}
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) resetPicker();
+        }}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -816,23 +881,57 @@ function TeacherSlotsCell({
             <Plus className="h-4 w-4" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="start">
-          {availableTeachers.length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">Không còn giáo viên nào phụ trách lớp này để thêm.</p>
+        <PopoverContent className="w-56 p-1" align="start">
+          {!pickedTeacherId ? (
+            availableTeachers.length === 0 ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">Không còn giáo viên nào phụ trách lớp này để thêm.</p>
+            ) : (
+              availableTeachers.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  onClick={() => setPickedTeacherId(t.id)}
+                >
+                  {t.full_name || t.email}
+                </button>
+              ))
+            )
           ) : (
-            availableTeachers.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-                onClick={() => {
-                  assignMut.mutate(t.id);
-                  setOpen(false);
-                }}
-              >
-                {t.full_name || t.email}
-              </button>
-            ))
+            <div className="grid gap-2 p-2">
+              <p className="text-xs font-medium">Gán {pickedTeacher?.full_name || pickedTeacher?.email} — áp dụng cho:</p>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="radio" checked={scope === "past"} onChange={() => setScope("past")} />
+                Từ thời điểm bắt đầu trở về trước (tới hôm nay)
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="radio" checked={scope === "future"} onChange={() => setScope("future")} />
+                Từ hôm nay trở về sau
+              </label>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="radio" checked={scope === "period"} onChange={() => setScope("period")} />
+                Chỉ trong khoảng này
+              </label>
+              {scope === "period" && (
+                <div className="ml-5 flex gap-1">
+                  <Button size="sm" variant={period === "week" ? "default" : "outline"} className="h-6 px-2 text-[11px]" onClick={() => setPeriod("week")}>
+                    Tuần này
+                  </Button>
+                  <Button size="sm" variant={period === "month" ? "default" : "outline"} className="h-6 px-2 text-[11px]" onClick={() => setPeriod("month")}>
+                    Tháng này
+                  </Button>
+                </div>
+              )}
+              <div className="mt-1 flex gap-1">
+                <Button size="sm" variant="ghost" className="h-7 flex-1 text-xs" onClick={() => setPickedTeacherId(null)}>
+                  Quay lại
+                </Button>
+                <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => assignMut.mutate()} disabled={assignMut.isPending}>
+                  {assignMut.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                  Gán
+                </Button>
+              </div>
+            </div>
           )}
         </PopoverContent>
       </Popover>

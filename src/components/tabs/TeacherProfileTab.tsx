@@ -69,7 +69,7 @@ const PAGE_SIZE = 20;
 const VIEW_MODE_KEY = "teacher-profile-view-mode";
 
 type TeacherSlot = { class_type: ClassType; day_of_week: number; start_time: string; end_time: string };
-type ClassScheduleTeacherLink = TeacherSlot & { id: string; teacher_id: string };
+type ClassScheduleTeacherLink = TeacherSlot & { id: string; teacher_id: string; effective_from: string | null; effective_to: string | null };
 type TeacherLeave = { id: string; teacher_id: string; start_date: string; end_date: string; reason: string | null };
 type TeacherWithClasses = TeacherProfile & { classes: ClassType[] };
 
@@ -386,6 +386,10 @@ function TeacherProfileDetailContent({ teacher, links, leaves, financeEntries, s
         const s = studentById.get(r.student_id);
         if (!inCourse(s, r.date)) continue;
         if (new Date(r.date + "T00:00:00").getDay() !== slot.day_of_week) continue;
+        // Chỉ tính buổi rơi trong đúng phạm vi hiệu lực của lượt gán này (vd "chỉ tuần này", "chỉ từ
+        // hôm nay trở về sau"...) — không phải mọi buổi của ca đó mãi mãi.
+        if (slot.effective_from && r.date < slot.effective_from) continue;
+        if (slot.effective_to && r.date > slot.effective_to) continue;
         seenDates.add(r.date);
         out.push({ slotKey: slotKey(slot), date: r.date });
       }

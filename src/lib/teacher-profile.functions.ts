@@ -105,13 +105,24 @@ const AssignSlotInput = z.object({
   start_time: z.string(),
   end_time: z.string(),
   teacher_id: z.string().uuid(),
+  // Phạm vi hiệu lực của lượt gán này — null ở 1 phía nghĩa là không giới hạn theo hướng đó.
+  effective_from: z.string().nullable().optional(),
+  effective_to: z.string().nullable().optional(),
 });
 
 export const assignClassScheduleTeacher = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AssignSlotInput.parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as any;
-    const { error } = await sb.from("class_schedule_teachers").insert(data);
+    const { error } = await sb.from("class_schedule_teachers").insert({
+      class_type: data.class_type,
+      day_of_week: data.day_of_week,
+      start_time: data.start_time,
+      end_time: data.end_time,
+      teacher_id: data.teacher_id,
+      effective_from: data.effective_from ?? null,
+      effective_to: data.effective_to ?? null,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
